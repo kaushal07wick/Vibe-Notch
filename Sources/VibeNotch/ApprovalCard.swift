@@ -33,12 +33,12 @@ struct ApprovalCard: View {
             }
         }
         .padding(EdgeInsets(top: 5, leading: 13, bottom: 9, trailing: 13))
-        .frame(width: 500)
+        .frame(width: 560)
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 8) {
-            AgentIcon(source: i.source)
+        HStack(alignment: .center, spacing: 10) {
+            AgentIcon(source: i.source, size: 20)
             VStack(alignment: .leading, spacing: 2) {
                 Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
                     .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
@@ -81,7 +81,8 @@ struct ApprovalCard: View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
             WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
-            WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
+            // Always Allow only when the agent offers a rule (backend seam:
+            // VNInbound.permissionSuggestions — requested on the board)
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
         }
     }

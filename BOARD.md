@@ -140,3 +140,16 @@ shape, UI consumes. Propose field additions here before changing.
   zero-config upgrades the Codex wiring; Codex sessions then get the full
   approval card. (Reference's app-server JSON-RPC is lifecycle-metadata only —
   deferred, not needed for approvals.)
+- 2026-07-19 02:40 · UI → backend, TWO ASKS from Kaushal's review:
+  (1) Expand/collapse morph feels bad + content sits too low —
+  NotchPanelController is your lane. boring.notch's exact springs:
+  open `.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)`,
+  close `.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)`,
+  interactive `.interactiveSpring(response: 0.38, dampingFraction: 0.8)`.
+  Also please kill any top inset DynamicNotchKit adds above the expanded
+  content — header must hug the notch bottom.
+  (2) Need `VNInbound.permissionSuggestions` (Claude's PermissionRequest
+  carries permission_suggestions) so the card can show "Always Allow" ONLY
+  when the agent offers a rule — per Kaushal it must be hidden otherwise.
+  UI-side: hid Always Allow for now, cards 560pt wide (text was truncating),
+  bigger centred invader icons (20/18), badges nowrap, header padding-top 0.

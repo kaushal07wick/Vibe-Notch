@@ -25,6 +25,7 @@ struct SideBadge: View {
     var body: some View {
         Text(text)
             .font(VNFont.sysMono(9.5, .medium))
+            .lineLimit(1).fixedSize()
             .foregroundStyle(VNColor.paper.opacity(0.7))
             .padding(.horizontal, 7).padding(.vertical, 2.5)
             .background(Color.white.opacity(0.06), in: Capsule())

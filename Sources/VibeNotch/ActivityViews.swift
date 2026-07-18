@@ -38,8 +38,8 @@ struct ActivityCard: View {
 
     private func singleCard(_ s: SessionActivity) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 8) {
-                AgentIcon(source: s.source)
+            HStack(alignment: .center, spacing: 10) {
+                AgentIcon(source: s.source, size: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(sessionTitle(folder: s.folder, task: s.task))
                         .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
@@ -54,7 +54,7 @@ struct ActivityCard: View {
             SessionStatusLine(s: s, full: full)
         }
         .padding(EdgeInsets(top: 5, leading: 13, bottom: 8, trailing: 13))
-        .frame(width: 500, alignment: .leading)
+        .frame(width: 560, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -69,7 +69,7 @@ struct ActivityCard: View {
             .padding(.top, 9)
         }
         .padding(EdgeInsets(top: 8, leading: 14, bottom: 10, trailing: 14))
-        .frame(width: 500, alignment: .leading)
+        .frame(width: 560, alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -193,8 +193,8 @@ struct SessionRow: View {
 
     var body: some View {
         Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty) } label: {
-            HStack(alignment: .top, spacing: 9) {
-                AgentIcon(source: s.source, size: 14)
+            HStack(alignment: .center, spacing: 10) {
+                AgentIcon(source: s.source, size: 18)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(sessionTitle(folder: s.folder, task: s.task))
                         .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
