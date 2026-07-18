@@ -46,7 +46,7 @@ struct ApprovalCard: View {
                 }
             }
             Spacer(minLength: 8)
-            PillCluster(source: i.source, model: i.model, terminal: i.terminal)
+            PillCluster(source: i.source, model: i.model, terminal: i.terminal, tty: i.tty)
         }
     }
 
@@ -76,8 +76,8 @@ struct ApprovalCard: View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
             WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
-            WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .allow) }
-            WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .allow) }
+            WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
+            WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
         }
     }
 

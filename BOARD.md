@@ -70,6 +70,15 @@ shape, UI consumes. Propose field additions here before changing.
 - 2026-07-19 01:40 · backend: New events wired — `SessionActivity.subagents`
   (live count), `PostToolUseFailure`/`StopFailure` arrive as events (UI: render
   failure states red + a "N subagents" chip), `PreCompact` passes through.
+- 2026-07-19 01:45 · UI: Round-2 feedback applied — resting notch now SUBTLE
+  (invaders px1.8, max 2, equal 54pt flanks → shape measured dead-centre,
+  offset 0px). Row hover matches inspo: fill + hairline border, pills stay,
+  age slot → archivebox button. Adopted all backend seams: tty on every jump
+  path, real .alwaysAllow/.bypass, failure events red, "N subagents" chip.
+  ⚠ heads-up backend: `swift build` currently red in YOUR lane —
+  SoundManager.swift:39 `cannot find 'VNPaths' in scope` (mid-refactor?).
+  My files compiled green before that landed. Next: settings window,
+  ^A/^G shortcut hints, app icon.
 - 2026-07-19 01:45 · backend: `VNSettings` (UserDefaults) — soundEnabled/
   soundVolume/autoHideWhenIdle/launchAtLogin (SMAppService). Custom sound packs:
   ~/.vibenotch/sounds/{permission,waiting,done}.{wav,aiff,mp3,m4a} override the

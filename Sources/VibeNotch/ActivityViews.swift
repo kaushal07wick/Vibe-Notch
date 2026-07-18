@@ -49,7 +49,7 @@ struct ActivityCard: View {
                     }
                 }
                 Spacer(minLength: 8)
-                PillCluster(source: s.source, model: s.model, terminal: s.terminal)
+                PillCluster(source: s.source, model: s.model, terminal: s.terminal, tty: s.tty)
             }
             SessionStatusLine(s: s, full: full)
         }
@@ -115,6 +115,12 @@ struct SessionStatusLine: View {
                 icon
                 Text(label).font(.system(size: 11.5, weight: .medium)).foregroundStyle(labelColor)
                 Spacer(minLength: 0)
+                if s.subagents > 0 {
+                    Text("\(s.subagents) subagent\(s.subagents == 1 ? "" : "s")")
+                        .font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.running.opacity(0.85))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(VNColor.running.opacity(0.12), in: Capsule())
+                }
             }
             if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
                 TerminalBlock(text: detail, prompt: s.event == "PreToolUse", lines: full ? 8 : 3)
@@ -127,6 +133,8 @@ struct SessionStatusLine: View {
         case "PreToolUse", "PostToolUse", "UserPromptSubmit": AsciiSpinner(color: VNColor.running)
         case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
         case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
+        case "PostToolUseFailure", "StopFailure":
+            Image(systemName: "xmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.stop)
         default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
         }
     }
@@ -135,6 +143,8 @@ struct SessionStatusLine: View {
         switch s.event {
         case "PreToolUse": return "Running \(s.tool ?? "tool")"
         case "PostToolUse": return s.tool ?? "Output"
+        case "PostToolUseFailure": return "\(s.tool ?? "Tool") failed"
+        case "StopFailure": return "Failed"
         case "Notification": return s.detail ?? "Waiting for input"
         case "Stop": return "Finished"
         case "UserPromptSubmit": return "Thinking…"
@@ -146,6 +156,7 @@ struct SessionStatusLine: View {
         switch s.event {
         case "Notification": return VNColor.amber
         case "Stop": return VNColor.go
+        case "PostToolUseFailure", "StopFailure": return VNColor.stop
         default: return VNColor.text
         }
     }
@@ -181,7 +192,7 @@ struct SessionRow: View {
     @State private var hovering = false
 
     var body: some View {
-        Button { TerminalJumper.jump(s.terminal) } label: {
+        Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty) } label: {
             HStack(alignment: .top, spacing: 9) {
                 AgentIcon(source: s.source, size: 14)
                 VStack(alignment: .leading, spacing: 1) {
@@ -194,31 +205,32 @@ struct SessionRow: View {
                     brief.font(.system(size: 10.5)).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
-                if hovering {
-                    binButton
-                } else {
-                    PillCluster(source: s.source, model: s.model, terminal: s.terminal,
-                                showJump: false, age: s.updatedAt)
+                HStack(spacing: 5) {
+                    // pills stay on hover; only the age slot becomes the archive button
+                    PillCluster(source: s.source, model: s.model, terminal: s.terminal, tty: s.tty,
+                                showJump: false, age: hovering ? nil : s.updatedAt)
+                    if hovering { binButton }
                 }
             }
-            .padding(EdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6))
+            .padding(EdgeInsets(top: 7, leading: 8, bottom: 7, trailing: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(hovering ? 0.08 : 0)))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
 
     private var binButton: some View {
         Button { onDismiss(s.sessionId) } label: {
-            Image(systemName: "trash")
-                .font(.system(size: 10.5, weight: .medium))
+            Image(systemName: "archivebox")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(VNColor.muted)
-                .padding(6)
-                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+                .frame(width: 24, height: 20)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Dismiss session")
+        .help("Archive session")
     }
 
     /// Activity line — tool name in blue, arguments/reply in grey (inspo style).
@@ -229,6 +241,10 @@ struct SessionRow: View {
                  + Text(" \(s.detail?.components(separatedBy: "\n").first ?? "")").foregroundStyle(VNColor.faint)
         case "Notification":
             return Text("Waiting for input").foregroundStyle(VNColor.amber)
+        case "PostToolUseFailure":
+            return Text("\(s.tool ?? "Tool") failed").foregroundStyle(VNColor.stop)
+        case "StopFailure":
+            return Text("Failed").foregroundStyle(VNColor.stop)
         case "Stop":
             return Text(s.detail.map { String($0.prefix(80)) } ?? "Finished").foregroundStyle(VNColor.faint)
         case "UserPromptSubmit":

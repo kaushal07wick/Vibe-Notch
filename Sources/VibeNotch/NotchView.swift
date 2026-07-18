@@ -52,14 +52,17 @@ struct ExpandedContent: View {
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 5) {
             if activeAgents.isEmpty {
-                PixelInvader(color: VNColor.invader, px: 3) // idle mascot
+                PixelInvader(color: VNColor.invader, px: 1.8) // idle mascot
             } else {
-                ForEach(activeAgents, id: \.self) { PixelInvader(color: VNColor.agent($0), px: 2.5) }
+                // subtle: at most two invaders in the resting notch
+                ForEach(activeAgents.prefix(2), id: \.self) { PixelInvader(color: VNColor.agent($0), px: 1.8) }
             }
         }
-        .padding(.leading, 15).padding(.trailing, 9)
+        // fixed equal-width flanks keep the black shape centred on the physical notch
+        .frame(width: 54)
+        .padding(.horizontal, 4)
     }
 
     /// Distinct agents that have a live session, most-recent first.
@@ -79,14 +82,16 @@ struct CompactTrailing: View {
         Group {
             if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(VNColor.text)
             } else {
-                Circle().fill(VNColor.faint).frame(width: 6, height: 6)
+                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
             }
         }
-        .padding(.trailing, 16).padding(.leading, 9)
+        // mirror of CompactLeading — equal width keeps the notch split evenly
+        .frame(width: 54)
+        .padding(.horizontal, 4)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
 }

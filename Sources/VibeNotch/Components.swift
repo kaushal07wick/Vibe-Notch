@@ -31,11 +31,12 @@ struct SideBadge: View {
     }
 }
 
-/// The ^G jump-to-terminal pill.
+/// The ^G jump-to-terminal pill — exact tab when the session tty is known.
 struct JumpPill: View {
     let terminal: String?
+    var tty: String?
     var body: some View {
-        Button { TerminalJumper.jump(terminal) } label: {
+        Button { TerminalJumper.jump(terminal: terminal, tty: tty) } label: {
             HStack(spacing: 3) {
                 Text("^G").font(VNFont.mono(9.5))
                 Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
@@ -53,6 +54,7 @@ struct PillCluster: View {
     let source: String
     var model: String?
     var terminal: String?
+    var tty: String?
     var showJump = true
     var age: Date?
 
@@ -61,7 +63,7 @@ struct PillCluster: View {
             AgentPill(source: source)
             if let model { SideBadge(text: model) }
             if let terminal { SideBadge(text: terminal) }
-            if showJump { JumpPill(terminal: terminal) }
+            if showJump { JumpPill(terminal: terminal, tty: tty) }
             if let age {
                 Text(ageString(age)).font(VNFont.sysMono(10.5, .medium))
                     .foregroundStyle(VNColor.paper.opacity(0.45))
