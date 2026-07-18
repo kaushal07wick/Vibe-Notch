@@ -18,7 +18,6 @@ struct ExpandedContent: View {
                     insertion: .scale(scale: 0.94).combined(with: .opacity),
                     removal: .opacity))
         }
-        .frame(width: 380)
         .foregroundStyle(VNColor.text)
         .animation(.spring(response: 0.36, dampingFraction: 0.78), value: stateKey)
         .overlay(alignment: .bottom) { GlowSeam(style: seam) }
@@ -175,7 +174,8 @@ private struct ApprovalCard: View {
                     .buttonStyle(NotchButton(kind: .approve(hue)))
             }
         }
-        .padding(EdgeInsets(top: 4, leading: 15, bottom: 6, trailing: 15))
+        .padding(EdgeInsets(top: 4, leading: 14, bottom: 6, trailing: 14))
+        .frame(width: 322)
     }
 
     private func abbreviate(_ path: String) -> String {
@@ -206,8 +206,8 @@ private struct NotificationRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
+        .frame(width: 322, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
     private var label: String { inbound.source == "codex" ? "Codex" : "Claude" }
