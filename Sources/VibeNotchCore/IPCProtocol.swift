@@ -17,11 +17,12 @@ public struct VNInbound: Codable, Sendable {
     public var tool: String?      // tool name, for approvals
     public var detail: String?    // full text — command, or the agent's last message
     public var cwd: String?
+    public var terminal: String?  // display name of the terminal, e.g. "Ghostty"
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
-                cwd: String? = nil, sessionId: String? = nil) {
+                cwd: String? = nil, terminal: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
@@ -29,6 +30,7 @@ public struct VNInbound: Codable, Sendable {
         self.tool = tool
         self.detail = detail
         self.cwd = cwd
+        self.terminal = terminal
         self.sessionId = sessionId
     }
 }

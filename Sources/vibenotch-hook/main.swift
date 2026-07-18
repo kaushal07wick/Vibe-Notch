@@ -47,7 +47,22 @@ private func extractText(_ content: Any?) -> String? {
     return nil
 }
 
+/// Display name of the terminal the agent runs in, from inherited env.
+func terminalName() -> String? {
+    let env = ProcessInfo.processInfo.environment
+    if env["GHOSTTY_RESOURCES_DIR"] != nil || env["GHOSTTY_BIN_DIR"] != nil { return "Ghostty" }
+    guard let t = env["TERM_PROGRAM"], !t.isEmpty else { return nil }
+    switch t {
+    case "iTerm.app": return "iTerm"
+    case "Apple_Terminal": return "Terminal"
+    case "vscode": return "VS Code"
+    case "WarpTerminal": return "Warp"
+    default: return t.lowercased().contains("ghostty") ? "Ghostty" : t
+    }
+}
+
 let source = argValue(after: "--source") ?? "claude"
+let terminal = terminalName()
 
 if source == "codex" {
     // Codex `notify`: the JSON payload is the last CLI argument.
@@ -58,7 +73,7 @@ if source == "codex" {
         event: (obj?["type"] as? String) ?? "agent-turn-complete",
         title: "Codex is waiting",
         detail: obj?["last-assistant-message"] as? String,
-        cwd: obj?["cwd"] as? String
+        cwd: obj?["cwd"] as? String, terminal: terminal
     )
     _ = IPCClient.send(msg)
     exit(0)
@@ -76,7 +91,7 @@ let sessionId = obj["session_id"] as? String
 if event == "PermissionRequest" {
     let msg = VNInbound(type: .request, source: "claude", event: event,
                         tool: tool, detail: summarize(toolInput),
-                        cwd: cwd, sessionId: sessionId)
+                        cwd: cwd, terminal: terminal, sessionId: sessionId)
     switch IPCClient.send(msg) {
     case .allow:
         print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#)
@@ -104,6 +119,6 @@ default:
     exit(0)
 }
 let msg = VNInbound(type: .notify, source: "claude", event: event,
-                    title: title, tool: tool, detail: detail, cwd: cwd, sessionId: sessionId)
+                    title: title, tool: tool, detail: detail, cwd: cwd, terminal: terminal, sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)

@@ -140,14 +140,13 @@ private struct ApprovalCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 7) {
-                Circle().fill(hue).frame(width: 7, height: 7)
-                Text(approval.inbound.tool ?? approval.inbound.event)
-                    .font(VNFont.mono(13))
+            HStack(spacing: 6) {
+                Text(approval.inbound.tool ?? "Permission")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .lineLimit(1)
                 Spacer(minLength: 8)
-                Text(approval.inbound.source.uppercased())
-                    .font(VNFont.mono(9))
-                    .tracking(1.0).foregroundStyle(VNColor.muted)
+                AgentPill(source: approval.inbound.source)
+                if let term = approval.inbound.terminal { TermPill(name: term) }
             }
             Text(approval.inbound.detail ?? "—")
                 .font(VNFont.mono(12))
@@ -190,34 +189,28 @@ private struct NotificationRow: View {
     let full: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 9) {
-                Circle().fill(VNColor.agent(inbound.source)).frame(width: 8, height: 8)
+            HStack(spacing: 6) {
                 Text(inbound.title ?? label)
-                    .font(VNFont.mono(12)).lineLimit(1).truncationMode(.tail)
+                    .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 8)
-                if inbound.source == "codex" {
-                    Text("Jump ↵").font(VNFont.mono(10)).foregroundStyle(VNColor.text)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .overlay(Capsule().strokeBorder(VNColor.hair))
-                } else {
-                    Text(full ? "hover" : "now").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
-                }
+                AgentPill(source: inbound.source)
+                if let term = inbound.terminal { TermPill(name: term) }
             }
             if let body = inbound.detail, !body.isEmpty {
                 Text(body)
-                    .font(VNFont.mono(11))
+                    .font(.system(size: 11.5))
                     .foregroundStyle(VNColor.muted)
-                    .lineLimit(full ? 12 : 1)
+                    .lineLimit(full ? 12 : 2)
                     .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16).padding(.vertical, 11)
+        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
-    private var label: String { inbound.source == "codex" ? "Codex is waiting for input" : inbound.event }
+    private var label: String { inbound.source == "codex" ? "Codex" : "Claude" }
 }
 
 private struct FlashPill: View {
@@ -235,6 +228,30 @@ private struct FlashPill: View {
         .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
         .padding(.horizontal, 18).padding(.vertical, 12)
         .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true } }
+    }
+}
+
+// MARK: - Pills (agent + terminal)
+
+private struct AgentPill: View {
+    let source: String
+    var body: some View {
+        Text(source == "codex" ? "Codex" : "Claude")
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(Color(hex: 0x1A120E))
+            .padding(.horizontal, 7).padding(.vertical, 2.5)
+            .background(VNColor.agent(source), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+private struct TermPill: View {
+    let name: String
+    var body: some View {
+        Text(name)
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(VNColor.text.opacity(0.8))
+            .padding(.horizontal, 7).padding(.vertical, 2.5)
+            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -281,7 +298,7 @@ private struct NotchButton: ButtonStyle {
     let kind: Kind
     func makeBody(configuration: Configuration) -> some View {
         let label = configuration.label
-            .font(VNFont.mono(12))
+            .font(.system(size: 12, weight: .semibold))
             .padding(.horizontal, 15).padding(.vertical, 6)
         switch kind {
         case .deny:
