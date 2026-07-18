@@ -10,7 +10,7 @@ struct ExpandedContent: View {
     @ObservedObject var usage: UsageModel
     @ObservedObject var vox: VoxFlow
 
-    @State private var muted = !SoundManager.shared.enabled
+    @AppStorage("soundEnabled") private var soundOn = true
     @State private var showHistory = false
     @State private var showPalette = false
     @State private var history: [ResumeEntry] = []
@@ -26,14 +26,13 @@ struct ExpandedContent: View {
                 // dictate to the active agent (^D works too)
                 HeaderIconButton(symbol: vox.listening ? "mic.fill" : "mic",
                                  tint: vox.listening ? VNColor.stop : .white.opacity(0.62)) {
+                    NSApp.activate(ignoringOtherApps: true) // mic/speech permission prompts need an active app
                     vox.toggle()
                 }
-                HeaderIconButton(symbol: "command",
-                                 tint: showPalette ? VNColor.go : .white.opacity(0.62)) {
-                    showPalette.toggle()
-                    if showPalette { showHistory = false }
-                }
-                .keyboardShortcut("k", modifiers: .command)
+                // ⌘K palette — keyboard-only, no icon (header stays quiet)
+                Button("") { showPalette.toggle(); if showPalette { showHistory = false } }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .frame(width: 0, height: 0).opacity(0)
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62)) {
                     if !showHistory { history = SessionHistory.load() }
@@ -41,11 +40,10 @@ struct ExpandedContent: View {
                     if showHistory { showPalette = false }
                 }
                 HeaderIconButton(
-                    symbol: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                    tint: muted ? .orange.opacity(0.92) : .white.opacity(0.62)
+                    symbol: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                    tint: soundOn ? .white.opacity(0.62) : .orange.opacity(0.92)
                 ) {
-                    SoundManager.shared.enabled.toggle()
-                    muted = !SoundManager.shared.enabled
+                    soundOn.toggle() // @AppStorage — same key VNSettings reads, always in sync
                 }
                 HeaderIconButton(symbol: "gearshape.fill", tint: .white.opacity(0.62)) {
                     SettingsWindow.show()

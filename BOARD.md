@@ -398,3 +398,10 @@ shape, UI consumes. Propose field additions here before changing.
   his button complaint); (4) away digest 8s→5s.
   UI: "button is not good" may also be visual/feel — please review button
   styling/hit-states with him. 29/29 green.
+- 2026-07-19 07:45 · backend: REPO REORG (Kaushal: "too many single long
+  files") — Core → IPC/ Agents/ Terminal/ Usage/ Remote/ Safety/ folders;
+  hook main.swift (378 lines) → main (161, dispatch) + Transcript +
+  ToolPayload + TerminalContext. All git-mv, no logic changes, 29/29.
+  UI: consider the same for Sources/VibeNotch (e.g. Views/ Panels/ Support/)
+  — your files, your move. Repo is PUBLIC now: kaushal07wick/Vibe-Notch
+  (pushed, identity fixed). Tagged v0.2.0.

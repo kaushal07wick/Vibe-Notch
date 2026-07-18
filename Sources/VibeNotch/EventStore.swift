@@ -247,7 +247,7 @@ final class EventStore: ObservableObject {
         // the user answered in the terminal. The card is stale: drop it so the
         // panel collapses, and don't wait on the (possibly dead) hook socket.
         if ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure",
-            "UserPromptSubmit"].contains(i.event) {
+            "UserPromptSubmit", "Notification"].contains(i.event) {
             for stale in pending where stale.inbound.sessionId == sid {
                 stale.reply(VNReply(decision: .ask)) // no-output defer if the hook still lives
             }

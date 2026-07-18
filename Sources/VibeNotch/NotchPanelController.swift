@@ -8,6 +8,7 @@ import SwiftUI
 @MainActor
 final class NotchPanelController {
     private let store: EventStore
+    private let vox: VoxFlow
     private let notch: DynamicNotch<ExpandedContent, CompactLeading, CompactTrailing>
     private var cancellables: [AnyCancellable] = []
     private var expanded: Bool?
@@ -20,6 +21,7 @@ final class NotchPanelController {
 
     init(store: EventStore, usage: UsageModel, vox: VoxFlow) {
         self.store = store
+        self.vox = vox
         notch = DynamicNotch(
             hoverBehavior: .all,
             style: .auto,
@@ -31,13 +33,16 @@ final class NotchPanelController {
         notch.transitionConfiguration = .init(
             // fast open — an approval must be actionable the instant it arrives
             openingAnimation: .spring(response: 0.30, dampingFraction: 0.72),
-            closingAnimation: .spring(response: 0.34, dampingFraction: 0.90),
+            closingAnimation: .spring(response: 0.26, dampingFraction: 0.92),
             conversionAnimation: .spring(response: 0.38, dampingFraction: 0.74)
         )
         cancellables.append(store.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
         cancellables.append(notch.objectWillChange.sink { [weak self] in
+            Task { @MainActor in self?.refresh() }
+        })
+        cancellables.append(vox.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
     }
@@ -70,7 +75,8 @@ final class NotchPanelController {
         lastPendingCount = store.pending.count
 
         let hovering = notch.isHovering && Date() > suppressHoverUntil
-        let want = hasPending || hovering
+        // dictation keeps the panel open — the mic press must never collapse it
+        let want = hasPending || hovering || vox.listening
 
         // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
         if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {
@@ -92,8 +98,9 @@ final class NotchPanelController {
         Task {
             if want {
                 await notch.expand()
-                // First click must land on a button, not just focus the panel.
-                notch.windowController?.window?.makeKey()
+                // NOTE: no makeKey — stealing key focus hijacked the user's typing
+                // whenever a card popped. ^A/^G/^D are global monitors and buttons
+                // take the first click without key status.
             } else {
                 await notch.compact()
             }
