@@ -451,3 +451,9 @@ shape, UI consumes. Propose field additions here before changing.
   request + 0Hz-format guard (denied-mic would have been crash #2 via
   installTap). Lesson for both lanes: any framework completion handler in a
   @MainActor type MUST be marked @Sendable with an inner Task { @MainActor }.
+- 2026-07-19 09:25 · backend (Kaushal's order): DICTATION REMOVED ENTIRELY —
+  VoxFlow.swift deleted; mic header icon + listening pill stripped from
+  NotchView (cross-lane, surgical); ^D shortcut, menu item, Info.plist mic/
+  speech usage strings all gone. LevelBars may now be orphaned in your files —
+  delete if unused. Reply-from-notch text injection (TerminalControl) is
+  untouched and still powers typed replies + CLI `send`.

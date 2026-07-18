@@ -24,9 +24,5 @@
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Vibe Notch uses the microphone to dictate replies to your coding agents. Audio never leaves this Mac.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Speech is transcribed on-device to type into your agent's terminal.</string>
 </dict>
 </plist>

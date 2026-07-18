@@ -8,7 +8,6 @@ import VibeNotchCore
 struct ExpandedContent: View {
     @ObservedObject var store: EventStore
     @ObservedObject var usage: UsageModel
-    @ObservedObject var vox: VoxFlow
 
     @AppStorage("soundEnabled") private var soundOn = true
     @State private var showHistory = false
@@ -23,12 +22,6 @@ struct ExpandedContent: View {
                     UsageChips(providers: usage.providers)
                 }
                 Spacer(minLength: 8)
-                // dictate to the active agent (^D works too)
-                HeaderIconButton(symbol: vox.listening ? "mic.fill" : "mic",
-                                 tint: vox.listening ? VNColor.stop : .white.opacity(0.62)) {
-                    NSApp.activate(ignoringOtherApps: true) // mic/speech permission prompts need an active app
-                    vox.toggle()
-                }
                 // ⌘K palette — keyboard-only, no icon (header stays quiet)
                 Button("") { showPalette.toggle(); if showPalette { showHistory = false } }
                     .keyboardShortcut("k", modifiers: .command)
@@ -50,23 +43,6 @@ struct ExpandedContent: View {
                 }
             }
             .padding(.horizontal, 20).padding(.top, -26).padding(.bottom, 4)
-            // dictation (^D): pulsing mic + live transcript while listening
-            if vox.listening {
-                HStack(spacing: 8) {
-                    Image(systemName: "mic.fill").font(.system(size: 11))
-                        .foregroundStyle(VNColor.stop)
-                        .scaleEffect(1 + CGFloat(vox.level) * 0.5)
-                        .animation(.easeOut(duration: 0.1), value: vox.level)
-                    Text(vox.transcript.isEmpty ? "Listening…" : vox.transcript)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(vox.transcript.isEmpty ? VNColor.faint : VNColor.text)
-                        .lineLimit(1).truncationMode(.head)
-                    Spacer(minLength: 0)
-                    LevelBars(level: vox.level)
-                }
-                .padding(.horizontal, 20).padding(.vertical, 5)
-            }
-
             // while-you-were-away digest (backend clears it after a few seconds)
             if let digest = store.digest {
                 HStack(spacing: 7) {

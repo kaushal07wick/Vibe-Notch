@@ -8,7 +8,7 @@ import AppKit
 final class ShortcutMonitor {
     private var monitors: [Any] = []
 
-    init(store: EventStore, voxToggle: @escaping () -> Void = {},
+    init(store: EventStore,
          collapse: @escaping () -> Void = {},
          panelWindow: @escaping () -> NSWindow? = { nil }) {
         // Clicking the panel focuses it just-in-time, so the FIRST click lands
@@ -24,9 +24,6 @@ final class ShortcutMonitor {
             if event.keyCode == 53 { collapse(); return true } // ESC
             guard let store, event.modifierFlags.contains(.control) else { return false }
             switch event.charactersIgnoringModifiers {
-            case "d":
-                voxToggle()
-                return true
             case "a":
                 guard let first = store.pending.first else { return false }
                 store.resolve(first, .allow)

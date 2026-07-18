@@ -8,7 +8,6 @@ import SwiftUI
 @MainActor
 final class NotchPanelController {
     private let store: EventStore
-    private let vox: VoxFlow
     private let notch: DynamicNotch<ExpandedContent, CompactLeading, CompactTrailing>
     private var cancellables: [AnyCancellable] = []
     private var expanded: Bool?
@@ -22,13 +21,12 @@ final class NotchPanelController {
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
-    init(store: EventStore, usage: UsageModel, vox: VoxFlow) {
+    init(store: EventStore, usage: UsageModel) {
         self.store = store
-        self.vox = vox
         notch = DynamicNotch(
             hoverBehavior: .all,
             style: .auto,
-            expanded: { ExpandedContent(store: store, usage: usage, vox: vox) },
+            expanded: { ExpandedContent(store: store, usage: usage) },
             compactLeading: { CompactLeading(store: store) },
             compactTrailing: { CompactTrailing(store: store) }
         )
@@ -43,9 +41,6 @@ final class NotchPanelController {
             Task { @MainActor in self?.refresh() }
         })
         cancellables.append(notch.objectWillChange.sink { [weak self] in
-            Task { @MainActor in self?.refresh() }
-        })
-        cancellables.append(vox.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
     }
@@ -81,7 +76,7 @@ final class NotchPanelController {
         if !notch.isHovering { needsHoverExit = false }
         let hovering = notch.isHovering && !needsHoverExit && Date() > suppressHoverUntil
         // dictation keeps the panel open — the mic press must never collapse it
-        let want = hasPending || hovering || vox.listening
+        let want = hasPending || hovering
 
         // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
         if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {
