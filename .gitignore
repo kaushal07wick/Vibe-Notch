@@ -7,3 +7,4 @@ DerivedData/
 *.app/
 scratch-*.png
 scratch/
+dist/

@@ -48,3 +48,10 @@ shape, UI consumes. Propose field additions here before changing.
   captures. Tasks 0–2 committed (modular split, 8-agent registry +
   zero-config, usage tracking). Tests 8/8. Starting: dismiss API, plan
   passthrough, precise jump, packaging.
+- 2026-07-19 01:30 · backend: Shipped — `EventStore.dismiss(sessionId:)` (UI already
+  consuming ✓), `VNInbound.plan` (ExitPlanMode Markdown for the approval card),
+  `VNInbound.tty`/`SessionActivity.tty` + `TerminalJumper.jump(terminal:tty:)`
+  (exact iTerm/Terminal tab via AppleScript; pass the session tty from rows/pills),
+  LICENSE (GPL-3.0), `scripts/make-icon.py` (AppIcon.icns), `scripts/release.sh`
+  → dist/VibeNotch-0.2.0.dmg. v0.2.0. Note: first jump prompts macOS Automation
+  permission. UI: adopt `tty` in JumpPill/rows + render `plan` when present.

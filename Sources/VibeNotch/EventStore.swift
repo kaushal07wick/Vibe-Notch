@@ -19,6 +19,7 @@ struct SessionActivity: Identifiable {
     var detail: String?   // command / message / last assistant text
     var event: String     // last hook event — drives the status label
     var terminal: String?
+    var tty: String?
     var model: String?
     var startedAt: Date
     var updatedAt: Date
@@ -49,6 +50,12 @@ final class EventStore: ObservableObject {
 
     func cancel(_ id: UUID) { pending.removeAll { $0.id == id } }
 
+    /// User dismissed a session row (bin button) — remove it from the list.
+    /// The session reappears on its next hook event.
+    func dismiss(sessionId: String) {
+        sessions.removeValue(forKey: sessionId)
+    }
+
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
         approval.reply(decision)
         pending.removeAll { $0.id == approval.id }
@@ -69,6 +76,7 @@ final class EventStore: ObservableObject {
         if let d = i.detail { s.detail = d }
         s.event = i.event
         s.terminal = i.terminal ?? s.terminal
+        s.tty = i.tty ?? s.tty
         s.model = i.model ?? s.model
         s.updatedAt = Date()
         sessions[sid] = s

@@ -116,6 +116,35 @@ func userText(_ path: String?, first: Bool) -> String? {
     return nil
 }
 
+/// The controlling terminal (e.g. "ttys014") — walk up the process tree until
+/// a process with a tty is found. Enables exact-tab jump.
+func ttyName() -> String? {
+    var pid = getppid()
+    for _ in 0..<6 {
+        guard pid > 1 else { break }
+        let out = shell("/bin/ps", ["-p", "\(pid)", "-o", "tty=,ppid="])
+        guard let out else { break }
+        let parts = out.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard parts.count >= 2 else { break }
+        if parts[0] != "??" { return parts[0] }
+        pid = Int32(parts[1]) ?? 1
+    }
+    return nil
+}
+
+private func shell(_ path: String, _ args: [String]) -> String? {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: path)
+    p.arguments = args
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = FileHandle.nullDevice
+    guard (try? p.run()) != nil else { return nil }
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    p.waitUntilExit()
+    return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 /// Display name of the terminal the agent runs in, from inherited env.
 func terminalName() -> String? {
     let env = ProcessInfo.processInfo.environment
@@ -215,8 +244,9 @@ if event == "PermissionRequest" {
     let msg = VNInbound(type: .request, source: source, event: event,
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
+                        plan: toolInput?["plan"] as? String,
                         userMessage: oneLine(userText(transcript, first: false)),
-                        cwd: cwd, terminal: terminal,
+                        cwd: cwd, terminal: terminal, tty: ttyName(),
                         model: lastAssistantModel(transcript), sessionId: sessionId)
     switch IPCClient.send(msg) {
     case .allow:
@@ -245,7 +275,7 @@ default:                      exit(0) // ignore anything else
 let msg = VNInbound(type: .notify, source: source, event: event,
                     title: task, tool: (event == "PreToolUse" || event == "PostToolUse") ? tool : nil,
                     detail: activityDetail, userMessage: lastUser,
-                    cwd: cwd, terminal: terminal,
+                    cwd: cwd, terminal: terminal, tty: ttyName(),
                     model: lastAssistantModel(transcript), sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)

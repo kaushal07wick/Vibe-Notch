@@ -17,16 +17,19 @@ public struct VNInbound: Codable, Sendable {
     public var tool: String?               // tool name, for approvals
     public var detail: String?             // full text — command, or the agent's last message
     public var commandDescription: String? // the agent's one-line explanation of the command
+    public var plan: String?               // Markdown plan text (ExitPlanMode approvals)
     public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
     public var terminal: String?           // display name of the terminal, e.g. "Ghostty"
+    public var tty: String?                // session tty, e.g. "ttys014" — for exact-tab jump
     public var model: String?              // friendly model name, e.g. "Opus 4.8"
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
-                commandDescription: String? = nil, userMessage: String? = nil,
-                cwd: String? = nil, terminal: String? = nil, model: String? = nil, sessionId: String? = nil) {
+                commandDescription: String? = nil, plan: String? = nil, userMessage: String? = nil,
+                cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
+                model: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
@@ -34,9 +37,11 @@ public struct VNInbound: Codable, Sendable {
         self.tool = tool
         self.detail = detail
         self.commandDescription = commandDescription
+        self.plan = plan
         self.userMessage = userMessage
         self.cwd = cwd
         self.terminal = terminal
+        self.tty = tty
         self.model = model
         self.sessionId = sessionId
     }
