@@ -243,7 +243,7 @@ private struct ActivityCard: View {
             case "Stop":
                 Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
                 Text(s.detail ?? "Finished").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
-                    .lineLimit(full ? 5 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1).truncationMode(.tail)
             case "UserPromptSubmit":
                 Image(systemName: "ellipsis.circle").font(.system(size: 10)).foregroundStyle(VNColor.muted)
                 Text("Thinking…").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)

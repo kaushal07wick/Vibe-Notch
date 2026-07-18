@@ -69,6 +69,20 @@ private func extractText(_ content: Any?) -> String? {
     return nil
 }
 
+/// First meaningful line of text — skips code fences, blanks, and markdown headers —
+/// so the notch never shows a raw multi-line code dump. Truncated to one line.
+func oneLine(_ text: String?) -> String? {
+    guard let text else { return nil }
+    var inFence = false
+    for raw in text.components(separatedBy: "\n") {
+        let line = raw.trimmingCharacters(in: .whitespaces)
+        if line.hasPrefix("```") { inFence.toggle(); continue }
+        if inFence || line.isEmpty || line.hasPrefix("#") { continue }
+        return String(line.prefix(120))
+    }
+    return nil
+}
+
 /// First (task) or last user message in a transcript, skipping tool-result/system noise.
 func userText(_ path: String?, first: Bool) -> String? {
     guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
@@ -130,11 +144,10 @@ let sessionId = obj["session_id"] as? String
 
 if event == "PermissionRequest" {
     let transcript = obj["transcript_path"] as? String
-    let task = userText(transcript, first: true).map { String($0.prefix(140)) }
     let msg = VNInbound(type: .request, source: "claude", event: event,
-                        title: task, tool: tool, detail: summarize(toolInput),
+                        title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
-                        userMessage: userText(transcript, first: false),
+                        userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal,
                         model: lastAssistantModel(transcript), sessionId: sessionId)
     switch IPCClient.send(msg) {
@@ -150,13 +163,13 @@ if event == "PermissionRequest" {
 
 // Activity update — fold this event into the session's live state.
 let transcript = obj["transcript_path"] as? String
-let task = userText(transcript, first: true).map { String($0.prefix(140)) }
-let lastUser = userText(transcript, first: false)
+let task = oneLine(userText(transcript, first: true))
+let lastUser = oneLine(userText(transcript, first: false))
 let activityDetail: String?
 switch event {
 case "PreToolUse":            activityDetail = summarize(toolInput)
 case "Notification":          activityDetail = obj["message"] as? String
-case "Stop":                  activityDetail = lastAssistantText(transcript)
+case "Stop":                  activityDetail = oneLine(lastAssistantText(transcript))
 case "SessionStart", "UserPromptSubmit", "PostToolUse", "SessionEnd": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
