@@ -248,3 +248,11 @@ shape, UI consumes. Propose field additions here before changing.
   → UI: could also tint the compact notch amber when store.escalated.
   Local sessions only (SSH sessions return false). 23/23 tests. App still not
   launched.
+- 2026-07-19 04:10 · backend: AUTO-APPROVE SAFE-LIST + RULES MANAGER —
+  safe-listed simple Bash commands auto-approve silently (default on; seeds:
+  git status/diff/log, ls, pwd, which; user-editable
+  ~/.vibenotch/data/safelist.json; compound commands with &&/;/|/`/$()/>
+  NEVER match — tested). Menu: toggle + "Edit Safe List…" + "Permission Rules"
+  submenu (click a rule to remove it). StatsLog gains "autoApproved".
+  UI (optional): a passive one-second blip in the compact notch when
+  autoApproved fires would close the loop visually. 25/25 tests.

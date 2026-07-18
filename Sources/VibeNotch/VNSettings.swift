@@ -29,6 +29,12 @@ enum VNSettings {
         set { d.set(newValue, forKey: "escalationSeconds") }
     }
 
+    /// Auto-approve safe-listed simple commands (git status, ls, …).
+    static var safeListEnabled: Bool {
+        get { d.object(forKey: "safeListEnabled") as? Bool ?? true }
+        set { d.set(newValue, forKey: "safeListEnabled") }
+    }
+
     /// Hide the compact notch entirely when no sessions are active.
     static var autoHideWhenIdle: Bool {
         get { d.bool(forKey: "autoHideWhenIdle") }

@@ -141,6 +141,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         autoHide.state = VNSettings.autoHideWhenIdle ? .on : .off
         menu.addItem(autoHide)
 
+        let safe = NSMenuItem(title: "Auto-approve safe commands", action: #selector(toggleSafeList), keyEquivalent: "")
+        safe.target = self
+        safe.state = VNSettings.safeListEnabled ? .on : .off
+        menu.addItem(safe)
+
+        let editSafe = NSMenuItem(title: "Edit Safe List…", action: #selector(editSafeList), keyEquivalent: "")
+        editSafe.target = self
+        menu.addItem(editSafe)
+
+        // Rules manager: every allow-rule in ~/.claude, click to remove.
+        let rules = PermissionRules.listAllow(source: "claude")
+        if !rules.isEmpty {
+            let rulesItem = NSMenuItem(title: "Permission Rules", action: nil, keyEquivalent: "")
+            let sub = NSMenu()
+            for rule in rules {
+                let item = NSMenuItem(title: rule, action: #selector(removeRule(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = rule
+                item.toolTip = "Click to remove this always-allow rule"
+                sub.addItem(item)
+            }
+            rulesItem.submenu = sub
+            menu.addItem(rulesItem)
+        }
+
         let toggle = NSMenuItem(title: "Toggle Panel", action: #selector(togglePanel), keyEquivalent: "t")
         toggle.target = self
         menu.addItem(toggle)
@@ -187,6 +212,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
+
+    @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func editSafeList() {
+        _ = SafeList.patterns() // ensure the file exists
+        NSWorkspace.shared.open(SafeList.url)
+    }
+
+    @objc private func removeRule(_ sender: NSMenuItem) {
+        guard let rule = sender.representedObject as? String else { return }
+        PermissionRules.removeAllowRule(source: "claude", rule: rule)
+    }
 
     @objc private func toggleAgent(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String, let spec = Agents.byID(id) else { return }

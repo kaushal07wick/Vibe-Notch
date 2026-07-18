@@ -97,6 +97,14 @@ final class EventStore: ObservableObject {
             approval.reply(VNReply(decision: .allow))
             return
         }
+        // Safe-listed simple command → silent auto-approve (flow, not noise).
+        if VNSettings.safeListEnabled, approval.inbound.tool == "Bash",
+           let command = approval.inbound.detail,
+           SafeList.matches(command, patterns: SafeList.patterns()) {
+            approval.reply(VNReply(decision: .allow))
+            StatsLog.bump("autoApproved")
+            return
+        }
         pending.append(approval)
         SoundManager.shared.play(.permission)
     }
