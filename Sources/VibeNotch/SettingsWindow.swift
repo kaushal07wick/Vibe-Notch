@@ -17,7 +17,7 @@ enum SettingsWindow {
         }
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 660, height: 440),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
         w.title = "Vibe Notch Settings"
@@ -173,7 +173,7 @@ private struct NotificationsPane: View {
                 TextField("", value: $escalation, format: .number)
                     .textFieldStyle(.roundedBorder).frame(width: 52)
                     .onSubmit { VNSettings.escalationSeconds = max(0, escalation) }
-                Text("sec").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                Text("sec").foregroundStyle(.secondary)
             }
         }
         SettingRow(label: "Phone pings (ntfy.sh topic)",
