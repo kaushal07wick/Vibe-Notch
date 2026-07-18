@@ -8,3 +8,9 @@ DerivedData/
 scratch-*.png
 scratch/
 dist/
+*.o
+*.d
+*.dia
+*.swiftdeps
+*.swiftmodule
+*.abi.json
