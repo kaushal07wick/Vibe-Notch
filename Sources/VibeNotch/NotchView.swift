@@ -10,15 +10,22 @@ struct ExpandedContent: View {
     @ObservedObject var usage: UsageModel
 
     @State private var muted = !SoundManager.shared.enabled
+    @State private var showHistory = false
+    @State private var history: [HistoryEntry] = []
 
     var body: some View {
         VStack(spacing: 0) {
-            // stats header — usage left, mute + settings right (VI layout)
+            // stats header — usage left, history + mute + settings right (VI layout)
             HStack(spacing: 12) {
                 if !usage.providers.isEmpty {
                     UsageChips(providers: usage.providers)
                 }
                 Spacer(minLength: 8)
+                HeaderIconButton(symbol: "clock.arrow.circlepath",
+                                 tint: showHistory ? VNColor.go : .white.opacity(0.62)) {
+                    if !showHistory { history = SessionHistory.load() }
+                    showHistory.toggle()
+                }
                 HeaderIconButton(
                     symbol: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                     tint: muted ? .orange.opacity(0.92) : .white.opacity(0.62)
@@ -32,14 +39,21 @@ struct ExpandedContent: View {
             }
             .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 2)
             ZStack {
-                currentCard
-                    .id(stateKey)
-                    .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
-                                            removal: .opacity))
+                if showHistory && store.pending.isEmpty {
+                    HistoryList(entries: history) { showHistory = false }
+                } else {
+                    currentCard
+                        .id(stateKey)
+                        .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                                removal: .opacity))
+                }
             }
         }
         .foregroundStyle(VNColor.text)
         .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)
+        .onChange(of: store.pending.isEmpty) { _, empty in
+            if !empty { showHistory = false } // approvals always take the stage
+        }
     }
 
     /// Identity of the visible state — drives the cross-fade/scale transition.
@@ -69,8 +83,10 @@ struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
         Group {
-            // subtle: a single tiny invader — most recent agent's color
-            PixelInvader(color: activeAgents.first.map(VNColor.agent) ?? VNColor.invader, px: 1)
+            // subtle: a single tiny invader — amber when a permission has been
+            // waiting too long (escalation), else the most recent agent's color
+            PixelInvader(color: store.escalated ? VNColor.amber
+                         : activeAgents.first.map(VNColor.agent) ?? VNColor.invader, px: 1)
         }
         // physical notch is ~166pt; ~12pt flanks keep the shape barely wider + centred
         .frame(width: 12)

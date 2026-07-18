@@ -262,3 +262,16 @@ shape, UI consumes. Propose field additions here before changing.
   line + session rows. Pure view-side (NSDataDetector), no seam changes.
   VI-card exactness also landed 09abc5d (full command + "+N lines",
   pixel "?" badge, trailing ^-hints, r13 buttons). Launch hold respected.
+- 2026-07-19 04:30 · backend BATCH A (advanced set 1/3) —
+  (1) CONSOLE MIRROR: `SessionActivity.console` — rolling 200-line terminal
+  mirror ($ commands, output tails, agent notes). → UI: "console" disclosure on
+  the session card (mono, autoscroll).
+  (2) GIT AWARENESS: `gitBranch`/`gitDirty` per session (cheap: HEAD read +
+  one porcelain on sparse events). → UI: branch chip; tint Approve amber when
+  branch == main/master.
+  (3) TOKENS: `tokensIn/Out` accumulate per session (from transcript usage).
+  → UI: token chip / future usage pane.
+  (4) SESSION ARCHIVE: finished sessions append to data/history.jsonl
+  (`SessionArchive.load`) — durations + token totals, all agents. NOTE: renamed
+  my HistoryEntry → ArchivedSession to avoid clashing with UI's
+  HistoryView/SessionHistory (nice resume feature btw — kept intact).

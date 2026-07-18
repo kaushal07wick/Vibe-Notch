@@ -113,6 +113,30 @@ func toolOutput(_ obj: [String: Any]) -> String? {
     return nil
 }
 
+/// Branch + dirty state for the working directory. HEAD is a file read;
+/// dirtiness costs one fast `git status` — only called on the sparse events.
+func gitInfo(_ cwd: String?) -> (branch: String?, dirty: Bool?) {
+    guard let cwd else { return (nil, nil) }
+    guard let head = try? String(contentsOfFile: cwd + "/.git/HEAD", encoding: .utf8) else { return (nil, nil) }
+    let branch = head.hasPrefix("ref: refs/heads/")
+        ? head.dropFirst("ref: refs/heads/".count).trimmingCharacters(in: .whitespacesAndNewlines)
+        : String(head.prefix(8))
+    let porcelain = shell("/usr/bin/git", ["-C", cwd, "status", "--porcelain", "--untracked-files=no"])
+    return (branch, porcelain.map { !$0.isEmpty })
+}
+
+/// Token usage of the newest assistant message in the tail.
+func latestUsage(_ t: Transcript?) -> (input: Int?, output: Int?) {
+    for line in (t?.tailLines ?? []).reversed() {
+        guard let obj = Transcript.parse(line),
+              let msg = obj["message"] as? [String: Any],
+              (msg["role"] as? String) == "assistant",
+              let usage = msg["usage"] as? [String: Any] else { continue }
+        return (usage["input_tokens"] as? Int, usage["output_tokens"] as? Int)
+    }
+    return (nil, nil)
+}
+
 /// First meaningful line of text — skips code fences, blanks, and markdown headers —
 /// so the notch never shows a raw multi-line code dump. Truncated to one line.
 func oneLine(_ text: String?) -> String? {
@@ -311,7 +335,9 @@ if event == "PermissionRequest" {
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),
                         termMeta: termMeta.isEmpty ? nil : termMeta,
-                        model: lastAssistantModel(transcript), sessionId: sessionId)
+                        model: lastAssistantModel(transcript),
+                        gitBranch: gitInfo(cwd).branch, gitDirty: gitInfo(cwd).dirty,
+                        sessionId: sessionId)
     let reply = IPCClient.send(msg)
     switch reply?.decision.agentBehavior {
     case .allow: emitDecision("allow", answers: reply?.answers, originalInput: toolInput)
@@ -336,11 +362,15 @@ case "SessionStart", "UserPromptSubmit", "SessionEnd",
      "SubagentStart", "SubagentStop", "PreCompact": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
+let git = ["SessionStart", "UserPromptSubmit", "Stop"].contains(event) ? gitInfo(cwd) : (nil, nil)
+let usage = event == "Stop" ? latestUsage(transcript) : (nil, nil)
 let msg = VNInbound(type: .notify, source: source, event: event,
                     title: task, tool: (event == "PreToolUse" || event == "PostToolUse") ? tool : nil,
                     detail: activityDetail, userMessage: lastUser,
                     cwd: cwd, terminal: terminal, tty: ttyName(),
                     termMeta: termMeta.isEmpty ? nil : termMeta,
-                    model: lastAssistantModel(transcript), sessionId: sessionId)
+                    model: lastAssistantModel(transcript),
+                    gitBranch: git.0, gitDirty: git.1,
+                    tokensIn: usage.0, tokensOut: usage.1, sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)

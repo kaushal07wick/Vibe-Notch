@@ -26,6 +26,10 @@ public struct VNInbound: Codable, Sendable {
     public var termMeta: [String: String]? // pane/window ids for precise jumps (tmux/wezterm/kitty)
     public var model: String?              // friendly model name, e.g. "Opus 4.8"
     public var host: String?               // remote hostname when tunneled over SSH
+    public var gitBranch: String?          // current branch of cwd
+    public var gitDirty: Bool?             // uncommitted changes present
+    public var tokensIn: Int?              // input tokens of the latest turn
+    public var tokensOut: Int?             // output tokens of the latest turn
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
@@ -34,7 +38,9 @@ public struct VNInbound: Codable, Sendable {
                 questions: [VNQuestion]? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
                 termMeta: [String: String]? = nil,
-                model: String? = nil, host: String? = nil, sessionId: String? = nil) {
+                model: String? = nil, host: String? = nil,
+                gitBranch: String? = nil, gitDirty: Bool? = nil,
+                tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
@@ -51,6 +57,10 @@ public struct VNInbound: Codable, Sendable {
         self.termMeta = termMeta
         self.model = model
         self.host = host
+        self.gitBranch = gitBranch
+        self.gitDirty = gitDirty
+        self.tokensIn = tokensIn
+        self.tokensOut = tokensOut
         self.sessionId = sessionId
     }
 }

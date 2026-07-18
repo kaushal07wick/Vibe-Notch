@@ -25,6 +25,11 @@ struct SessionActivity: Identifiable, Codable {
     var model: String?
     var host: String?        // remote hostname (SSH sessions)
     var subagents: Int = 0   // live subagent count (SubagentStart/Stop)
+    var gitBranch: String?
+    var gitDirty: Bool = false
+    var tokensIn: Int = 0    // accumulated over the session's turns
+    var tokensOut: Int = 0
+    var console: [String] = []  // rolling terminal mirror (commands + output tails)
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -150,7 +155,12 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
-        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); bypassedSessions.remove(sid); saveSessions(); return }
+        if i.event == "SessionEnd" {
+            if let s = sessions.removeValue(forKey: sid) { archive(s) }
+            bypassedSessions.remove(sid)
+            saveSessions()
+            return
+        }
 
         // Subagent events adjust the count without disturbing the main status.
         if i.event == "SubagentStart" || i.event == "SubagentStop" {
@@ -176,6 +186,11 @@ final class EventStore: ObservableObject {
         s.termMeta = i.termMeta ?? s.termMeta
         s.model = i.model ?? s.model
         s.host = i.host ?? s.host
+        if let branch = i.gitBranch { s.gitBranch = branch }
+        if let dirty = i.gitDirty { s.gitDirty = dirty }
+        s.tokensIn += i.tokensIn ?? 0
+        s.tokensOut += i.tokensOut ?? 0
+        appendConsole(&s, from: i)
         s.updatedAt = Date()
         sessions[sid] = s
         if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }
@@ -183,9 +198,37 @@ final class EventStore: ObservableObject {
         saveSessions()
     }
 
+    /// Rolling terminal mirror per session: `$ command`, output tails, replies.
+    private func appendConsole(_ s: inout SessionActivity, from i: VNInbound) {
+        var lines: [String] = []
+        switch i.event {
+        case "PreToolUse":
+            if let d = i.detail { lines = ["$ " + d] }
+        case "PostToolUse", "PostToolUseFailure":
+            if let d = i.detail { lines = d.components(separatedBy: "\n").suffix(20).map { String($0) } }
+        case "Stop", "StopFailure":
+            if let d = i.detail { lines = ["· " + d] }
+        default:
+            break
+        }
+        guard !lines.isEmpty else { return }
+        s.console.append(contentsOf: lines)
+        if s.console.count > 200 { s.console.removeFirst(s.console.count - 200) }
+    }
+
+    private func archive(_ s: SessionActivity) {
+        SessionArchive.append(ArchivedSession(sessionId: s.sessionId, source: s.source,
+                                    folder: s.folder, task: s.task, host: s.host,
+                                    startedAt: s.startedAt, endedAt: Date(),
+                                    tokensIn: s.tokensIn, tokensOut: s.tokensOut))
+    }
+
     private func pruneStale() {
         let cutoff = Date().addingTimeInterval(-3600)
-        sessions = sessions.filter { $0.value.updatedAt > cutoff }
+        for (key, s) in sessions where s.updatedAt <= cutoff {
+            archive(s)
+            sessions.removeValue(forKey: key)
+        }
     }
 
 }
