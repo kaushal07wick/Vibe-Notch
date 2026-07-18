@@ -169,6 +169,34 @@ let agentSprites: [String: AgentSprite] = [
     ),
 ]
 
+/// Small pixel-art status glyphs drawn next to the mascot (VI style).
+struct PixelGlyph: View {
+    static let question = [
+        ".ooo.",
+        "o...o",
+        "....o",
+        "...o.",
+        "..o..",
+        ".....",
+        "..o..",
+    ]
+    let grid: [String]
+    let color: Color
+    var px: CGFloat = 2
+
+    var body: some View {
+        Canvas { c, _ in
+            for (y, row) in grid.enumerated() {
+                for (x, ch) in row.enumerated() where ch == "o" {
+                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: px, height: px)),
+                           with: .color(color))
+                }
+            }
+        }
+        .frame(width: CGFloat(grid[0].count) * px, height: CGFloat(grid.count) * px)
+    }
+}
+
 /// Draws an agent's pixel sprite scaled to `size` (width), animating between
 /// frames when the sprite has two. Falls back to the generic invader.
 struct AgentSpriteView: View {

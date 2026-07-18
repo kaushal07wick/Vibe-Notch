@@ -102,20 +102,24 @@ struct WideButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                Text(title).font(.system(size: 11, weight: .semibold))
+            ZStack {
+                Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 if let hint {
-                    Text(hint).font(VNFont.sysMono(9.5, .semibold)).opacity(0.55)
+                    // shortcut hint hugs the trailing edge (VI: "Allow Once   ^Y")
+                    HStack {
+                        Spacer()
+                        Text(hint).font(VNFont.sysMono(10, .semibold)).opacity(0.5)
+                    }
+                    .padding(.trailing, 12)
                 }
             }
-            .lineLimit(1)
-            .frame(maxWidth: .infinity).padding(.vertical, 6.5)
+            .frame(maxWidth: .infinity).padding(.vertical, 8)
         }
         .buttonStyle(PressFeedback())
-        .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+        .background(background, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous)
             .strokeBorder(Color.white.opacity(kind == .deny ? 0.09 : 0), lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .foregroundStyle(foreground)
     }
 

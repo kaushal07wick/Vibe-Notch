@@ -65,21 +65,31 @@ struct ApprovalCard: View {
         }
     }
 
-    // VI metrics: SF-mono 11.5 semibold command, tight box (pH10 pV7, r7, fill .045)
+    /// VI card: the FULL command up to `maxLines`, then a dim "+N lines"
+    /// marker, with the description at the bottom of the same box.
     private var commandBlock: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            (Text("$ ").foregroundStyle(VNColor.amber) + Text(i.detail ?? "").foregroundStyle(VNColor.paper.opacity(0.78)))
+        let maxLines = 12
+        let all = (i.detail ?? "").components(separatedBy: "\n")
+        let shown = all.prefix(maxLines).joined(separator: "\n")
+        let overflow = all.count - maxLines
+        return VStack(alignment: .leading, spacing: 6) {
+            (Text("$ ").foregroundStyle(VNColor.amber) + Text(shown).foregroundStyle(VNColor.paper.opacity(0.82)))
                 .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-                .lineLimit(3).truncationMode(.tail)
-                .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if overflow > 0 {
+                Text("+\(overflow) lines").font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(VNColor.paper.opacity(0.35))
+            }
             if let desc = i.commandDescription {
-                Text(desc).font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(VNColor.paper.opacity(0.42)).lineLimit(1)
+                Text(desc).font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1)
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 7)
+        .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
     }
 
     private var buttons: some View {
