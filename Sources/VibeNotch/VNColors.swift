@@ -17,7 +17,31 @@ enum VNColor {
     static let codex = Color(hex: 0x10A37F)
     static let invader = Color(hex: 0x4F7DF0)   // the pixel mascot blue
 
-    static func agent(_ source: String) -> Color { source == "codex" ? codex : claude }
+    /// Per-agent accent — each coding agent gets its own hue.
+    static func agent(_ source: String) -> Color {
+        switch source {
+        case "codex":  return codex
+        case "gemini": return Color(hex: 0x4285F4)  // google blue
+        case "cursor": return Color(hex: 0x9AA0A6)  // graphite
+        case "grok":   return Color(hex: 0x22C55E)  // green
+        case "kimi":   return Color(hex: 0x7C5CFF)  // violet
+        case "opencode": return Color(hex: 0xE0A34E)
+        default:       return claude
+        }
+    }
+}
+
+/// Display name for an agent source.
+func agentName(_ source: String) -> String {
+    switch source {
+    case "codex": return "Codex"
+    case "gemini": return "Gemini"
+    case "cursor": return "Cursor"
+    case "grok": return "Grok"
+    case "kimi": return "Kimi"
+    case "opencode": return "opencode"
+    default: return "Claude"
+    }
 }
 
 /// DepartureMono — the pixel/terminal face that carries the retro character.

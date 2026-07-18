@@ -115,6 +115,7 @@ private struct ApprovalCard: View {
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     AgentPill(source: i.source)
+                    if let m = i.model { ModelPill(model: m) }
                     if let term = i.terminal { TermPill(name: term) }
                     JumpPill(terminal: i.terminal)
                 }
@@ -202,6 +203,7 @@ private struct ActivityCard: View {
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     AgentPill(source: s.source)
+                    if let m = s.model { ModelPill(model: m) }
                     if let term = s.terminal { TermPill(name: term) }
                     JumpPill(terminal: s.terminal)
                 }
@@ -209,7 +211,7 @@ private struct ActivityCard: View {
             activityLine(s)
         }
         .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-        .frame(width: 520, alignment: .leading)
+        .frame(width: 560, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -222,7 +224,7 @@ private struct ActivityCard: View {
             }
         }
         .padding(EdgeInsets(top: 6, leading: 14, bottom: 9, trailing: 14))
-        .frame(width: 520, alignment: .leading)
+        .frame(width: 560, alignment: .leading)
     }
 
     private func titleText(_ s: SessionActivity) -> String {
@@ -264,25 +266,37 @@ private struct SessionRow: View {
     let s: SessionActivity
     var body: some View {
         Button { TerminalJumper.jump(s.terminal) } label: {
-            HStack(spacing: 9) {
-                AgentIcon(source: s.source, size: 13)
+            HStack(alignment: .top, spacing: 9) {
+                AgentIcon(source: s.source, size: 14)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(s.folder ?? "session").font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                    Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.tail)
+                    Text(titleText).font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                    if let user = s.userMessage {
+                        Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                            .lineLimit(1).truncationMode(.tail)
+                    }
+                    Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.faint).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
-                AgentPill(source: s.source)
-                Image(systemName: "arrow.up.forward").font(.system(size: 9)).foregroundStyle(VNColor.faint)
+                HStack(spacing: 5) {
+                    AgentPill(source: s.source)
+                    if let m = s.model { ModelPill(model: m) }
+                    if let t = s.terminal { TermPill(name: t) }
+                }
             }
-            .padding(.vertical, 3).contentShape(Rectangle())
+            .padding(.vertical, 4).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
+    private var titleText: String {
+        let folder = s.folder ?? "session"
+        if let task = s.task, !task.isEmpty { return "\(folder) · \(task)" }
+        return folder
+    }
     private var brief: String {
         switch s.event {
-        case "PreToolUse": return "Running \(s.tool ?? "tool")"
+        case "PreToolUse": return "\(s.tool ?? "Running") \(s.detail ?? "")"
         case "Notification": return "Waiting for input"
-        case "Stop": return s.detail.map { String($0.prefix(64)) } ?? "Finished"
+        case "Stop": return s.detail.map { String($0.prefix(80)) } ?? "Finished"
         case "UserPromptSubmit": return "Thinking…"
         default: return "Working…"
         }
@@ -333,11 +347,24 @@ private struct FlashPill: View {
 private struct AgentPill: View {
     let source: String
     var body: some View {
-        Text(source == "codex" ? "Codex" : "Claude")
+        Text(agentName(source))
             .font(.system(size: 10.5, weight: .semibold))
-            .foregroundStyle(Color(hex: 0x1A120E))
+            .foregroundStyle(darkText ? Color(hex: 0x1A120E) : .white)
             .padding(.horizontal, 7).padding(.vertical, 2.5)
             .background(VNColor.agent(source), in: RoundedRectangle(cornerRadius: 6))
+    }
+    // warm/light agent hues read better with dark text
+    private var darkText: Bool { source == "claude" || source == "opencode" }
+}
+
+private struct ModelPill: View {
+    let model: String
+    var body: some View {
+        Text(model)
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(VNColor.text.opacity(0.8))
+            .padding(.horizontal, 7).padding(.vertical, 2.5)
+            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
     }
 }
 

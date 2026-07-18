@@ -19,6 +19,7 @@ struct SessionActivity: Identifiable {
     var detail: String?   // command / message / last assistant text
     var event: String     // last hook event — drives the status label
     var terminal: String?
+    var model: String?
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -68,6 +69,7 @@ final class EventStore: ObservableObject {
         if let d = i.detail { s.detail = d }
         s.event = i.event
         s.terminal = i.terminal ?? s.terminal
+        s.model = i.model ?? s.model
         s.updatedAt = Date()
         sessions[sid] = s
         if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }

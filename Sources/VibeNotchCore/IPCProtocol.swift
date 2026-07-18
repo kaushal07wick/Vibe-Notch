@@ -20,12 +20,13 @@ public struct VNInbound: Codable, Sendable {
     public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
     public var terminal: String?           // display name of the terminal, e.g. "Ghostty"
+    public var model: String?              // friendly model name, e.g. "Opus 4.8"
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
                 commandDescription: String? = nil, userMessage: String? = nil,
-                cwd: String? = nil, terminal: String? = nil, sessionId: String? = nil) {
+                cwd: String? = nil, terminal: String? = nil, model: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
@@ -36,6 +37,7 @@ public struct VNInbound: Codable, Sendable {
         self.userMessage = userMessage
         self.cwd = cwd
         self.terminal = terminal
+        self.model = model
         self.sessionId = sessionId
     }
 }

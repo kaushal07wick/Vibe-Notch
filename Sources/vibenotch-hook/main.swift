@@ -38,6 +38,28 @@ func lastAssistantText(_ path: String?) -> String? {
     return nil
 }
 
+/// The model id from the last assistant message, mapped to a friendly name.
+func lastAssistantModel(_ path: String?) -> String? {
+    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+    for line in content.split(separator: "\n").reversed() {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+        let msg = (obj["message"] as? [String: Any]) ?? obj
+        guard (msg["role"] as? String) == "assistant", let id = msg["model"] as? String else { continue }
+        return friendlyModel(id)
+    }
+    return nil
+}
+
+func friendlyModel(_ id: String) -> String {
+    let parts = id.lowercased().split(separator: "-").map(String.init)
+    let families = ["opus": "Opus", "sonnet": "Sonnet", "haiku": "Haiku", "fable": "Fable"]
+    guard let idx = parts.firstIndex(where: { families[$0] != nil }) else { return id }
+    let family = families[parts[idx]]!
+    let nums = parts[(idx + 1)...].prefix(while: { Int($0) != nil }).prefix(2)
+    return nums.isEmpty ? family : "\(family) \(nums.joined(separator: "."))"
+}
+
 private func extractText(_ content: Any?) -> String? {
     if let s = content as? String { return s }
     if let parts = content as? [[String: Any]] {
@@ -113,7 +135,8 @@ if event == "PermissionRequest" {
                         title: task, tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
                         userMessage: userText(transcript, first: false),
-                        cwd: cwd, terminal: terminal, sessionId: sessionId)
+                        cwd: cwd, terminal: terminal,
+                        model: lastAssistantModel(transcript), sessionId: sessionId)
     switch IPCClient.send(msg) {
     case .allow:
         print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#)
@@ -140,6 +163,7 @@ default:                      exit(0) // ignore anything else
 let msg = VNInbound(type: .notify, source: "claude", event: event,
                     title: task, tool: (event == "PreToolUse" ? tool : nil),
                     detail: activityDetail, userMessage: lastUser,
-                    cwd: cwd, terminal: terminal, sessionId: sessionId)
+                    cwd: cwd, terminal: terminal,
+                    model: lastAssistantModel(transcript), sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)
