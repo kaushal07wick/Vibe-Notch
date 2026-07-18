@@ -53,7 +53,6 @@ struct JumpPill: View {
 /// The full pill cluster shown top-right of cards and rows.
 struct PillCluster: View {
     let source: String
-    var model: String?
     var terminal: String?
     var tty: String?
     var showJump = true
@@ -62,7 +61,6 @@ struct PillCluster: View {
     var body: some View {
         HStack(spacing: 5) {
             AgentPill(source: source)
-            if let model { SideBadge(text: model) }
             if let terminal { SideBadge(text: terminal) }
             if showJump { JumpPill(terminal: terminal, tty: tty) }
             if let age {
@@ -84,9 +82,9 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 8.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(tint)
-                .frame(width: 18, height: 18)
+                .frame(width: 24, height: 24)
                 .background(.white.opacity(0.08), in: Circle())
         }
         .buttonStyle(.plain)

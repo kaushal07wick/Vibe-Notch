@@ -49,12 +49,12 @@ struct ActivityCard: View {
                     }
                 }
                 Spacer(minLength: 8)
-                PillCluster(source: s.source, model: s.model, terminal: s.terminal, tty: s.tty)
+                PillCluster(source: s.source, terminal: s.terminal, tty: s.tty)
             }
             SessionStatusLine(s: s, full: full)
         }
         .padding(EdgeInsets(top: 5, leading: 13, bottom: 8, trailing: 13))
-        .frame(width: 560, alignment: .leading)
+        .frame(width: 600, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -63,13 +63,13 @@ struct ActivityCard: View {
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             sessionsHeader
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 5) {
                 ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
             }
-            .padding(.top, 9)
+            .padding(.top, 6)
         }
-        .padding(EdgeInsets(top: 8, leading: 14, bottom: 10, trailing: 14))
-        .frame(width: 560, alignment: .leading)
+        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
+        .frame(width: 600, alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -85,7 +85,7 @@ struct ActivityCard: View {
                 }
             }
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, 6)
         .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
     }
 
@@ -207,7 +207,7 @@ struct SessionRow: View {
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
                     // pills stay on hover; only the age slot becomes the archive button
-                    PillCluster(source: s.source, model: s.model, terminal: s.terminal, tty: s.tty,
+                    PillCluster(source: s.source, terminal: s.terminal, tty: s.tty,
                                 showJump: false, age: hovering ? nil : s.updatedAt)
                     if hovering { binButton }
                 }

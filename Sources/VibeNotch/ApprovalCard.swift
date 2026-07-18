@@ -33,7 +33,7 @@ struct ApprovalCard: View {
             }
         }
         .padding(EdgeInsets(top: 5, leading: 13, bottom: 9, trailing: 13))
-        .frame(width: 560)
+        .frame(width: 600)
     }
 
     private var header: some View {
@@ -48,7 +48,7 @@ struct ApprovalCard: View {
                 }
             }
             Spacer(minLength: 8)
-            PillCluster(source: i.source, model: i.model, terminal: i.terminal, tty: i.tty)
+            PillCluster(source: i.source, terminal: i.terminal, tty: i.tty)
         }
     }
 

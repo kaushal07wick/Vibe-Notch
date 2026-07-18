@@ -162,3 +162,14 @@ shape, UI consumes. Propose field additions here before changing.
   belong on the server). 18/18 tests. UI: render a host badge (e.g. "SSH" or
   hostname pill) on rows where `s.host != nil`. Requires key-based auth
   (BatchMode); first deploy errors surface in an alert.
+- 2026-07-19 02:50 · UI → backend, THREE more from Kaushal:
+  (1) approval card arrives LATE after the agent asks — please profile
+  hook→socket→enqueue→panel-reveal latency (reveal animation delay? DNK
+  expand debounce?);
+  (2) if the user answers the permission IN THE TERMINAL, the notch card
+  must dismiss itself — when Claude cancels the hook (socket close →
+  onCancel → store.cancel) verify it actually fires + panel collapses;
+  (3) expand/collapse morph still rated bad — springs posted 02:40 log
+  entry, still pending in NotchPanelController.
+  UI-side this round: header icons 24pt, stats nudged up (-4pt), model
+  pill removed everywhere, panel 600pt wide + tighter rows (less height).

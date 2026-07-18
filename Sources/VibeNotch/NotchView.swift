@@ -30,7 +30,7 @@ struct ExpandedContent: View {
                     SettingsWindow.show()
                 }
             }
-            .padding(.horizontal, 15).padding(.top, 0).padding(.bottom, 1)
+            .padding(.horizontal, 15).padding(.top, -4).padding(.bottom, 0)
             ZStack {
                 currentCard
                     .id(stateKey)
