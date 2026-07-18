@@ -190,7 +190,6 @@ private struct ActivityCard: View {
 
     private func singleCard(_ s: SessionActivity) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            StatsHeader(elapsed: elapsedString(since: s.startedAt), activeCount: sessions.count)
             HStack(alignment: .top, spacing: 8) {
                 AgentIcon(source: s.source)
                 VStack(alignment: .leading, spacing: 2) {
@@ -216,14 +215,10 @@ private struct ActivityCard: View {
     }
 
     private var listCard: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            StatsHeader(elapsed: "\(sessions.count) sessions", activeCount: sessions.count)
-            ForEach(sessions) { s in
-                SessionRow(s: s)
-                if s.id != sessions.last?.id { Divider().overlay(VNColor.hair) }
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(sessions) { s in SessionRow(s: s) }
         }
-        .padding(EdgeInsets(top: 6, leading: 14, bottom: 9, trailing: 14))
+        .padding(EdgeInsets(top: 10, leading: 15, bottom: 12, trailing: 15))
         .frame(width: 560, alignment: .leading)
     }
 
@@ -303,27 +298,7 @@ private struct SessionRow: View {
     }
 }
 
-private struct StatsHeader: View {
-    let elapsed: String
-    let activeCount: Int
-    var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "clock").font(.system(size: 9)).foregroundStyle(VNColor.faint)
-            Text(elapsed).font(VNFont.mono(10)).foregroundStyle(VNColor.muted)
-            Text("·").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
-            Text("\(activeCount) active").font(VNFont.mono(10))
-                .foregroundStyle(activeCount > 1 ? VNColor.go : VNColor.muted)
-            Spacer(minLength: 0)
-        }
-    }
-}
 
-private func elapsedString(since date: Date) -> String {
-    let s = max(0, Int(Date().timeIntervalSince(date)))
-    if s < 60 { return "\(s)s" }
-    if s < 3600 { return "\(s / 60)m" }
-    return "\(s / 3600)h \((s % 3600) / 60)m"
-}
 
 private struct FlashPill: View {
     let decision: VNDecision
