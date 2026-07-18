@@ -12,6 +12,8 @@ public struct AgentSpec: Sendable, Identifiable {
         case codexNotify
         /// Kimi's `config.toml` `[[hooks]]` array-of-tables (Claude-schema payloads).
         case kimiTOML(events: [HookEvent])
+        /// OpenCode's JS plugin, registered in opencode.json's `plugin` array.
+        case opencodePlugin
     }
 
     public struct HookEvent: Sendable {
@@ -78,6 +80,8 @@ public enum Agents {
               configFile: "config.toml", mechanism: .codexNotify),
         .init(id: "kimi", name: "Kimi Code", configDir: ".kimi",
               configFile: "config.toml", mechanism: .kimiTOML(events: claudeEvents)),
+        .init(id: "opencode", name: "OpenCode", configDir: ".config/opencode",
+              configFile: "opencode.json", mechanism: .opencodePlugin),
     ]
 
     public static func byID(_ id: String) -> AgentSpec? { all.first { $0.id == id } }

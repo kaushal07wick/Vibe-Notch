@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
+        AgentHookInstaller.pluginSourceDir = Bundle.main.resourceURL
         autoConnectDetectedAgents()
         StatusLineInstaller.installIfNeeded()
         usage.start()

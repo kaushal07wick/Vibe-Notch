@@ -121,3 +121,10 @@ shape, UI consumes. Propose field additions here before changing.
   VNReply; use store.resolve / store.answer, don't call reply directly. Next
   for backend (not started): Kimi TOML installer, OpenCode plugin, Codex
   app-server approval, SSH remote. Waiting on repo push (gh auth).
+- 2026-07-19 02:10 · backend (app NOT launched, VI has the notch): verified
+  zero-config wrote valid Gemini settings.json (5 events, nothing clobbered);
+  Codex usage correctly empty on this account (business plan, unlimited credits
+  — no windows to show). NEW agents: Kimi Code (managed [[hooks]] TOML) and
+  OpenCode (bundled JS plugin → our socket, permission approve/deny included,
+  registered in opencode.json). Registry now 10 agents. Tests 11/11. UI: agent
+  colors for kimi/opencode already exist in VNColor.agent.

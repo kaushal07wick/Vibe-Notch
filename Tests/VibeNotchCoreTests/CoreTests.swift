@@ -154,3 +154,16 @@ extension CoreTests {
         XCTAssertTrue(cleaned.contains("[tui]"), "foreign tables preserved")
     }
 }
+
+extension CoreTests {
+    func testOpenCodePluginRegistrationRoundTrip() {
+        let start: [String: Any] = ["plugin": ["/x/other.js"], "theme": "dark"]
+        let reg = AgentHookInstaller.opencodeRegistered(into: start, pluginPath: "/y/plugins/vibenotch.js")
+        XCTAssertEqual((reg["plugin"] as? [String])?.count, 2)
+        let again = AgentHookInstaller.opencodeRegistered(into: reg, pluginPath: "/y/plugins/vibenotch.js")
+        XCTAssertEqual((again["plugin"] as? [String])?.count, 2, "idempotent")
+        let un = AgentHookInstaller.opencodeUnregistered(from: reg)
+        XCTAssertEqual(un["plugin"] as? [String], ["/x/other.js"])
+        XCTAssertEqual(un["theme"] as? String, "dark")
+    }
+}

@@ -20,7 +20,7 @@ public struct AgentHookInstaller: Sendable {
 
     public var isConnected: Bool {
         guard let text = try? String(contentsOf: spec.configFileURL, encoding: .utf8) else { return false }
-        return text.contains(Self.marker)
+        return text.contains("vibenotch") // matches both the hook command and the plugin path
     }
 
     /// Install the hook binary (shared) and wire this agent's config.
@@ -31,6 +31,7 @@ public struct AgentHookInstaller: Sendable {
         case .cursorHooks(let events): try connectCursorHooks(events: events)
         case .codexNotify: try connectCodexNotify()
         case .kimiTOML(let events): try connectKimiTOML(events: events)
+        case .opencodePlugin: try connectOpenCodePlugin()
         }
     }
 
@@ -40,8 +41,13 @@ public struct AgentHookInstaller: Sendable {
         case .cursorHooks: try disconnectCursorHooks()
         case .codexNotify: try disconnectCodexNotify()
         case .kimiTOML: try disconnectKimiTOML()
+        case .opencodePlugin: try disconnectOpenCodePlugin()
         }
     }
+
+    /// Where the OpenCode plugin JS is copied from (set by the app at launch
+    /// to its bundle Resources; falls back to ~/.vibenotch/bin for CLI use).
+    public static nonisolated(unsafe) var pluginSourceDir: URL?
 
     /// Re-apply the current event set if already connected (picks up newly
     /// added events without the user re-clicking Connect). Idempotent.
@@ -227,6 +233,51 @@ public struct AgentHookInstaller: Sendable {
             out.append(line)
         }
         return out.joined(separator: "\n")
+    }
+
+    // MARK: OpenCode JS plugin
+
+    private var opencodePluginURL: URL {
+        spec.configDirURL.appendingPathComponent("plugins/vibenotch.js")
+    }
+
+    private func connectOpenCodePlugin() throws {
+        // Copy the plugin JS next to OpenCode's config.
+        guard let src = Self.pluginSourceDir?.appendingPathComponent("vibenotch-opencode.js"),
+              FileManager.default.fileExists(atPath: src.path) else { return }
+        try FileManager.default.createDirectory(at: opencodePluginURL.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try? FileManager.default.removeItem(at: opencodePluginURL)
+        try FileManager.default.copyItem(at: src, to: opencodePluginURL)
+
+        // Register in opencode.json's `plugin` array.
+        let root = readJSON() ?? [:]
+        backupOnce()
+        try writeJSON(Self.opencodeRegistered(into: root, pluginPath: opencodePluginURL.path))
+    }
+
+    private func disconnectOpenCodePlugin() throws {
+        try? FileManager.default.removeItem(at: opencodePluginURL)
+        guard let root = readJSON() else { return }
+        try writeJSON(Self.opencodeUnregistered(from: root))
+    }
+
+    /// Pure transform: add our plugin path to `plugin`. Idempotent.
+    static func opencodeRegistered(into root: [String: Any], pluginPath: String) -> [String: Any] {
+        var out = root
+        var plugins = out["plugin"] as? [String] ?? []
+        if !plugins.contains(where: { $0.contains("vibenotch") }) { plugins.append(pluginPath) }
+        out["plugin"] = plugins
+        return out
+    }
+
+    /// Pure transform: remove only our plugin entry.
+    static func opencodeUnregistered(from root: [String: Any]) -> [String: Any] {
+        var out = root
+        guard var plugins = out["plugin"] as? [String] else { return out }
+        plugins.removeAll { $0.contains("vibenotch") }
+        if plugins.isEmpty { out.removeValue(forKey: "plugin") } else { out["plugin"] = plugins }
+        return out
     }
 
     // MARK: File IO
