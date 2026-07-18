@@ -135,3 +135,22 @@ extension CoreTests {
         XCTAssertEqual(VNDecision.deny.agentBehavior, .deny)
     }
 }
+
+extension CoreTests {
+    func testKimiTOMLInstallUninstallRoundTrip() {
+        let events = [AgentSpec.HookEvent("PermissionRequest", timeout: 86_400), AgentSpec.HookEvent("Stop")]
+        let original = "model = \"kimi-k2\"\n\n[tui]\ntheme = \"dark\"\n"
+
+        let installed = AgentHookInstaller.kimiInstalled(into: original, events: events, command: "/x/vibenotch-hook --source kimi")
+        XCTAssertTrue(installed.contains("model = \"kimi-k2\""), "existing config preserved")
+        XCTAssertEqual(installed.components(separatedBy: "[[hooks]]").count - 1, 2, "one block per event")
+        XCTAssertTrue(installed.contains("timeout = 86400"), "PermissionRequest keeps its long timeout")
+
+        let twice = AgentHookInstaller.kimiInstalled(into: installed, events: events, command: "/x/vibenotch-hook --source kimi")
+        XCTAssertEqual(twice.components(separatedBy: "[[hooks]]").count - 1, 2, "idempotent")
+
+        let cleaned = AgentHookInstaller.kimiUninstalled(from: installed)
+        XCTAssertFalse(cleaned.contains("[[hooks]]"))
+        XCTAssertTrue(cleaned.contains("[tui]"), "foreign tables preserved")
+    }
+}

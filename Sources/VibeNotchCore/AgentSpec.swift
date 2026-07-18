@@ -10,6 +10,8 @@ public struct AgentSpec: Sendable, Identifiable {
         case cursorHooks(events: [String])
         /// Codex's `config.toml` single `notify` program.
         case codexNotify
+        /// Kimi's `config.toml` `[[hooks]]` array-of-tables (Claude-schema payloads).
+        case kimiTOML(events: [HookEvent])
     }
 
     public struct HookEvent: Sendable {
@@ -74,6 +76,8 @@ public enum Agents {
                                                "afterFileEdit", "stop"])),
         .init(id: "codex", name: "Codex", configDir: ".codex",
               configFile: "config.toml", mechanism: .codexNotify),
+        .init(id: "kimi", name: "Kimi Code", configDir: ".kimi",
+              configFile: "config.toml", mechanism: .kimiTOML(events: claudeEvents)),
     ]
 
     public static func byID(_ id: String) -> AgentSpec? { all.first { $0.id == id } }

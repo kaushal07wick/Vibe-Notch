@@ -30,6 +30,7 @@ public struct AgentHookInstaller: Sendable {
         case .jsonHooks(let events): try connectJSONHooks(events: events)
         case .cursorHooks(let events): try connectCursorHooks(events: events)
         case .codexNotify: try connectCodexNotify()
+        case .kimiTOML(let events): try connectKimiTOML(events: events)
         }
     }
 
@@ -38,6 +39,7 @@ public struct AgentHookInstaller: Sendable {
         case .jsonHooks: try disconnectJSONHooks()
         case .cursorHooks: try disconnectCursorHooks()
         case .codexNotify: try disconnectCodexNotify()
+        case .kimiTOML: try disconnectKimiTOML()
         }
     }
 
@@ -175,6 +177,56 @@ public struct AgentHookInstaller: Sendable {
         guard let text = try? String(contentsOf: spec.configFileURL, encoding: .utf8) else { return }
         try writeText(text.components(separatedBy: "\n").filter { !$0.contains(Self.marker) }
             .joined(separator: "\n"))
+    }
+
+    // MARK: Kimi config.toml [[hooks]] blocks
+
+    static let kimiMarker = "# vibenotch: managed hook — do not edit"
+
+    private func connectKimiTOML(events: [AgentSpec.HookEvent]) throws {
+        let text = (try? String(contentsOf: spec.configFileURL, encoding: .utf8)) ?? ""
+        guard !text.contains(Self.marker) else { return } // idempotent
+        backupOnce()
+        try writeText(Self.kimiInstalled(into: text, events: events, command: hookCommand))
+    }
+
+    private func disconnectKimiTOML() throws {
+        guard let text = try? String(contentsOf: spec.configFileURL, encoding: .utf8) else { return }
+        try writeText(Self.kimiUninstalled(from: text))
+    }
+
+    /// Pure transform: append one marked `[[hooks]]` block per event.
+    static func kimiInstalled(into text: String, events: [AgentSpec.HookEvent], command: String) -> String {
+        var out = Self.kimiUninstalled(from: text)
+        if !out.isEmpty && !out.hasSuffix("\n\n") { out += out.hasSuffix("\n") ? "\n" : "\n\n" }
+        for event in events {
+            out += """
+            \(kimiMarker)
+            [[hooks]]
+            event = "\(event.name)"
+            matcher = "*"
+            command = '''\(command)'''
+            timeout = \(event.timeout ?? 45)
+
+
+            """
+        }
+        return out
+    }
+
+    /// Pure transform: drop every marked block (marker line through blank line).
+    static func kimiUninstalled(from text: String) -> String {
+        var out: [String] = []
+        var skipping = false
+        for line in text.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces) == kimiMarker { skipping = true; continue }
+            if skipping {
+                if line.trimmingCharacters(in: .whitespaces).isEmpty { skipping = false }
+                continue
+            }
+            out.append(line)
+        }
+        return out.joined(separator: "\n")
     }
 
     // MARK: File IO
