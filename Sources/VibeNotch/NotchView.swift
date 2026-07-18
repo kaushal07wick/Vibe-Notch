@@ -113,14 +113,14 @@ struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
         HStack(spacing: 4) {
-            // OUR mascot — the Watcher — regardless of which brands are running
+            // OUR mascot — the Owl — regardless of which brands are running
             // (per-agent marks live in the expanded rows)
-            WatcherMark(px: 1.3, escalated: store.escalated)
+            OwlMark(px: 1.1, escalated: store.escalated)
             // …and the orbit spinner while any session works
             PixelSpinner(active: anyRunning)
         }
         // mirror-width flanks keep the shape centred on the physical notch
-        .frame(width: 26)
+        .frame(width: 32)
         .padding(.horizontal, 2)
     }
 
@@ -165,7 +165,7 @@ struct CompactTrailing: View {
             }
         }
         // mirror of CompactLeading — equal width keeps the notch split evenly
-        .frame(width: 26)
+        .frame(width: 32)
         .padding(.horizontal, 2)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }

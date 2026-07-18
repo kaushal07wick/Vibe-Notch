@@ -1074,3 +1074,88 @@ struct WatcherMark: View {
         .frame(width: 10 * px, height: 9 * px)
     }
 }
+
+/// The Owl — Vibe Notch's mascot (Guardian variant, docs/design/owl-mascot.py).
+/// Lives in the compact notch: slow blink, occasional glance. Escalation
+/// floods the plumage amber so an ignored permission is visible at a glance.
+struct OwlMark: View {
+    var px: CGFloat = 1.0
+    var escalated = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let open = [
+        "..d..........d..",
+        "..dd........dd..",
+        "..dbbbbbbbbbbd..",
+        ".dbbllllllllbbd.",
+        ".dblAAAllAAAlbd.",
+        "dbblAWAllAWAlbbd",
+        "dbblApAllApAlbbd",
+        "dbblAAAllAAAlbbd",
+        ".dbllllyyllllbd.",
+        ".dbltttttttlbd..",
+        ".dbltdtdtdtlbd..",
+        "..dblttttttbd...",
+        "..ddbbbbbbdd....",
+        "....y..y........",
+    ]
+    private static let blink: [String] = {
+        var g = open
+        g[5] = "dbbllllllllllbbd"
+        g[6] = "dbbldddlldddlbbd"
+        g[7] = "dbbllllllllllbbd"
+        return g
+    }()
+    private static let glance: [String] = {
+        var g = open
+        g[6] = "dbblAApllAAplbbd"
+        return g
+    }()
+
+    var body: some View {
+        // idle loop: open 1.5s → blink 0.16s → open 0.9s → glance 0.7s
+        TimelineView(.periodic(from: .now, by: 0.08)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3.26)
+            let grid: [String] = reduceMotion ? Self.open
+                : t < 1.5 ? Self.open
+                : t < 1.66 ? Self.blink
+                : t < 2.56 ? Self.open
+                : Self.glance
+            Canvas { c, _ in
+                for (y, row) in grid.enumerated() {
+                    for (x, ch) in row.enumerated() {
+                        guard let color = color(ch) else { continue }
+                        c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                           width: px, height: px)), with: .color(color))
+                    }
+                }
+            }
+            .frame(width: 16 * px, height: 14 * px)
+        }
+    }
+
+    private func color(_ ch: Character) -> Color? {
+        if escalated {
+            switch ch {
+            case "b", "l": return Color(hex: 0xE7A762)
+            case "d": return Color(hex: 0xB97F3E)
+            case "t": return Color(hex: 0xF0C48A)
+            case "W": return .white
+            case "k", "p": return Color(hex: 0x1C1814)
+            case "A", "y": return Color(hex: 0xF0B43C)
+            default: return nil
+            }
+        }
+        switch ch {
+        case "b": return Color(red: 0.588, green: 0.424, blue: 0.290)
+        case "d": return Color(red: 0.424, green: 0.290, blue: 0.188)
+        case "l": return Color(red: 0.722, green: 0.557, blue: 0.384)
+        case "t": return Color(red: 0.831, green: 0.722, blue: 0.557)
+        case "W": return Color(hex: 0xFAF8F0)
+        case "k": return Color(hex: 0x1C1814)
+        case "A", "y": return Color(hex: 0xF0B43C)
+        case "p": return Color(hex: 0x4F7DF0)
+        default: return nil
+        }
+    }
+}
