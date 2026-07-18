@@ -53,6 +53,18 @@ enum VNSettings {
         set { d.set(newValue, forKey: "ntfyTopic") }
     }
 
+    /// Localhost web dashboard (0 = off).
+    static var dashboardPort: Int {
+        get { d.integer(forKey: "dashboardPort") }
+        set { d.set(newValue, forKey: "dashboardPort") }
+    }
+
+    /// Labs: keep the notch above the lock screen / fullscreen (private API).
+    static var lockScreenNotch: Bool {
+        get { d.bool(forKey: "lockScreenNotch") }
+        set { d.set(newValue, forKey: "lockScreenNotch") }
+    }
+
     // MARK: Launch at login (SMAppService)
 
     static var launchAtLogin: Bool {

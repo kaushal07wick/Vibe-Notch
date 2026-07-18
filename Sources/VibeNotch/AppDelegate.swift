@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcuts: ShortcutMonitor!
     private let tunnels = SSHTunnelManager()
     private let privacy = PrivacyGuard()
+    private let dashboard = DashboardServer()
+    private var lockSpace: LockScreenSpace?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
@@ -28,6 +30,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeBadge()
         privacy.onChange = { [weak self] sharing in self?.store.privacyHold = sharing }
         privacy.start()
+        dashboard.stateProvider = { [weak self] in
+            self?.handleControl(VNInbound(type: .control, source: "web", event: "list")) ?? "{}"
+        }
+        applyDashboardSetting()
+        applyLockScreenSetting()
+    }
+
+    private func applyDashboardSetting() {
+        let port = VNSettings.dashboardPort
+        if port > 0 { dashboard.start(port: UInt16(port)) } else { dashboard.stop() }
+    }
+
+    private func applyLockScreenSetting() {
+        if VNSettings.lockScreenNotch {
+            if lockSpace == nil { lockSpace = LockScreenSpace() }
+            if let window = notch.panelWindow { lockSpace?.attach(window) }
+        } else {
+            lockSpace?.detach()
+            lockSpace = nil
+        }
     }
 
     /// Menu-bar icon shows the pending-approval count ("✦ 2") so a waiting
@@ -221,6 +243,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(rulesItem)
         }
 
+        let dash = NSMenuItem(title: "Web dashboard (localhost:4141)", action: #selector(toggleDashboard), keyEquivalent: "")
+        dash.target = self
+        dash.state = VNSettings.dashboardPort > 0 ? .on : .off
+        menu.addItem(dash)
+
+        let lock = NSMenuItem(title: "Labs: notch over lock screen", action: #selector(toggleLockScreen), keyEquivalent: "")
+        lock.target = self
+        lock.state = VNSettings.lockScreenNotch ? .on : .off
+        menu.addItem(lock)
+
         let toggle = NSMenuItem(title: "Toggle Panel", action: #selector(togglePanel), keyEquivalent: "t")
         toggle.target = self
         menu.addItem(toggle)
@@ -269,6 +301,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func toggleDashboard() {
+        VNSettings.dashboardPort = VNSettings.dashboardPort > 0 ? 0 : 4141
+        applyDashboardSetting()
+        if VNSettings.dashboardPort > 0, let url = URL(string: "http://localhost:4141") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func toggleLockScreen() {
+        VNSettings.lockScreenNotch.toggle()
+        applyLockScreenSetting()
+    }
 
     @objc private func editSafeList() {
         _ = SafeList.patterns() // ensure the file exists

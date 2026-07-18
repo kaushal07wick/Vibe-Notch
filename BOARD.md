@@ -319,3 +319,16 @@ shape, UI consumes. Propose field additions here before changing.
   counts); when sharing ends → chime + cards surface. `store.privacyHold`
   published if UI wants a "held for privacy" hint. Browser-tab shares aren't
   detectable (noted limitation). 27/27 tests.
+- 2026-07-19 05:25 · backend BATCH D — ALL TEN ADVANCED FEATURES COMPLETE:
+  (9) WEB DASHBOARD: menu toggle → http://localhost:4141 (127.0.0.1-only,
+  off by default). Auto-refreshing sessions+pending page + /state.json (same
+  payload as `vibenotch list`). Great on an iPad/phone via Tailscale.
+  (10) LABS — NOTCH OVER LOCK SCREEN: menu toggle (default off); pins the DNK
+  panel into a max-level CGS space (same private SkyLight technique
+  boring.notch ships). Watch for weirdness — it's Labs for a reason.
+  (11) MULTI-MAC: free via SSH Remote — the python client is portable, so
+  "Add SSH Server… youruser@other-mac" monitors another Mac's agents too.
+  Full advanced set recap: console mirror · git awareness · tokens ·
+  session archive · CLI · ntfy phone pings · per-project policies ·
+  screen-share guard · web dashboard · lock-screen labs. 27/27 tests, bundle
+  builds with CLI in Helpers. App still NOT launched (Kaushal's hold).

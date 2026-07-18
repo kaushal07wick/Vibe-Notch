@@ -40,6 +40,9 @@ final class NotchPanelController {
         })
     }
 
+    /// The underlying panel (labs lock-screen attach).
+    var panelWindow: NSWindow? { notch.windowController?.window }
+
     func show() {
         Task { await notch.compact() }
         expanded = false
