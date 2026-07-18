@@ -34,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dashboard.stateProvider = { [weak self] in
             self?.handleControl(VNInbound(type: .control, source: "web", event: "list")) ?? "{}"
         }
+        dashboard.actionHandler = { [weak self] action in
+            self?.handleControl(VNInbound(type: .control, source: "web", event: action)) ?? "{}"
+        }
         applyDashboardSetting()
         applyLockScreenSetting()
         away.onReturn = { [weak self] since in self?.store.showDigest(since: since) }
@@ -252,6 +255,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(rulesItem)
         }
 
+        let theme = NSMenuItem(title: "Sound theme", action: nil, keyEquivalent: "")
+        let themeMenu = NSMenu()
+        for name in ["chime", "arcade", "minimal"] {
+            let item = NSMenuItem(title: name.capitalized, action: #selector(pickTheme(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.state = VNSettings.soundTheme == name ? .on : .off
+            themeMenu.addItem(item)
+        }
+        theme.submenu = themeMenu
+        menu.addItem(theme)
+
         let dash = NSMenuItem(title: "Web dashboard (localhost:4141)", action: #selector(toggleDashboard), keyEquivalent: "")
         dash.target = self
         dash.state = VNSettings.dashboardPort > 0 ? .on : .off
@@ -319,6 +334,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func pickTheme(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        VNSettings.soundTheme = name
+        SoundManager.shared.play(.done)
+    }
 
     @objc private func toggleYolo() {
         let active = Date().timeIntervalSince1970 < VNSettings.yoloUntil

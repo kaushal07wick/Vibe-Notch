@@ -23,11 +23,24 @@ final class PrivacyGuard {
             if isSharing { isSharing = false; onChange?(false) }
             return
         }
-        let now = Self.detectSharing()
+        var now = Self.detectSharing()
+        if !now, VNSettings.focusGuard { now = Self.focusModeActive() }
         if now != isSharing {
             isSharing = now
             onChange?(now)
         }
+    }
+
+    /// Best-effort Focus detection: the DND assertions store is non-empty
+    /// while any Focus mode runs. Unreadable file (future macOS) = no-op.
+    static func focusModeActive() -> Bool {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/DoNotDisturb/DB/Assertions.json")
+        guard let data = try? Data(contentsOf: url),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let records = (obj["data"] as? [[String: Any]])?.first?["storeAssertionRecords"] as? [Any]
+        else { return false }
+        return !records.isEmpty
     }
 
     static func detectSharing() -> Bool {

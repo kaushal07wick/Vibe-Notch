@@ -337,6 +337,13 @@ final class EventStore: ObservableObject {
         let folder = (approval.inbound.cwd as NSString?)?.lastPathComponent ?? "agent"
         request.httpBody = Data("\(folder): \(approval.inbound.tool ?? "permission") awaiting approval".utf8)
         request.setValue("Vibe Notch", forHTTPHeaderField: "Title")
+        let port = VNSettings.dashboardPort
+        if port > 0 {
+            let host = ProcessInfo.processInfo.hostName
+            request.setValue(
+                "http, Approve, http://\(host):\(port)/approve; http, Deny, http://\(host):\(port)/deny",
+                forHTTPHeaderField: "Actions")
+        }
         URLSession.shared.dataTask(with: request).resume()
     }
 

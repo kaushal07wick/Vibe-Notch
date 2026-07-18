@@ -6,11 +6,17 @@ import VibeNotchCore
 enum VNSound {
     case permission, waiting, done
 
-    var notes: [(freq: Double, ms: Int)] {
-        switch self {
-        case .permission: return [(880, 95), (1318.5, 320)]                 // A5→E6 cheerful chime
-        case .waiting:    return [(1046.5, 260)]                            // soft C6 bloop
-        case .done:       return [(1046.5, 95), (1318.5, 95), (1568, 340)]  // C-E-G, happy rise
+    /// Per-theme note tables. "chime" = soft bells, "arcade" = 8-bit squares,
+    /// "minimal" = one quiet tick for everything.
+    func notes(theme: String) -> (notes: [(freq: Double, ms: Int)], square: Bool) {
+        switch (theme, self) {
+        case ("arcade", .permission): return ([(660, 70), (990, 70), (1320, 120)], true)
+        case ("arcade", .waiting):    return ([(523, 90), (392, 120)], true)
+        case ("arcade", .done):       return ([(784, 60), (988, 60), (1175, 60), (1568, 150)], true)
+        case ("minimal", _):          return ([(1200, 70)], false)
+        case (_, .permission):        return ([(880, 95), (1318.5, 320)], false)
+        case (_, .waiting):           return ([(1046.5, 260)], false)
+        case (_, .done):              return ([(1046.5, 95), (1318.5, 95), (1568, 340)], false)
         }
     }
 }
@@ -26,8 +32,8 @@ final class SoundManager {
 
     func play(_ sound: VNSound) {
         guard enabled else { return }
-        let key = "\(sound)"
-        let ns = cache[key] ?? customSound(for: sound) ?? NSSound(data: Self.wav(for: sound))
+        let key = "\(sound)-\(VNSettings.soundTheme)"
+        let ns = cache[key] ?? customSound(for: sound) ?? NSSound(data: Self.wav(for: sound, theme: VNSettings.soundTheme))
         cache[key] = ns
         ns?.volume = Float(VNSettings.soundVolume)
         ns?.stop()
@@ -48,17 +54,20 @@ final class SoundManager {
 
     // MARK: WAV synthesis
 
-    private static func wav(for sound: VNSound) -> Data {
+    private static func wav(for sound: VNSound, theme: String) -> Data {
         let sampleRate = 44_100
         var samples: [Int16] = []
-        for note in sound.notes {
+        let (notes, square) = sound.notes(theme: theme)
+        for note in notes {
             let count = sampleRate * note.ms / 1000
             for i in 0..<count {
                 let t = Double(i) / Double(sampleRate)
                 let attack = min(1.0, t / 0.006)                            // 6ms soft attack, no click
                 let decay = exp(-t * 6.5)                                   // bell-like fade
-                let wave = sin(2 * .pi * note.freq * t)
-                    + 0.28 * sin(2 * .pi * note.freq * 2 * t)               // 2nd harmonic warmth
+                let sine = sin(2 * .pi * note.freq * t)
+                let wave = square
+                    ? (sine >= 0 ? 0.7 : -0.7)                              // 8-bit square
+                    : sine + 0.28 * sin(2 * .pi * note.freq * 2 * t)        // bell warmth
                 let s = wave * attack * decay * 0.34
                 samples.append(Int16(max(-1, min(1, s)) * 32_767))
             }

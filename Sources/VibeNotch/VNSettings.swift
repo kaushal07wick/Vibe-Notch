@@ -53,6 +53,18 @@ enum VNSettings {
         set { d.set(newValue, forKey: "yoloUntil") }
     }
 
+    /// Alert sound theme: chime | arcade | minimal.
+    static var soundTheme: String {
+        get { d.string(forKey: "soundTheme") ?? "chime" }
+        set { d.set(newValue, forKey: "soundTheme") }
+    }
+
+    /// Also hold cards while a macOS Focus mode is on.
+    static var focusGuard: Bool {
+        get { d.bool(forKey: "focusGuard") }
+        set { d.set(newValue, forKey: "focusGuard") }
+    }
+
     /// Hold approval cards while the screen is being shared.
     static var screenShareGuard: Bool {
         get { d.object(forKey: "screenShareGuard") as? Bool ?? true }

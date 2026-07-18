@@ -8,6 +8,8 @@ import Network
 final class DashboardServer {
     private var listener: NWListener?
     var stateProvider: @MainActor () -> String = { "{}" }
+    /// Handles /approve /deny /approve_all (phone taps via ntfy actions).
+    var actionHandler: @MainActor (String) -> String = { _ in #"{"ok":false}"# }
 
     func start(port: UInt16) {
         stop()
@@ -36,9 +38,14 @@ final class DashboardServer {
 
     private func respond(_ connection: NWConnection, request: String) {
         let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
-        let (body, type): (String, String) = path.hasPrefix("/state")
-            ? (stateProvider(), "application/json")
-            : (Self.page, "text/html; charset=utf-8")
+        let (body, type): (String, String)
+        if path.hasPrefix("/state") {
+            (body, type) = (stateProvider(), "application/json")
+        } else if ["/approve", "/deny", "/approve_all", "/undo"].contains(where: path.hasPrefix) {
+            (body, type) = (actionHandler(String(path.dropFirst())), "application/json")
+        } else {
+            (body, type) = (Self.page, "text/html; charset=utf-8")
+        }
         let response = """
         HTTP/1.1 200 OK\r
         Content-Type: \(type)\r
