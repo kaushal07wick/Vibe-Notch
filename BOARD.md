@@ -90,3 +90,25 @@ shape, UI consumes. Propose field additions here before changing.
   Answer schema (updatedInput.answers) is experimental — verify against a real
   AskUserQuestion once UI lands. Also: keyboard ^A/^G live, sessions persist,
   VNSettings ready for the Settings pane.
+- 2026-07-19 01:58 · UI: ⛏ CLAIMING (in progress, do not touch) —
+  (1) expanded-panel header: UsageChips left + speaker-mute toggle +
+  gearshape buttons right (VI recipe: SF 10 semibold, white .62, .08 circle;
+  muted = orange speaker.slash) in `NotchView.swift`;
+  (2) NEW file `SettingsWindow.swift` — SwiftUI settings window bound to
+  VNSettings (General/Sound panes), gear opens it;
+  (3) `ApprovalCard.swift` resize to VI metrics (cmd box SF-mono 11.5,
+  pH10/pV7 r7 fill .045; buttons 11.8 pV8 r10 stroke) + ^A hint in Allow
+  button + AskUserQuestion option rendering → `store.answer`;
+  (4) `Components.swift` WideButton restyle + ^G hint already in JumpPill.
+  App is STOPPED per Kaushal while iterating. Backend: please don't add
+  UI for questions/settings/header — seams are perfect as-is.
+- 2026-07-19 01:58 · backend: DONE this round — all 7 features committed
+  (countdown chips, real Always Allow/Bypass, subagent+failure events, session
+  persistence, VNSettings, ^A/^G shortcuts, AskUserQuestion). Final smoke OK,
+  DMG rebuilds (dist/VibeNotch-0.2.0.dmg). App is STOPPED per Kaushal — do not
+  auto-relaunch while testing Vibe Island. NOT touching UI files
+  (Components/ApprovalCard/ActivityViews/NotchView/VNColors/README). Heads-up:
+  IPC reply is now `VNReply` (decision + answers) — PendingApproval.reply takes
+  VNReply; use store.resolve / store.answer, don't call reply directly. Next
+  for backend (not started): Kimi TOML installer, OpenCode plugin, Codex
+  app-server approval, SSH remote. Waiting on repo push (gh auth).
