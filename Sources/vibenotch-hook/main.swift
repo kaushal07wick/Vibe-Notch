@@ -62,7 +62,8 @@ if event == "PermissionRequest" {
 }
 
 // Every other event is a fire-and-forget notification.
+let message = obj["message"] as? String
 let msg = VNInbound(type: .notify, source: "claude", event: event,
-                    tool: tool, detail: summarize(toolInput), cwd: cwd, sessionId: sessionId)
+                    tool: tool, detail: message ?? summarize(toolInput), cwd: cwd, sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)

@@ -1,96 +1,231 @@
 import SwiftUI
 import VibeNotchCore
 
-/// Root notch content. Renders the top pending approval, else the latest
-/// notification, else a compact idle pill.
-struct NotchView: View {
+// Content only — DynamicNotchKit draws the notch shape, background, and morph.
+// We supply the expanded panel and the two compact flanks.
+
+// MARK: - Expanded
+
+/// The panel shown when the notch is expanded (an event, or on hover).
+struct ExpandedContent: View {
     @ObservedObject var store: EventStore
 
     var body: some View {
-        VStack(spacing: 0) {
+        Group {
             if let approval = store.pending.first {
-                ApprovalCard(approval: approval, store: store)
+                ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
+            } else if let flash = store.flash {
+                FlashPill(decision: flash)
             } else if let note = store.lastNotification {
-                NotificationPill(inbound: note)
+                NotificationRow(inbound: note)
             } else {
-                IdlePill()
+                StatusPanel(store: store)
             }
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(width: 380)
+        .foregroundStyle(VNColor.text)
+        .overlay(alignment: .bottom) { GlowSeam(style: seam) }
+    }
+
+    private var seam: SeamStyle {
+        if let a = store.pending.first { return SeamStyle(color: VNColor.agent(a.inbound.source), pulses: true) }
+        if let f = store.flash { return SeamStyle(color: f == .allow ? VNColor.go : VNColor.stop, pulses: false) }
+        if let n = store.lastNotification { return SeamStyle(color: VNColor.agent(n.source), pulses: false) }
+        return SeamStyle(color: VNColor.faint, pulses: false, dim: true)
+    }
+}
+
+// MARK: - Compact flanks (either side of the physical notch)
+
+struct CompactLeading: View {
+    @ObservedObject var store: EventStore
+    var body: some View {
+        PixelCaret(color: hue)
+            .padding(.leading, 10).padding(.trailing, 6)
+    }
+    private var hue: Color {
+        if let a = store.pending.first { return VNColor.agent(a.inbound.source) }
+        return VNColor.claude
+    }
+}
+
+struct CompactTrailing: View {
+    @ObservedObject var store: EventStore
+    var body: some View {
+        Circle().fill(dot)
+            .frame(width: 7, height: 7)
+            .padding(.trailing, 12).padding(.leading, 6)
+    }
+    private var dot: Color {
+        if store.pending.first != nil { return VNColor.amber }
+        if let f = store.flash { return f == .allow ? VNColor.go : VNColor.stop }
+        if let n = store.lastNotification { return VNColor.agent(n.source) }
+        return VNColor.faint
+    }
+}
+
+// MARK: - Cards
+
+private struct StatusPanel: View {
+    @ObservedObject var store: EventStore
+    var body: some View {
+        HStack(spacing: 10) {
+            PixelCaret(color: VNColor.claude)
+            Text("Vibe Notch").font(.system(size: 12.5, weight: .semibold))
+            Spacer(minLength: 8)
+            HStack(spacing: 6) {
+                Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
+                Text(ClaudeInstaller.isConnected ? "Claude connected" : "Not connected")
+                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 11)
     }
 }
 
 private struct ApprovalCard: View {
     let approval: PendingApproval
     @ObservedObject var store: EventStore
+    let queued: Int
+
+    private var hue: Color { VNColor.agent(approval.inbound.source) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "shield.lefthalf.filled")
-                Text(approval.inbound.tool ?? approval.inbound.event)
-                    .font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Text(approval.inbound.source.uppercased())
-                    .font(.system(size: 10, weight: .bold)).opacity(0.55)
-            }
-            if let detail = approval.inbound.detail {
-                Text(detail)
-                    .font(.system(size: 11, design: .monospaced))
-                    .lineLimit(2).truncationMode(.middle)
-                    .opacity(0.85)
-            }
+        VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
+                Circle().fill(hue).frame(width: 8, height: 8)
+                Text(approval.inbound.tool ?? approval.inbound.event)
+                    .font(.system(size: 13.5, weight: .semibold))
+                Spacer(minLength: 8)
+                Text(approval.inbound.source.uppercased())
+                    .font(.system(size: 9.5, weight: .bold))
+                    .tracking(1.2).foregroundStyle(VNColor.muted)
+            }
+            Text(approval.inbound.detail ?? "—")
+                .font(.system(size: 11.5, design: .monospaced))
+                .lineLimit(2).truncationMode(.middle)
+                .foregroundStyle(Color(hex: 0xDFE0DD))
+                .padding(.horizontal, 10).padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
+            HStack(spacing: 8) {
+                if let cwd = approval.inbound.cwd {
+                    Text(abbreviate(cwd))
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(VNColor.muted)
+                        .lineLimit(1).truncationMode(.head)
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
+                }
+                Spacer(minLength: 4)
+                if queued > 0 {
+                    Text("\(queued) more").font(.system(size: 10)).foregroundStyle(VNColor.faint)
+                }
                 Button("Deny") { store.resolve(approval, .deny) }
-                    .buttonStyle(PillButton(tint: .red))
+                    .buttonStyle(NotchButton(kind: .deny))
                 Button("Approve") { store.resolve(approval, .allow) }
-                    .buttonStyle(PillButton(tint: .green))
+                    .buttonStyle(NotchButton(kind: .approve(hue)))
             }
         }
-        .padding(12)
-        .frame(width: 376, alignment: .leading)
-        .background(.black.opacity(0.9), in: RoundedRectangle(cornerRadius: 16))
-        .foregroundStyle(.white)
+        .padding(EdgeInsets(top: 12, leading: 14, bottom: 14, trailing: 14))
+    }
+
+    private func abbreviate(_ path: String) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 }
 
-private struct NotificationPill: View {
+private struct NotificationRow: View {
     let inbound: VNInbound
     var body: some View {
+        HStack(spacing: 9) {
+            Circle().fill(VNColor.agent(inbound.source)).frame(width: 8, height: 8)
+            Text(inbound.detail ?? label)
+                .font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 8)
+            if inbound.source == "codex" {
+                Text("Jump ↵").font(.system(size: 11)).foregroundStyle(VNColor.text)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .overlay(Capsule().strokeBorder(VNColor.hair))
+            } else {
+                Text("now").font(.system(size: 11)).foregroundStyle(VNColor.faint)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 11)
+    }
+    private var label: String { inbound.source == "codex" ? "Codex is waiting for input" : inbound.event }
+}
+
+private struct FlashPill: View {
+    let decision: VNDecision
+    var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "bell.fill").font(.system(size: 11))
-            Text(inbound.detail ?? inbound.event)
-                .font(.system(size: 12, weight: .medium))
-                .lineLimit(1).truncationMode(.tail)
+            Image(systemName: decision == .allow ? "checkmark" : "xmark").font(.system(size: 11, weight: .bold))
+            Text(decision == .allow ? "Approved" : "Denied").font(.system(size: 12.5, weight: .medium))
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14).padding(.vertical, 8)
-        .frame(width: 320, alignment: .leading)
-        .background(.black.opacity(0.9), in: Capsule())
-        .foregroundStyle(.white)
+        .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
+        .padding(.horizontal, 18).padding(.vertical, 12)
     }
 }
 
-private struct IdlePill: View {
+// MARK: - Shared pieces
+
+struct SeamStyle { var color: Color; var pulses: Bool; var dim: Bool = false }
+
+private struct GlowSeam: View {
+    let style: SeamStyle
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var on = false
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sparkles").font(.system(size: 11))
-            Text("Vibe Notch").font(.system(size: 12, weight: .semibold))
-        }
-        .padding(.horizontal, 14).padding(.vertical, 7)
-        .background(.black.opacity(0.85), in: Capsule())
-        .foregroundStyle(.white)
+        Capsule().fill(style.color)
+            .frame(height: 2).shadow(color: style.color, radius: 6)
+            .padding(.horizontal, 40).padding(.bottom, 3)
+            .opacity(style.dim ? 0.45 : (style.pulses ? (on ? 1 : 0.4) : 0.9))
+            .onAppear {
+                if style.pulses && !reduceMotion {
+                    withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { on = true }
+                }
+            }
     }
 }
 
-private struct PillButton: ButtonStyle {
-    let tint: Color
+/// The pixel caret — the notch is a caret. 7×4 downward chevron.
+struct PixelCaret: View {
+    var color: Color
+    var px: CGFloat = 3
+    private let cells: [(Int, Int)] = [(0,0),(6,0),(1,1),(5,1),(2,2),(4,2),(3,3)]
+    var body: some View {
+        Canvas { ctx, _ in
+            for (c, r) in cells {
+                ctx.fill(Path(CGRect(x: CGFloat(c) * px, y: CGFloat(r) * px, width: px, height: px)),
+                         with: .color(color))
+            }
+        }
+        .frame(width: 7 * px, height: 4 * px)
+        .shadow(color: color.opacity(0.5), radius: 2)
+    }
+}
+
+private struct NotchButton: ButtonStyle {
+    enum Kind { case deny; case approve(Color) }
+    let kind: Kind
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let label = configuration.label
             .font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 16).padding(.vertical, 6)
-            .background(tint.opacity(configuration.isPressed ? 0.5 : 0.85), in: Capsule())
-            .foregroundStyle(.white)
+            .padding(.horizontal, 15).padding(.vertical, 6)
+        switch kind {
+        case .deny:
+            return AnyView(label.foregroundStyle(VNColor.text)
+                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
+                .opacity(configuration.isPressed ? 0.7 : 1))
+        case .approve(let hue):
+            return AnyView(label.foregroundStyle(Color(hex: 0x16110E))
+                .background(hue, in: RoundedRectangle(cornerRadius: 9))
+                .brightness(configuration.isPressed ? -0.06 : 0))
+        }
     }
 }

@@ -27,6 +27,11 @@
 			<key>primary</key>
 			<true/>
 		</dict>
+		<key>VibeNotchCoreTests</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
 		<key>vibenotch-hook</key>
 		<dict>
 			<key>primary</key>
