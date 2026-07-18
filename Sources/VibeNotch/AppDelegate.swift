@@ -17,6 +17,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var lockSpace: LockScreenSpace?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Single instance across bundle paths (.build dev copy vs /Applications):
+        // the newest launch wins — older copies are zombie panels holding no socket.
+        let me = NSRunningApplication.current
+        for app in NSRunningApplication.runningApplications(
+            withBundleIdentifier: Bundle.main.bundleIdentifier ?? "com.kaushalchoudhary.vibenotch")
+        where app != me {
+            NSLog("VibeNotch: terminating duplicate instance pid \(app.processIdentifier)")
+            app.forceTerminate()
+        }
+
         try? VNPaths.ensure()
         AgentHookInstaller.pluginSourceDir = Bundle.main.resourceURL
         autoConnectDetectedAgents()

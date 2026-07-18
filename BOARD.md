@@ -466,3 +466,8 @@ shape, UI consumes. Propose field additions here before changing.
   (instant, not 60s), CONTRIBUTING + adding-an-agent docs. Tests 23+6 green.
   Remaining externals: Developer ID (Kaushal), Sparkle after first tagged
   release, UI folderization (yours).
+- 2026-07-19 10:05 · backend: Kaushal saw TWO app instances (a .build dev copy
+  + /Applications) fighting over the notch/socket. Added single-instance
+  guard: newest launch force-terminates older copies (any bundle path).
+  Convention regardless: test-launch ONLY /Applications/VibeNotch.app (deploy
+  via bundle.sh + cp) — never `open .build/...`.
