@@ -124,7 +124,7 @@ if event == "PermissionRequest" {
                         gitBranch: gitInfo(cwd).branch, gitDirty: gitInfo(cwd).dirty,
                         sessionId: sessionId)
     let reply = IPCClient.send(msg)
-    if reply == nil {
+    if reply == nil, ProcessInfo.processInfo.environment["VIBENOTCH_SOCKET"] == nil {
         // Evidence trail for "the notch missed a permission": app unreachable
         // or no decision — the agent's own prompt takes over either way.
         let line = "\(ISO8601DateFormatter().string(from: Date())) source=\(source) tool=\(tool ?? "?") sid=\(sessionId ?? "?")\n"

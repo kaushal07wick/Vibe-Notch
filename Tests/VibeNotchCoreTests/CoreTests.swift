@@ -76,7 +76,7 @@ final class CoreTests: XCTestCase {
     // MARK: IPC round-trip
 
     func testIPCRequestReturnsDecisionAndNotifyDoesNot() throws {
-        let sock = NSTemporaryDirectory() + "vn-test-\(UUID().uuidString).sock"
+        let sock = "/tmp/vn-test-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(
             socketPath: sock,
             onNotify: { _ in },
@@ -285,7 +285,7 @@ extension CoreTests {
 
 extension CoreTests {
     func testControlChannelRoundTrip() throws {
-        let sock = NSTemporaryDirectory() + "vn-ctl-\(UUID().uuidString).sock"
+        let sock = "/tmp/vn-ctl-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
                                onRequest: { _, _, complete in complete(VNReply(decision: .deny)) },

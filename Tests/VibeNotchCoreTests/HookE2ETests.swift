@@ -32,7 +32,7 @@ final class HookE2ETests: XCTestCase {
 
     func testPermissionRequestAllowEndToEnd() throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinary.path))
-        let sock = NSTemporaryDirectory() + "e2e-\(UUID().uuidString.prefix(8)).sock"
+        let sock = "/tmp/e2e-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
                                onRequest: { _, inbound, complete in
@@ -51,14 +51,14 @@ final class HookE2ETests: XCTestCase {
     func testPermissionRequestFailOpenWhenServerAbsent() throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinary.path))
         let out = try runHook(stdin: #"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"x"},"session_id":"e2e"}"#,
-                              socketPath: NSTemporaryDirectory() + "missing.sock")
+                              socketPath: "/tmp/vn-missing.sock")
         XCTAssertEqual(out.trimmingCharacters(in: .whitespacesAndNewlines), "",
                        "no server → no output → agent's own flow decides")
     }
 
     func testQuestionAnswersRideUpdatedInput() throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinary.path))
-        let sock = NSTemporaryDirectory() + "e2e-\(UUID().uuidString.prefix(8)).sock"
+        let sock = "/tmp/e2e-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
                                onRequest: { _, inbound, complete in
@@ -78,7 +78,7 @@ final class HookE2ETests: XCTestCase {
 extension HookE2ETests {
     func testCodexPermissionRequestUsesCodexEnvelope() throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
-        let sock = NSTemporaryDirectory() + "e2e-\(UUID().uuidString.prefix(8)).sock"
+        let sock = "/tmp/e2e-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
                                onRequest: { _, inbound, complete in
@@ -129,7 +129,7 @@ extension HookE2ETests {
             .appendingPathComponent("Resources/vibenotch-remote-hook.py")
         try XCTSkipUnless(FileManager.default.fileExists(atPath: client.path))
 
-        let sock = NSTemporaryDirectory() + "e2e-py-\(UUID().uuidString.prefix(8)).sock"
+        let sock = "/tmp/e2e-py-\(UUID().uuidString.prefix(8)).sock"
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
                                onRequest: { _, inbound, complete in
@@ -164,7 +164,7 @@ extension HookE2ETests {
     /// onCancel so the notch card dismisses instead of lingering.
     func testHookDeathCancelsPendingRequest() throws {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
-        let sock = NSTemporaryDirectory() + "e2e-cx-\(UUID().uuidString.prefix(8)).sock"
+        let sock = "/tmp/e2e-cx-\(UUID().uuidString.prefix(8)).sock"
         let cancelled = expectation(description: "onCancel fired")
         let server = IPCServer(socketPath: sock,
                                onNotify: { _ in },
