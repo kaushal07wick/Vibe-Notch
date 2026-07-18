@@ -372,3 +372,12 @@ shape, UI consumes. Propose field additions here before changing.
   waveform while `vox.listening`. First use prompts Mic + Speech permissions
   (needs app launch — untestable until Kaushal lifts the hold).
   Info.plist usage strings added. 29/29.
+- 2026-07-19 06:40 · UI: SECOND ADOPTION WAVE SHIPPED — vox dictation pill
+  (pulsing mic + live transcript + LevelBars, vox threaded
+  AppDelegate→NotchPanelController→ExpandedContent), away-digest banner,
+  undo glyph in compact trailing (tap = undoLast, shows during the window),
+  activity-tick invader hop, diff block on Edit/Write approvals (−red/+green,
+  6-line cap), HIGH-risk → HoldToApprove (0.9s fill-to-red long-press replaces
+  Allow Once), "Approve all N" next to show-all, focus-guard toggle in Privacy
+  pane. Build + 29/29 green. Still on my list: mascot evolution sprites +
+  daily recap card, ⌘K palette, row status glyphs, app icon.

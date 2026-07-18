@@ -23,13 +23,24 @@ struct ApprovalCard: View {
                 planButtons
             } else {
                 toolLine
-                commandBlock
+                if i.diffOld != nil || i.diffNew != nil {
+                    diffBlock
+                } else {
+                    commandBlock
+                }
                 buttons
             }
             if queued > 0 {
-                Text("Show all \(queued + 1) sessions")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.faint)
-                    .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
+                HStack(spacing: 14) {
+                    Text("Show all \(queued + 1) sessions")
+                        .font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                    Button { store.approveAll() } label: {
+                        Text("Approve all \(queued + 1)")
+                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(VNColor.go)
+                    }
+                    .buttonStyle(PressFeedback())
+                }
+                .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
             }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
@@ -92,13 +103,57 @@ struct ApprovalCard: View {
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
     }
 
+    private var risk: Risk { RiskGrader.grade(tool: i.tool, detail: i.detail) }
+
     private var buttons: some View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
-            WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
+            if risk == .high {
+                // visible friction on dangerous commands: hold to approve
+                HoldToApprove { store.resolve(approval, .allow) }
+            } else {
+                WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
+            }
             // Always Allow only when the agent offers a rule (backend seam:
             // VNInbound.permissionSuggestions — requested on the board)
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
+        }
+    }
+
+    /// Side-by-side minus/plus block for Edit/Write approvals.
+    private var diffBlock: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let old = i.diffOld, !old.isEmpty {
+                diffLines(old, prefix: "-", color: VNColor.stop)
+            }
+            if let new = i.diffNew, !new.isEmpty {
+                diffLines(new, prefix: "+", color: VNColor.go)
+            }
+            if let desc = i.commandDescription {
+                Text(desc).font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1).padding(.top, 3)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+    }
+
+    private func diffLines(_ text: String, prefix: String, color: Color) -> some View {
+        let lines = text.components(separatedBy: "\n")
+        let shown = lines.prefix(6)
+        return VStack(alignment: .leading, spacing: 1) {
+            ForEach(Array(shown.enumerated()), id: \.offset) { _, line in
+                Text("\(prefix) \(line)")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(color.opacity(0.9))
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            if lines.count > 6 {
+                Text("\(prefix) +\(lines.count - 6) lines").font(.system(size: 10))
+                    .foregroundStyle(color.opacity(0.5))
+            }
         }
     }
 
@@ -140,6 +195,40 @@ struct ApprovalCard: View {
             WideButton(title: "Keep planning", kind: .deny) { store.resolve(approval, .deny) }
             WideButton(title: "Approve plan", kind: .primary) { store.resolve(approval, .allow) }
         }
+    }
+}
+
+/// White pill that fills red while held — releases the approval at 100%.
+struct HoldToApprove: View {
+    let approve: () -> Void
+    @State private var progress: CGFloat = 0
+    @GestureState private var holding = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                RoundedRectangle(cornerRadius: 13, style: .continuous).fill(.white)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(Color(hex: 0xB0413F).opacity(0.85))
+                    .frame(width: geo.size.width * progress)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(progress > 0 ? "Keep holding…" : "Hold to Allow")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(progress > 0.45 ? .white : .black)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .gesture(
+                LongPressGesture(minimumDuration: 0.9)
+                    .updating($holding) { _, state, _ in state = true }
+                    .onEnded { _ in approve() }
+            )
+            .onChange(of: holding) { _, h in
+                withAnimation(h ? .linear(duration: 0.9) : .easeOut(duration: 0.2)) {
+                    progress = h ? 1 : 0
+                }
+            }
+        }
+        .frame(height: 31)
     }
 }
 

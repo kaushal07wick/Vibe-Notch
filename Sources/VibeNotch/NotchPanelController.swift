@@ -16,12 +16,12 @@ final class NotchPanelController {
     /// briefly so the collapse isn't immediately re-expanded.
     private var suppressHoverUntil = Date.distantPast
 
-    init(store: EventStore, usage: UsageModel) {
+    init(store: EventStore, usage: UsageModel, vox: VoxFlow) {
         self.store = store
         notch = DynamicNotch(
             hoverBehavior: .all,
             style: .auto,
-            expanded: { ExpandedContent(store: store, usage: usage) },
+            expanded: { ExpandedContent(store: store, usage: usage, vox: vox) },
             compactLeading: { CompactLeading(store: store) },
             compactTrailing: { CompactTrailing(store: store) }
         )

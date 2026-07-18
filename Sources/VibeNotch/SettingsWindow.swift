@@ -212,6 +212,10 @@ private struct PrivacyPane: View {
                    caption: "While your screen is shared, approval cards queue silently — nothing pops up mid-demo.") {
             VNToggle(isOn: VNSettings.screenShareGuard) { VNSettings.screenShareGuard = $0 }
         }
+        SettingRow(label: "Focus-mode guard",
+                   caption: "Also hold cards quietly while a macOS Focus is on.") {
+            VNToggle(isOn: VNSettings.focusGuard) { VNSettings.focusGuard = $0 }
+        }
         SettingRow(label: "Auto-approve safe list",
                    caption: "Simple read-only commands (git status, ls, pwd…) approve silently.") {
             VNToggle(isOn: VNSettings.safeListEnabled) { VNSettings.safeListEnabled = $0 }

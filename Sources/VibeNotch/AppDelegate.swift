@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         StatusLineInstaller.installIfNeeded()
         usage.start()
         setupStatusItem()
-        notch = NotchPanelController(store: store, usage: usage)
+        notch = NotchPanelController(store: store, usage: usage, vox: vox)
         notch.show()
         shortcuts = ShortcutMonitor(store: store, voxToggle: { [weak self] in self?.vox.toggle() })
         startServer()
