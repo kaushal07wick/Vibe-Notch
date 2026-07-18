@@ -899,6 +899,14 @@ struct OpenAILogoShape: Shape {
 
 /// Small pixel-art status glyphs drawn next to the mascot (VI style).
 struct PixelGlyph: View {
+    static let folder = [
+        "ooo......",
+        "ooooooooo",
+        "o.......o",
+        "o.......o",
+        "o.......o",
+        "ooooooooo",
+    ]
     static let question = [
         ".ooo.",
         "o...o",

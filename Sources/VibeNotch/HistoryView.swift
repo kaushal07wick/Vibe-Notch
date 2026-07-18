@@ -177,7 +177,7 @@ private struct HistoryRow: View {
             close()
         } label: {
             HStack(alignment: .center, spacing: 10) {
-                ProjectTile(name: entry.folder)
+                PixelGlyph(grid: PixelGlyph.folder, color: VNColor.paper.opacity(0.4), px: 2)
                 VStack(alignment: .leading, spacing: 1.5) {
                     Text(entry.task)
                         .font(.system(size: 12))
@@ -186,7 +186,7 @@ private struct HistoryRow: View {
                     HStack(spacing: 5) {
                         Text(entry.folder)
                             .font(VNFont.sysMono(10, .semibold))
-                            .foregroundStyle(ProjectTile.tint(entry.folder))
+                            .foregroundStyle(VNColor.paper.opacity(0.55))
                         Text("·").foregroundStyle(VNColor.faint)
                         Text(ageString(entry.date))
                             .font(VNFont.sysMono(10, .medium))
@@ -212,32 +212,5 @@ private struct HistoryRow: View {
         .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
         .help("\(entry.cwd)\nclaude --resume \(entry.id)")
-    }
-}
-
-/// Deterministic colored tile per project — same folder, same hue, so
-/// repeated projects group visually at a glance.
-struct ProjectTile: View {
-    let name: String
-
-    private static let palette: [Color] = [
-        Color(hex: 0xD97742), Color(hex: 0x6FB982), Color(hex: 0x4F7DF0),
-        Color(hex: 0xE7A762), Color(hex: 0xC084FC), Color(hex: 0x3E9D8F),
-        Color(hex: 0xE06D8C), Color(hex: 0x8A9BE0),
-    ]
-
-    static func tint(_ name: String) -> Color {
-        var h: UInt32 = 5381
-        for b in name.utf8 { h = (h << 5) &+ h &+ UInt32(b) }
-        return palette[Int(h % UInt32(palette.count))]
-    }
-
-    var body: some View {
-        let tint = Self.tint(name)
-        Text(String(name.prefix(1)).uppercased())
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(width: 24, height: 24)
-            .background(tint.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
