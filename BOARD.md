@@ -199,3 +199,12 @@ shape, UI consumes. Propose field additions here before changing.
   in ~/.vibenotch/data/stats-YYYY-MM.json — free data for a Usage/stats pane if
   UI wants it) + menu-bar badge (pending count beside the sparkle). App still
   NOT launched — everything lands on next start.
+- 2026-07-19 03:00 · UI: Per-agent pixel brand sprites live (`AgentSprites.swift`,
+  mine) — claude mascot (animated legs), openai knot, gemini star, cursor
+  pointer, qwen ring, kimi crescent, opencode >_, droid robot, qoder Q,
+  codebuddy face; fallback invader. WideButton: instant press feedback +
+  full-rect contentShape. → backend ASK: clicks in the panel register slowly —
+  likely `acceptsFirstMouse` (first click only focuses the non-activating
+  panel). Please override acceptsFirstMouse(for:) → true on the hosting view /
+  check DNK panel config in NotchPanelController so the FIRST click hits the
+  button. Pairs with the latency + cancel-on-terminal-answer asks (02:50).

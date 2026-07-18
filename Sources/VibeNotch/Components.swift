@@ -111,10 +111,11 @@ struct WideButton: View {
             .lineLimit(1)
             .frame(maxWidth: .infinity).padding(.vertical, 6.5)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressFeedback())
         .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
             .strokeBorder(Color.white.opacity(kind == .deny ? 0.09 : 0), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .foregroundStyle(foreground)
     }
 
@@ -129,6 +130,16 @@ struct WideButton: View {
     private var foreground: Color { if case .primary = kind { .black } else { .white } }
 }
 
+/// Immediate visual press feedback — the click registers to the eye instantly.
+struct PressFeedback: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Mascots & spinners
 
 /// Per-agent brand glyph.
@@ -136,8 +147,8 @@ struct AgentIcon: View {
     let source: String
     var size: CGFloat = 16
     var body: some View {
-        // the mascot IS the agent icon (VI style): pixel invader in brand color
-        PixelInvader(color: VNColor.agent(source), px: size / 8)
+        // each agent gets its own pixel brand mark (claude mascot, openai knot, …)
+        AgentSpriteView(source: source, size: size)
     }
 }
 
