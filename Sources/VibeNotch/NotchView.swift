@@ -1,11 +1,10 @@
 import SwiftUI
 import VibeNotchCore
 
-// Content only — DynamicNotchKit draws the notch shape, background, and morph.
-// Matches Vibe Island: animated pixel invader in compact, wide cards on expand.
+// Root notch content. DynamicNotchKit draws the notch shape, background, and
+// morph; these views supply the expanded panel and the compact flanks.
 
-// MARK: - Expanded
-
+/// The expanded panel: approval card > decision flash > session activity.
 struct ExpandedContent: View {
     @ObservedObject var store: EventStore
 
@@ -20,6 +19,7 @@ struct ExpandedContent: View {
         .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)
     }
 
+    /// Identity of the visible state — drives the cross-fade/scale transition.
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
         if let f = store.flash { return "flash-\(f.rawValue)" }
@@ -37,11 +37,11 @@ struct ExpandedContent: View {
             ActivityCard(sessions: store.activeSessions, full: store.hovering)
         }
     }
-
 }
 
-// MARK: - Compact flanks
+// MARK: - Compact flanks (either side of the physical notch)
 
+/// One animated pixel invader per active agent, in its brand color.
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
@@ -49,20 +49,23 @@ struct CompactLeading: View {
             if activeAgents.isEmpty {
                 PixelInvader(color: VNColor.invader) // idle mascot
             } else {
-                // one animated pixel invader per active agent, in its brand color
                 ForEach(activeAgents, id: \.self) { PixelInvader(color: VNColor.agent($0), px: 2) }
             }
         }
         .padding(.leading, 11).padding(.trailing, 6)
     }
+
     /// Distinct agents that have a live session, most-recent first.
     private var activeAgents: [String] {
         var seen = Set<String>(); var out: [String] = []
-        for s in store.activeSessions where !seen.contains(s.source) { seen.insert(s.source); out.append(s.source) }
+        for s in store.activeSessions where !seen.contains(s.source) {
+            seen.insert(s.source); out.append(s.source)
+        }
         return out
     }
 }
 
+/// Active-session count (or a dim idle dot).
 struct CompactTrailing: View {
     @ObservedObject var store: EventStore
     var body: some View {
@@ -79,466 +82,4 @@ struct CompactTrailing: View {
         .padding(.trailing, 13).padding(.leading, 6)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
-}
-
-// MARK: - Cards
-
-private struct ApprovalCard: View {
-    let approval: PendingApproval
-    @ObservedObject var store: EventStore
-    let queued: Int
-    private var i: VNInbound { approval.inbound }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
-                AgentIcon(source: i.source)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(titleText).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                    if let user = i.userMessage {
-                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
-                            .lineLimit(1).truncationMode(.tail)
-                    }
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 5) {
-                    AgentPill(source: i.source)
-                    if let m = i.model { ModelPill(model: m) }
-                    if let term = i.terminal { TermPill(name: term) }
-                    JumpPill(terminal: i.terminal)
-                }
-            }
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(VNColor.amber)
-                Text(i.tool ?? "Tool").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.amber)
-                Spacer(minLength: 0)
-            }
-            VStack(alignment: .leading, spacing: 5) {
-                (Text("$ ").foregroundStyle(VNColor.amber) + Text(i.detail ?? "").foregroundStyle(Color(hex: 0xE7E8E4)))
-                    .font(VNFont.mono(11.5)).lineLimit(3).truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
-                if let desc = i.commandDescription {
-                    Text(desc).font(.system(size: 11)).foregroundStyle(VNColor.muted).lineLimit(1)
-                }
-            }
-            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
-            HStack(spacing: 8) {
-                WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
-                WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
-                WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .allow) }
-                WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .allow) }
-            }
-            if queued > 0 {
-                Text("Show all \(queued + 1) sessions")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.faint)
-                    .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
-            }
-        }
-        .padding(EdgeInsets(top: 6, leading: 15, bottom: 10, trailing: 15))
-        .frame(width: 540)
-    }
-
-    private var titleText: String {
-        let folder = (i.cwd as NSString?)?.lastPathComponent ?? "session"
-        if let task = i.title, !task.isEmpty { return "\(folder) · \(task)" }
-        return folder
-    }
-}
-
-/// Shows what active agent sessions are doing right now (or an idle pill).
-private struct ActivityCard: View {
-    let sessions: [SessionActivity]
-    let full: Bool
-
-    var body: some View {
-        if sessions.isEmpty {
-            idlePill
-        } else if sessions.count > 1 && full {
-            listCard
-        } else {
-            singleCard(sessions[0])
-        }
-    }
-
-    private var idlePill: some View {
-        HStack(spacing: 12) {
-            PixelInvader(color: VNColor.invader, px: 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("vibe-notch").font(.system(size: 13, weight: .semibold))
-                Text(ClaudeInstaller.isConnected ? "no active sessions" : "not connected")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
-            }
-            Spacer(minLength: 12)
-        }
-        .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
-        .frame(width: 300)
-    }
-
-    private func singleCard(_ s: SessionActivity) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 8) {
-                AgentIcon(source: s.source)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(titleText(s)).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                    if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
-                            .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 5) {
-                    AgentPill(source: s.source)
-                    if let m = s.model { ModelPill(model: m) }
-                    if let term = s.terminal { TermPill(name: term) }
-                    JumpPill(terminal: s.terminal)
-                }
-            }
-            activityLine(s)
-        }
-        .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-        .frame(width: 540, alignment: .leading)
-        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
-    }
-
-    private var listCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            sessionsHeader
-            VStack(alignment: .leading, spacing: 13) {
-                ForEach(sessions) { s in SessionRow(s: s) }
-            }
-            .padding(.top, 11)
-        }
-        .padding(EdgeInsets(top: 9, leading: 18, bottom: 12, trailing: 18))
-        .frame(width: 540, alignment: .leading)
-    }
-
-    private var sessionsHeader: some View {
-        HStack(spacing: 9) {
-            Text("SESSIONS").font(VNFont.sysMono(10.5, .semibold)).tracking(1.4)
-                .foregroundStyle(VNColor.paper.opacity(0.55))
-            Spacer(minLength: 8)
-            ForEach(metrics, id: \.label) { metric in
-                HStack(spacing: 4) {
-                    if let color = metric.color { Circle().fill(color).frame(width: 5.5, height: 5.5) }
-                    Text(metric.label).font(VNFont.sysMono(10.5, .semibold))
-                        .foregroundStyle(VNColor.paper.opacity(metric.color == nil ? 0.34 : 0.48))
-                }
-            }
-        }
-        .padding(.bottom, 8)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
-    }
-
-    private var metrics: [(label: String, color: Color?)] {
-        let running = sessions.filter { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }.count
-        let waiting = sessions.filter { $0.event == "Notification" }.count
-        let done = sessions.filter { $0.event == "Stop" }.count
-        var out: [(String, Color?)] = [("\(sessions.count) Sessions", nil)]
-        if waiting > 0 { out.append(("\(waiting) waiting", VNColor.amber)) }
-        if running > 0 { out.append(("\(running) running", VNColor.running)) }
-        if done > 0 { out.append(("\(done) done", VNColor.go)) }
-        return out
-    }
-
-    private func titleText(_ s: SessionActivity) -> String {
-        let folder = s.folder ?? "session"
-        if let task = s.task, !task.isEmpty { return "\(folder) · \(task)" }
-        return folder
-    }
-
-    @ViewBuilder private func activityLine(_ s: SessionActivity) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                statusIcon(s.event)
-                Text(statusLabel(s)).font(.system(size: 11.5, weight: .medium)).foregroundStyle(statusColor(s.event))
-                Spacer(minLength: 0)
-            }
-            // the real terminal text — command, output, or the agent's message
-            if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
-                TerminalBlock(text: detail, prompt: s.event == "PreToolUse", lines: full ? 8 : 3)
-            }
-        }
-    }
-
-    @ViewBuilder private func statusIcon(_ event: String) -> some View {
-        switch event {
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit": AsciiSpinner(color: VNColor.running)
-        case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
-        case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
-        default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
-        }
-    }
-
-    private func statusLabel(_ s: SessionActivity) -> String {
-        switch s.event {
-        case "PreToolUse": return "Running \(s.tool ?? "tool")"
-        case "PostToolUse": return s.tool ?? "Output"
-        case "Notification": return s.detail ?? "Waiting for input"
-        case "Stop": return "Finished"
-        case "UserPromptSubmit": return "Thinking…"
-        default: return "Working…"
-        }
-    }
-
-    private func statusColor(_ event: String) -> Color {
-        switch event {
-        case "Notification": return VNColor.amber
-        case "Stop": return VNColor.go
-        default: return VNColor.text
-        }
-    }
-}
-
-/// A terminal-style block — the tail of the real command output/message, in mono.
-private struct TerminalBlock: View {
-    let text: String
-    var prompt: Bool = false
-    let lines: Int
-    var body: some View {
-        let tail = text.components(separatedBy: "\n").suffix(lines).joined(separator: "\n")
-        Text(prompt ? "$ \(tail)" : tail)
-            .font(VNFont.mono(11))
-            .foregroundStyle(Color(hex: 0xC8CDD4))
-            .lineLimit(lines).truncationMode(.tail)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(9)
-            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(VNColor.hair))
-    }
-}
-
-/// A compact row per session in the multi-session list — tap to jump to its terminal.
-private struct SessionRow: View {
-    let s: SessionActivity
-    var body: some View {
-        Button { TerminalJumper.jump(s.terminal) } label: {
-            HStack(alignment: .top, spacing: 9) {
-                AgentIcon(source: s.source, size: 14)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(titleText).font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                    if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
-                            .lineLimit(1).truncationMode(.tail)
-                    }
-                    Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.faint).lineLimit(1).truncationMode(.tail)
-                }
-                Spacer(minLength: 8)
-                HStack(spacing: 5) {
-                    AgentPill(source: s.source)
-                    if let m = s.model { ModelPill(model: m) }
-                    if let t = s.terminal { TermPill(name: t) }
-                    Text(ageString(s.updatedAt)).font(VNFont.sysMono(10.5, .medium))
-                        .foregroundStyle(VNColor.paper.opacity(0.45))
-                        .frame(minWidth: 28, alignment: .trailing)
-                }
-            }
-            .padding(.vertical, 4).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-    private var titleText: String {
-        let folder = s.folder ?? "session"
-        if let task = s.task, !task.isEmpty { return "\(folder) · \(task)" }
-        return folder
-    }
-    private var brief: String {
-        switch s.event {
-        case "PreToolUse": return "\(s.tool ?? "Running") \(s.detail ?? "")"
-        case "Notification": return "Waiting for input"
-        case "Stop": return s.detail.map { String($0.prefix(80)) } ?? "Finished"
-        case "UserPromptSubmit": return "Thinking…"
-        default: return "Working…"
-        }
-    }
-}
-
-
-
-private struct FlashPill: View {
-    let decision: VNDecision
-    @State private var shown = false
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: decision == .allow ? "checkmark" : "xmark")
-                .font(.system(size: 11, weight: .bold)).scaleEffect(shown ? 1 : 0.3).opacity(shown ? 1 : 0)
-            Text(decision == .allow ? "Approved" : "Denied").font(.system(size: 12.5, weight: .medium))
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .frame(width: 260, alignment: .leading)
-        .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true } }
-    }
-}
-
-// MARK: - Pills, buttons
-
-private struct AgentPill: View {
-    let source: String
-    var body: some View {
-        let tint = VNColor.agent(source)
-        Text(agentName(source))
-            .font(VNFont.sysMono(10.5, .semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(tint.opacity(0.13), in: Capsule())
-            .overlay(Capsule().strokeBorder(tint.opacity(0.35), lineWidth: 1))
-    }
-}
-
-private struct ModelPill: View {
-    let model: String
-    var body: some View {
-        Text(model)
-            .font(VNFont.sysMono(10.5, .medium))
-            .foregroundStyle(VNColor.paper.opacity(0.7))
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(Color.white.opacity(0.06), in: Capsule())
-    }
-}
-
-/// Per-agent brand glyph — Claude clay sparkle, Codex blue mark.
-struct AgentIcon: View {
-    let source: String
-    var size: CGFloat = 16
-    var body: some View {
-        Image(systemName: source == "codex" ? "asterisk" : "sparkle")
-            .font(.system(size: size * 0.85, weight: .semibold))
-            .foregroundStyle(VNColor.agent(source))
-    }
-}
-
-private struct TermPill: View {
-    let name: String
-    var body: some View {
-        Text(name)
-            .font(VNFont.sysMono(10.5, .medium))
-            .foregroundStyle(VNColor.paper.opacity(0.7))
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(Color.white.opacity(0.06), in: Capsule())
-    }
-}
-
-private struct WideButton: View {
-    enum Kind { case deny, primary, always, danger }
-    let title: String
-    let kind: Kind
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Text(title).font(.system(size: 12.5, weight: .semibold))
-                .frame(maxWidth: .infinity).padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
-        .background(bg, in: RoundedRectangle(cornerRadius: 9))
-        .foregroundStyle(fg)
-    }
-    private var bg: Color {
-        switch kind {
-        case .deny: VNColor.ink2
-        case .primary: .white
-        case .always: VNColor.invader
-        case .danger: Color(hex: 0xB0413F)
-        }
-    }
-    private var fg: Color { switch kind { case .primary: .black; default: .white } }
-}
-
-private struct JumpPill: View {
-    let terminal: String?
-    var body: some View {
-        Button { TerminalJumper.jump(terminal) } label: {
-            HStack(spacing: 3) {
-                Text("^G").font(VNFont.mono(9.5))
-                Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
-            }
-            .foregroundStyle(Color(hex: 0x6FD3E0))
-            .padding(.horizontal, 6).padding(.vertical, 2.5)
-            .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Seam
-
-
-
-// MARK: - Animated pixel invader (the ASCII mascot)
-
-/// A rotating braille spinner — the "working" ASCII animation.
-struct AsciiSpinner: View {
-    var color: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.09)) { ctx in
-            let i = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.09) % frames.count
-            Text(frames[i])
-                .font(VNFont.mono(12))
-                .foregroundStyle(color)
-                .frame(width: 12, alignment: .center)
-        }
-    }
-}
-
-struct PixelInvader: View {
-    var color: Color
-    var px: CGFloat = 2.5
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private static let frameA = [
-        "..X.....X..",
-        "...X...X...",
-        "..XXXXXXX..",
-        ".XX.XXX.XX.",
-        "XXXXXXXXXXX",
-        "X.XXXXXXX.X",
-        "X.X.....X.X",
-        "...XX.XX...",
-    ]
-    private static let frameB = [
-        "..X.....X..",
-        "X..X...X..X",
-        "X.XXXXXXX.X",
-        "XXX.XXX.XXX",
-        "XXXXXXXXXXX",
-        ".XXXXXXXXX.",
-        "..X.....X..",
-        ".X.......X.",
-    ]
-
-    private func cells(_ rows: [String]) -> [(Int, Int)] {
-        var out: [(Int, Int)] = []
-        for (y, row) in rows.enumerated() {
-            for (x, ch) in row.enumerated() where ch == "X" { out.append((x, y)) }
-        }
-        return out
-    }
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
-            let useA = reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
-            let f = cells(useA ? Self.frameA : Self.frameB)
-            Canvas { c, _ in
-                for (x, y) in f {
-                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: px, height: px)),
-                           with: .color(color))
-                }
-            }
-            .frame(width: 11 * px, height: 8 * px)
-        }
-    }
-}
-
-/// Relative age: <1m / Nm / Nh / Nd
-func ageString(_ date: Date) -> String {
-    let s = max(0, Int(Date().timeIntervalSince(date)))
-    if s < 60 { return "<1m" }
-    if s < 3600 { return "\(s / 60)m" }
-    if s < 86400 { return "\(s / 3600)h" }
-    return "\(s / 86400)d"
 }
