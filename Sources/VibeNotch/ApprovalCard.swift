@@ -108,12 +108,7 @@ struct ApprovalCard: View {
     private var buttons: some View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
-            if risk == .high {
-                // visible friction on dangerous commands: hold to approve
-                HoldToApprove { store.resolve(approval, .allow) }
-            } else {
-                WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
-            }
+            WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
             // Always Allow only when the agent offers a rule (backend seam:
             // VNInbound.permissionSuggestions — requested on the board)
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
@@ -199,38 +194,6 @@ struct ApprovalCard: View {
 }
 
 /// White pill that fills red while held — releases the approval at 100%.
-struct HoldToApprove: View {
-    let approve: () -> Void
-    @State private var progress: CGFloat = 0
-    @GestureState private var holding = false
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                RoundedRectangle(cornerRadius: 13, style: .continuous).fill(.white)
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(Color(hex: 0xB0413F).opacity(0.85))
-                    .frame(width: geo.size.width * progress)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(progress > 0 ? "Keep holding…" : "Hold to Allow")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(progress > 0.45 ? .white : .black)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-            .gesture(
-                LongPressGesture(minimumDuration: 0.9)
-                    .updating($holding) { _, state, _ in state = true }
-                    .onEnded { _ in approve() }
-            )
-            .onChange(of: holding) { _, h in
-                withAnimation(h ? .linear(duration: 0.9) : .easeOut(duration: 0.2)) {
-                    progress = h ? 1 : 0
-                }
-            }
-        }
-        .frame(height: 31)
-    }
-}
 
 // MARK: - AskUserQuestion
 

@@ -413,3 +413,10 @@ shape, UI consumes. Propose field additions here before changing.
   UI: if button response still feels slow on HIGH-RISK cards, suspect the
   hold-to-allow LongPressGesture delaying plain taps on sibling buttons — keep
   gestures per-button, not on the container. Latest build deployed + running.
+- 2026-07-19 08:30 · backend (cross-lane, Kaushal's order): HOLD-TO-ALLOW
+  REMOVED — high-risk cards now use the plain Allow Once button too (risk
+  styling/red border can stay, just no hold friction). Also: 84 build
+  artifacts (*.o/*.d/*.dia/*.swiftdeps) had leaked to repo ROOT during the
+  iCloud/case-rename mess and were pushed — removed from disk+index, gitignore
+  hardened, GitHub listing clean. History purge deferred (your tree was dirty
+  when filter-branch ran — commit often!).
