@@ -43,6 +43,13 @@ final class NotchPanelController {
         cancellables.append(notch.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
+        // app switches change whether the agent's terminal is frontmost
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
     }
 
     /// The underlying panel (labs lock-screen attach).
@@ -75,8 +82,11 @@ final class NotchPanelController {
 
         if !notch.isHovering { needsHoverExit = false }
         let hovering = notch.isHovering && !needsHoverExit && Date() > suppressHoverUntil
-        // dictation keeps the panel open — the mic press must never collapse it
-        let want = hasPending || hovering
+        // smart suppression: if you're already looking at the agent's terminal,
+        // the prompt is right in front of you — no popup (badge + hover still work)
+        let suppressed = VNSettings.smartSuppression && !hovering
+            && store.pending.allSatisfy { terminalIsFrontmost($0.inbound.terminal) }
+        let want = (hasPending && !suppressed) || hovering
 
         // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
         if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {

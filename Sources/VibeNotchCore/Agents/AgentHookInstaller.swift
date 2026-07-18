@@ -310,16 +310,10 @@ public struct AgentHookInstaller: Sendable {
 
     // MARK: File IO
 
-    private func readJSON() -> [String: Any]? {
-        guard let data = try? Data(contentsOf: spec.configFileURL) else { return nil }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-    }
+    private func readJSON() -> [String: Any]? { ConfigJSON.read(spec.configFileURL) }
 
     private func writeJSON(_ object: [String: Any]) throws {
-        let data = try JSONSerialization.data(
-            withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        try FileManager.default.createDirectory(at: spec.configDirURL, withIntermediateDirectories: true)
-        try data.write(to: spec.configFileURL, options: .atomic)
+        try ConfigJSON.write(object, to: spec.configFileURL)
     }
 
     private func writeText(_ text: String) throws {

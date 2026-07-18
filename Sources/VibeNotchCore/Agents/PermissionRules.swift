@@ -16,26 +16,20 @@ public enum PermissionRules {
     /// Allow-rules currently in the agent's settings.json.
     public static func listAllow(source: String) -> [String] {
         guard let spec = Agents.byID(source), case .jsonHooks = spec.mechanism,
-              let data = try? Data(contentsOf: spec.configFileURL),
-              let settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        else { return [] }
+              let settings = ConfigJSON.read(spec.configFileURL) else { return [] }
         return (settings["permissions"] as? [String: Any])?["allow"] as? [String] ?? []
     }
 
     /// Remove one allow-rule (the rules-manager menu action).
     public static func removeAllowRule(source: String, rule: String) {
         guard let spec = Agents.byID(source), case .jsonHooks = spec.mechanism,
-              let data = try? Data(contentsOf: spec.configFileURL),
-              var settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              var settings = ConfigJSON.read(spec.configFileURL),
               var permissions = settings["permissions"] as? [String: Any],
               var allow = permissions["allow"] as? [String] else { return }
         allow.removeAll { $0 == rule }
         if allow.isEmpty { permissions.removeValue(forKey: "allow") } else { permissions["allow"] = allow }
         if permissions.isEmpty { settings.removeValue(forKey: "permissions") } else { settings["permissions"] = permissions }
-        if let out = try? JSONSerialization.data(
-            withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
-            try? out.write(to: spec.configFileURL, options: .atomic)
-        }
+        try? ConfigJSON.write(settings, to: spec.configFileURL)
     }
 
     /// Append the rule to the source agent's settings.json. Claude-schema
@@ -43,8 +37,7 @@ public enum PermissionRules {
     public static func addAllowRule(source: String, tool: String, detail: String?) {
         guard let spec = Agents.byID(source), case .jsonHooks = spec.mechanism else { return }
         let url = spec.configFileURL
-        guard let data = try? Data(contentsOf: url),
-              var settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        guard var settings = ConfigJSON.read(url) else { return }
 
         var permissions = settings["permissions"] as? [String: Any] ?? [:]
         var allow = permissions["allow"] as? [String] ?? []
@@ -54,9 +47,6 @@ public enum PermissionRules {
         permissions["allow"] = allow
         settings["permissions"] = permissions
 
-        if let out = try? JSONSerialization.data(
-            withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) {
-            try? out.write(to: url, options: .atomic)
-        }
+        try? ConfigJSON.write(settings, to: url)
     }
 }

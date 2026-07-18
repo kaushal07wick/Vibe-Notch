@@ -56,6 +56,39 @@ private enum Pane: String, CaseIterable {
         case .labs: .purple
         }
     }
+
+    var blurb: String {
+        switch self {
+        case .general: "Startup, visibility, and how decisions commit."
+        case .sound: "Alert chimes for permissions, waits, and finishes."
+        case .notifications: "Escalation when a request sits unanswered — on this Mac or your phone."
+        case .privacy: "What auto-approves, what stays quiet, and per-project trust."
+        case .labs: "Experiments: web dashboard, lock-screen notch, the CLI."
+        }
+    }
+}
+
+/// The big icon + description card at the top of each pane (System Settings style).
+private struct PaneHeader: View {
+    let pane: Pane
+    var body: some View {
+        Section {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: pane.icon)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(pane.iconColor.gradient, in: RoundedRectangle(cornerRadius: 8))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pane.rawValue).font(.headline)
+                    Text(pane.blurb).font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 2)
+        }
+    }
 }
 
 private struct SettingsRoot: View {
@@ -85,6 +118,7 @@ private struct SettingsRoot: View {
     }
 
     @ViewBuilder private func pane(_ p: Pane) -> some View {
+        PaneHeader(pane: p)
         switch p {
         case .general: GeneralPane()
         case .sound: SoundPane()
