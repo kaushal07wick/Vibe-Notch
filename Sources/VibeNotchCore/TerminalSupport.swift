@@ -130,3 +130,85 @@ public struct JumpPlan: Equatable, Sendable {
         }
     }
 }
+
+/// How to type text into a session's exact terminal (reply-from-notch).
+/// Pure strategy; the app executes. `nil` command + `nil` script = unsupported.
+public struct InjectionPlan: Equatable, Sendable {
+    public var commands: [[String]] = []     // CLI steps (tmux/wezterm/kitty)
+    public var appleScript: String?          // iTerm / Terminal.app path
+
+    public var isSupported: Bool { !commands.isEmpty || appleScript != nil }
+
+    public static func make(terminal: String?, tty: String?,
+                            meta: [String: String], text: String) -> InjectionPlan {
+        var plan = InjectionPlan()
+        if let pane = meta["TMUX_PANE"], let tmux = meta["TMUX"] {
+            let socket = tmux.split(separator: ",").first.map(String.init) ?? ""
+            plan.commands = [
+                ["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "-l", text],
+                ["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "Enter"],
+            ]
+            return plan
+        }
+        if let pane = meta["WEZTERM_PANE"] {
+            plan.commands = [["/usr/bin/env", "wezterm", "cli", "send-text",
+                              "--pane-id", pane, "--no-paste", text + "\r"]]
+            return plan
+        }
+        if let window = meta["KITTY_WINDOW_ID"], let listen = meta["KITTY_LISTEN_ON"] {
+            plan.commands = [["/usr/bin/env", "kitty", "@", "--to", listen, "send-text",
+                              "--match", "id:\(window)", text + "\r"]]
+            return plan
+        }
+        guard let tty else { return plan }
+        let device = tty.hasPrefix("/dev/") ? tty : "/dev/\(tty)"
+        let escaped = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        switch terminal {
+        case "iTerm":
+            plan.appleScript = """
+            tell application "iTerm2"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        repeat with s in sessions of t
+                            if tty of s is "\(device)" then
+                                tell s to write text "\(escaped)"
+                                return "ok"
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+            """
+        case "Terminal":
+            plan.appleScript = """
+            tell application "Terminal"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        if tty of t is "\(device)" then
+                            do script "\(escaped)" in t
+                            return "ok"
+                        end if
+                    end repeat
+                end repeat
+            end tell
+            """
+        default:
+            break
+        }
+        return plan
+    }
+}
+
+/// Panic-button support: parse `ps -t <tty> -o tpgid=` output into the
+/// foreground process group to SIGINT.
+public enum ProcessGroup {
+    public static func foregroundPGID(fromPS output: String) -> Int32? {
+        for line in output.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if let pgid = Int32(trimmed), pgid > 1 { return pgid }
+        }
+        return nil
+    }
+}

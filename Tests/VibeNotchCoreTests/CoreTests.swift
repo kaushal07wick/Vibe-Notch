@@ -235,3 +235,29 @@ extension CoreTests {
         XCTAssertEqual(JumpPlan.make(terminal: "Cursor", tty: nil, meta: [:]).bundleID, "com.todesktop.230313mzl4w4u92")
     }
 }
+
+extension CoreTests {
+    func testInjectionPlanStrategies() {
+        // tmux: literal text then Enter, right socket + pane
+        let tmux = InjectionPlan.make(terminal: "Ghostty", tty: nil,
+                                      meta: ["TMUX": "/tmp/tmux-501/default,1,0", "TMUX_PANE": "%2"],
+                                      text: "continue with option 2")
+        XCTAssertEqual(tmux.commands.count, 2)
+        XCTAssertEqual(tmux.commands[0].suffix(3), ["-l", "continue with option 2"].suffix(3))
+        XCTAssertEqual(tmux.commands[1].last, "Enter")
+        // iTerm: AppleScript write text with quotes escaped
+        let iterm = InjectionPlan.make(terminal: "iTerm", tty: "ttys002", meta: [:], text: #"say "hi""#)
+        XCTAssertTrue(iterm.appleScript?.contains(#"write text "say \"hi\"""#) == true)
+        // Ghostty without mux: unsupported (no injection path)
+        XCTAssertFalse(InjectionPlan.make(terminal: "Ghostty", tty: "ttys003", meta: [:], text: "x").isSupported)
+        // wezterm pane
+        XCTAssertTrue(InjectionPlan.make(terminal: "WezTerm", tty: nil,
+                                         meta: ["WEZTERM_PANE": "4"], text: "ok").commands.first?.contains("send-text") == true)
+    }
+
+    func testForegroundPGIDParsing() {
+        XCTAssertEqual(ProcessGroup.foregroundPGID(fromPS: "  4712\n 4712\n"), 4712)
+        XCTAssertNil(ProcessGroup.foregroundPGID(fromPS: "\n0\n"))
+        XCTAssertNil(ProcessGroup.foregroundPGID(fromPS: ""))
+    }
+}
