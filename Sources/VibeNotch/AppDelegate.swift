@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let usage = UsageModel()
     private var notch: NotchPanelController!
     private var server: IPCServer!
+    private var shortcuts: ShortcutMonitor!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         notch = NotchPanelController(store: store, usage: usage)
         notch.show()
+        shortcuts = ShortcutMonitor(store: store)
         startServer()
     }
 
