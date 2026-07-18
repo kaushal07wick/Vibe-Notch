@@ -24,8 +24,9 @@ struct ExpandedContent: View {
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
         if let f = store.flash { return "flash-\(f.rawValue)" }
-        if let s = store.activeSession { return "act-\(s.id)-\(s.event)" }
-        return "idle"
+        let active = store.activeSessions
+        guard let s = active.first else { return "idle" }
+        return "act-\(active.count)-\(s.id)-\(s.event)"
     }
 
     @ViewBuilder private var currentCard: some View {
@@ -34,7 +35,7 @@ struct ExpandedContent: View {
         } else if let flash = store.flash {
             FlashPill(decision: flash)
         } else {
-            ActivityCard(session: store.activeSession, full: store.hovering)
+            ActivityCard(sessions: store.activeSessions, full: store.hovering)
         }
     }
 
@@ -106,7 +107,7 @@ private struct ApprovalCard: View {
                 HStack(spacing: 5) {
                     AgentPill(source: i.source)
                     if let term = i.terminal { TermPill(name: term) }
-                    JumpPill()
+                    JumpPill(terminal: i.terminal)
                 }
             }
             HStack(spacing: 6) {
@@ -148,47 +149,71 @@ private struct ApprovalCard: View {
     }
 }
 
-/// Shows what the active agent session is doing right now (or an idle pill).
+/// Shows what active agent sessions are doing right now (or an idle pill).
 private struct ActivityCard: View {
-    let session: SessionActivity?
+    let sessions: [SessionActivity]
     let full: Bool
 
     var body: some View {
-        if let s = session {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top, spacing: 8) {
-                    PixelInvader(color: VNColor.invader, px: 2)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(titleText(s)).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                        if let user = s.userMessage {
-                            Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
-                                .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    HStack(spacing: 5) {
-                        AgentPill(source: s.source)
-                        if let term = s.terminal { TermPill(name: term) }
-                    }
-                }
-                activityLine(s)
-            }
-            .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-            .frame(width: 520, alignment: .leading)
-            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
+        if sessions.isEmpty {
+            idlePill
+        } else if sessions.count > 1 && full {
+            listCard
         } else {
-            HStack(spacing: 12) {
-                PixelInvader(color: VNColor.invader, px: 3)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("vibe-notch").font(.system(size: 13, weight: .semibold))
-                    Text(ClaudeInstaller.isConnected ? "no active sessions" : "not connected")
-                        .font(.system(size: 11)).foregroundStyle(VNColor.muted)
-                }
-                Spacer(minLength: 12)
-            }
-            .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
-            .frame(width: 300)
+            singleCard(sessions[0])
         }
+    }
+
+    private var idlePill: some View {
+        HStack(spacing: 12) {
+            PixelInvader(color: VNColor.invader, px: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("vibe-notch").font(.system(size: 13, weight: .semibold))
+                Text(ClaudeInstaller.isConnected ? "no active sessions" : "not connected")
+                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
+            }
+            Spacer(minLength: 12)
+        }
+        .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
+        .frame(width: 300)
+    }
+
+    private func singleCard(_ s: SessionActivity) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            StatsHeader(elapsed: elapsedString(since: s.startedAt), activeCount: sessions.count)
+            HStack(alignment: .top, spacing: 8) {
+                PixelInvader(color: VNColor.invader, px: 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(titleText(s)).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                    if let user = s.userMessage {
+                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                            .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 8)
+                HStack(spacing: 5) {
+                    AgentPill(source: s.source)
+                    if let term = s.terminal { TermPill(name: term) }
+                    JumpPill(terminal: s.terminal)
+                }
+            }
+            activityLine(s)
+        }
+        .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
+        .frame(width: 520, alignment: .leading)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
+    }
+
+    private var listCard: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            StatsHeader(elapsed: "\(sessions.count) sessions", activeCount: sessions.count)
+            ForEach(sessions) { s in
+                SessionRow(s: s)
+                if s.id != sessions.last?.id { Divider().overlay(VNColor.hair) }
+            }
+        }
+        .padding(EdgeInsets(top: 6, leading: 14, bottom: 9, trailing: 14))
+        .frame(width: 520, alignment: .leading)
     }
 
     private func titleText(_ s: SessionActivity) -> String {
@@ -223,6 +248,58 @@ private struct ActivityCard: View {
             Spacer(minLength: 0)
         }
     }
+}
+
+/// A compact row per session in the multi-session list — tap to jump to its terminal.
+private struct SessionRow: View {
+    let s: SessionActivity
+    var body: some View {
+        Button { TerminalJumper.jump(s.terminal) } label: {
+            HStack(spacing: 9) {
+                PixelInvader(color: VNColor.invader, px: 1.5)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(s.folder ?? "session").font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                    Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.tail)
+                }
+                Spacer(minLength: 8)
+                AgentPill(source: s.source)
+                Image(systemName: "arrow.up.forward").font(.system(size: 9)).foregroundStyle(VNColor.faint)
+            }
+            .padding(.vertical, 3).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    private var brief: String {
+        switch s.event {
+        case "PreToolUse": return "Running \(s.tool ?? "tool")"
+        case "Notification": return "Waiting for input"
+        case "Stop": return s.detail.map { String($0.prefix(64)) } ?? "Finished"
+        case "UserPromptSubmit": return "Thinking…"
+        default: return "Working…"
+        }
+    }
+}
+
+private struct StatsHeader: View {
+    let elapsed: String
+    let activeCount: Int
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "clock").font(.system(size: 9)).foregroundStyle(VNColor.faint)
+            Text(elapsed).font(VNFont.mono(10)).foregroundStyle(VNColor.muted)
+            Text("·").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
+            Text("\(activeCount) active").font(VNFont.mono(10))
+                .foregroundStyle(activeCount > 1 ? VNColor.go : VNColor.muted)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private func elapsedString(since date: Date) -> String {
+    let s = max(0, Int(Date().timeIntervalSince(date)))
+    if s < 60 { return "\(s)s" }
+    if s < 3600 { return "\(s / 60)m" }
+    return "\(s / 3600)h \((s % 3600) / 60)m"
 }
 
 private struct FlashPill: View {
@@ -292,14 +369,18 @@ private struct WideButton: View {
 }
 
 private struct JumpPill: View {
+    let terminal: String?
     var body: some View {
-        HStack(spacing: 3) {
-            Text("^G").font(VNFont.mono(9.5))
-            Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
+        Button { TerminalJumper.jump(terminal) } label: {
+            HStack(spacing: 3) {
+                Text("^G").font(VNFont.mono(9.5))
+                Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
+            }
+            .foregroundStyle(Color(hex: 0x6FD3E0))
+            .padding(.horizontal, 6).padding(.vertical, 2.5)
+            .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
         }
-        .foregroundStyle(Color(hex: 0x6FD3E0))
-        .padding(.horizontal, 6).padding(.vertical, 2.5)
-        .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
+        .buttonStyle(.plain)
     }
 }
 

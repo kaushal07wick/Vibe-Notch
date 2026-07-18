@@ -19,6 +19,7 @@ struct SessionActivity: Identifiable {
     var detail: String?   // command / message / last assistant text
     var event: String     // last hook event — drives the status label
     var terminal: String?
+    var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
 }
@@ -53,7 +54,7 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
-        var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, updatedAt: Date())
+        var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source
         if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }
         if let t = i.title { s.task = t }
