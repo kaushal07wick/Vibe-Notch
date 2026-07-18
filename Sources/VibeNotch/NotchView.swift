@@ -345,24 +345,24 @@ private struct FlashPill: View {
 private struct AgentPill: View {
     let source: String
     var body: some View {
+        let tint = VNColor.agent(source)
         Text(agentName(source))
-            .font(.system(size: 10.5, weight: .semibold))
-            .foregroundStyle(darkText ? Color(hex: 0x1A120E) : .white)
-            .padding(.horizontal, 7).padding(.vertical, 2.5)
-            .background(VNColor.agent(source), in: RoundedRectangle(cornerRadius: 6))
+            .font(VNFont.sysMono(10.5, .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(tint.opacity(0.13), in: Capsule())
+            .overlay(Capsule().strokeBorder(tint.opacity(0.35), lineWidth: 1))
     }
-    // warm/light agent hues read better with dark text
-    private var darkText: Bool { source == "claude" || source == "opencode" }
 }
 
 private struct ModelPill: View {
     let model: String
     var body: some View {
         Text(model)
-            .font(.system(size: 10.5, weight: .medium))
-            .foregroundStyle(VNColor.text.opacity(0.8))
-            .padding(.horizontal, 7).padding(.vertical, 2.5)
-            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
+            .font(VNFont.sysMono(10.5, .medium))
+            .foregroundStyle(VNColor.paper.opacity(0.7))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Color.white.opacity(0.06), in: Capsule())
     }
 }
 
@@ -381,10 +381,10 @@ private struct TermPill: View {
     let name: String
     var body: some View {
         Text(name)
-            .font(.system(size: 10.5, weight: .medium))
-            .foregroundStyle(VNColor.text.opacity(0.8))
-            .padding(.horizontal, 7).padding(.vertical, 2.5)
-            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
+            .font(VNFont.sysMono(10.5, .medium))
+            .foregroundStyle(VNColor.paper.opacity(0.7))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Color.white.opacity(0.06), in: Capsule())
     }
 }
 
