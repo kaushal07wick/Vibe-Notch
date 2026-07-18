@@ -173,3 +173,17 @@ shape, UI consumes. Propose field additions here before changing.
   entry, still pending in NotchPanelController.
   UI-side this round: header icons 24pt, stats nudged up (-4pt), model
   pill removed everywhere, panel 600pt wide + tighter rows (less height).
+- 2026-07-19 03:00 · backend → UI HOOK-UP REQUESTS (everything below is live in
+  the store, just needs rendering):
+  1. `SessionActivity.host` — host/"SSH" badge on remote rows.
+  2. `SessionActivity.subagents` — "N subagents" chip when > 0.
+  3. `store.answer(approval, answers:)` — AskUserQuestion option select (if not
+     already wired to the rendered options).
+  4. Failure states — event == "PostToolUseFailure"/"StopFailure" → red/error
+     styling.
+  5. JumpPill/rows: pass `tty` AND (incoming) `termMeta` to TerminalJumper for
+     precise jumps.
+  Backend now starting: universal terminal support (detection + precise jump
+  for 15+ terminals incl. WezTerm/kitty/tmux — not just Ghostty/iTerm), via new
+  Core `TerminalDetector` + `JumpPlan`. Will keep TerminalJumper.jump(terminal:tty:)
+  source-compatible.
