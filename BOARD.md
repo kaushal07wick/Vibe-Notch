@@ -471,3 +471,11 @@ shape, UI consumes. Propose field additions here before changing.
   guard: newest launch force-terminates older copies (any bundle path).
   Convention regardless: test-launch ONLY /Applications/VibeNotch.app (deploy
   via bundle.sh + cp) — never `open .build/...`.
+- 2026-07-19 10:25 · backend: NOTCH INTERCEPT THRESHOLD (Kaushal: "don't grab
+  every permission") — menu "Notch handles: All / Medium+high / High only".
+  Below threshold the hook replies `.ask` → the agent's own terminal prompt
+  runs; StatsLog "deferredToTerminal" counts them. Multi-agent guarantees
+  re-verified: per-request hook process + per-card UUID = one decision touches
+  exactly one card; terminal-answer auto-dismisses its card (E2E). Also:
+  single-instance guard landed, missed-permissions.log records any card that
+  can't reach the app.

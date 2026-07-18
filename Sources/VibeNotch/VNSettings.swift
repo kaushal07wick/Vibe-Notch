@@ -48,6 +48,14 @@ enum VNSettings {
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 
+    /// Which permissions the notch intercepts: "low" = all (default),
+    /// "medium" = medium+high only, "high" = high only. Below the threshold
+    /// the agent's own terminal prompt handles it.
+    static var notchMinRisk: String {
+        get { d.string(forKey: "notchMinRisk") ?? "low" }
+        set { d.set(newValue, forKey: "notchMinRisk") }
+    }
+
     /// Undo window after a decision, seconds (0 = decisions are instant).
     static var undoSeconds: Int {
         get { d.object(forKey: "undoSeconds") as? Int ?? 0 } // 0 = commit instantly (undo opt-in)

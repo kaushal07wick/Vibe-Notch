@@ -83,6 +83,18 @@ extension AppDelegate {
             menu.addItem(rulesItem)
         }
 
+        let intercept = NSMenuItem(title: "Notch handles", action: nil, keyEquivalent: "")
+        let interceptMenu = NSMenu()
+        for (value, label) in [("low", "All permissions"), ("medium", "Medium + high risk"), ("high", "High risk only")] {
+            let item = NSMenuItem(title: label, action: #selector(pickMinRisk(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = VNSettings.notchMinRisk == value ? .on : .off
+            interceptMenu.addItem(item)
+        }
+        intercept.submenu = interceptMenu
+        menu.addItem(intercept)
+
         let theme = NSMenuItem(title: "Sound theme", action: nil, keyEquivalent: "")
         let themeMenu = NSMenu()
         for name in ["chime", "arcade", "minimal"] {
@@ -162,6 +174,11 @@ extension AppDelegate {
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func pickMinRisk(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        VNSettings.notchMinRisk = value
+    }
 
     @objc private func pickTheme(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }

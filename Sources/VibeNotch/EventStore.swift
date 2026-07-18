@@ -146,6 +146,15 @@ final class EventStore: ObservableObject {
             StatsLog.bump("yolo")
             return
         }
+        // Below the notch threshold → the terminal prompt handles it. The
+        // hook replies nothing, so the agent's own flow takes over cleanly.
+        let risk = RiskGrader.grade(tool: approval.inbound.tool, detail: approval.inbound.detail)
+        let ranks: [String: Int] = ["low": 0, "medium": 1, "high": 2]
+        if ranks[risk.rawValue, default: 0] < ranks[VNSettings.notchMinRisk, default: 0] {
+            approval.reply(VNReply(decision: .ask))
+            StatsLog.bump("deferredToTerminal")
+            return
+        }
         // Safe-listed simple command → silent auto-approve (flow, not noise).
         let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         if VNSettings.safeListEnabled, policy.safeList, approval.inbound.tool == "Bash",
