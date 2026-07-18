@@ -19,5 +19,10 @@ let package = Package(
             name: "vibenotch-hook",
             dependencies: ["VibeNotchCore"]
         ),
+
+        .testTarget(
+            name: "VibeNotchCoreTests",
+            dependencies: ["VibeNotchCore"]
+        ),
     ]
 )
