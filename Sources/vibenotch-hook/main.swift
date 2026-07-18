@@ -248,13 +248,13 @@ if event == "PermissionRequest" {
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),
                         model: lastAssistantModel(transcript), sessionId: sessionId)
-    switch IPCClient.send(msg) {
+    switch IPCClient.send(msg)?.agentBehavior {
     case .allow:
         print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#)
     case .deny:
         print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny"}}}"#)
-    case .ask, .none:
-        break // no output → defer to Claude's own permission flow (fail-open)
+    default:
+        break // no output → defer to the agent's own permission flow (fail-open)
     }
     exit(0)
 }

@@ -124,3 +124,14 @@ extension CoreTests {
         XCTAssertEqual(usage.peak?.usedPercentage ?? 0, 67.0, accuracy: 0.01)
     }
 }
+
+extension CoreTests {
+    func testPermissionRuleBuilding() {
+        XCTAssertEqual(PermissionRules.rule(tool: "Bash", detail: "npm run build && npm test"), "Bash(npm:*)")
+        XCTAssertEqual(PermissionRules.rule(tool: "Bash", detail: nil), "Bash")
+        XCTAssertEqual(PermissionRules.rule(tool: "WebFetch", detail: "https://x.com"), "WebFetch")
+        XCTAssertEqual(VNDecision.alwaysAllow.agentBehavior, .allow)
+        XCTAssertEqual(VNDecision.bypass.agentBehavior, .allow)
+        XCTAssertEqual(VNDecision.deny.agentBehavior, .deny)
+    }
+}

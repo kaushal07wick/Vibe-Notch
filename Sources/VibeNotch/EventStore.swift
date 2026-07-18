@@ -35,6 +35,10 @@ final class EventStore: ObservableObject {
     @Published var flash: VNDecision?
     @Published var hovering = false
 
+    /// Sessions the user chose to Bypass — further requests auto-approve
+    /// until the session ends or the app restarts.
+    private var bypassedSessions: Set<String> = []
+
     /// Sessions active in the last 30 minutes, newest first.
     var activeSessions: [SessionActivity] {
         let cutoff = Date().addingTimeInterval(-1800)
@@ -44,6 +48,11 @@ final class EventStore: ObservableObject {
     var activeSession: SessionActivity? { activeSessions.first }
 
     func enqueue(_ approval: PendingApproval) {
+        // Bypassed session → auto-approve silently, no card.
+        if let sid = approval.inbound.sessionId, bypassedSessions.contains(sid) {
+            approval.reply(.allow)
+            return
+        }
         pending.append(approval)
         SoundManager.shared.play(.permission)
     }
@@ -57,15 +66,26 @@ final class EventStore: ObservableObject {
     }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
+        switch decision {
+        case .alwaysAllow:
+            // Persist a permission rule so the agent stops asking for this.
+            PermissionRules.addAllowRule(source: approval.inbound.source,
+                                         tool: approval.inbound.tool ?? "Bash",
+                                         detail: approval.inbound.detail)
+        case .bypass:
+            if let sid = approval.inbound.sessionId { bypassedSessions.insert(sid) }
+        default:
+            break
+        }
         approval.reply(decision)
         pending.removeAll { $0.id == approval.id }
-        showFlash(decision)
+        showFlash(decision.agentBehavior)
     }
 
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
-        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); return }
+        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); bypassedSessions.remove(sid); return }
         let wasWaiting = sessions[sid]?.event == "Notification"
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source

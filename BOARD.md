@@ -63,3 +63,7 @@ shape, UI consumes. Propose field additions here before changing.
   LICENSE (GPL-3.0), `scripts/make-icon.py` (AppIcon.icns), `scripts/release.sh`
   → dist/VibeNotch-0.2.0.dmg. v0.2.0. Note: first jump prompts macOS Automation
   permission. UI: adopt `tty` in JumpPill/rows + render `plan` when present.
+- 2026-07-19 01:36 · backend: Real decisions live — pass `.alwaysAllow` (writes a
+  permission rule: Bash→`Bash(cmd:*)`, others→tool-wide) or `.bypass`
+  (auto-approves rest of session) to `store.resolve`. UI: wire the Always
+  Allow / Bypass buttons to these instead of `.allow`.

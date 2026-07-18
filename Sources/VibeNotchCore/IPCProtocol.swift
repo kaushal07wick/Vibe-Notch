@@ -49,6 +49,11 @@ public struct VNInbound: Codable, Sendable {
 
 public enum VNDecision: String, Codable, Sendable {
     case allow, deny, ask
+    case alwaysAllow   // allow + persist a permission rule for this tool/command
+    case bypass        // allow + auto-approve the rest of this session
+
+    /// What the agent is told — the richer cases all resolve to allow.
+    public var agentBehavior: VNDecision { self == .deny || self == .ask ? self : .allow }
 }
 
 /// The app's reply to a `request`.
