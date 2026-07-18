@@ -15,7 +15,9 @@ struct ApprovalCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
-            if isPlanReview, let plan = i.plan {
+            if let questions = i.questions, !questions.isEmpty {
+                QuestionPrompt(questions: questions) { store.answer(approval, answers: $0) }
+            } else if isPlanReview, let plan = i.plan {
                 planLine
                 planBlock(plan)
                 planButtons
@@ -58,24 +60,27 @@ struct ApprovalCard: View {
         }
     }
 
+    // VI metrics: SF-mono 11.5 semibold command, tight box (pH10 pV7, r7, fill .045)
     private var commandBlock: some View {
         VStack(alignment: .leading, spacing: 5) {
-            (Text("$ ").foregroundStyle(VNColor.amber) + Text(i.detail ?? "").foregroundStyle(Color(hex: 0xE7E8E4)))
-                .font(VNFont.mono(11.5)).lineLimit(3).truncationMode(.tail)
+            (Text("$ ").foregroundStyle(VNColor.amber) + Text(i.detail ?? "").foregroundStyle(VNColor.paper.opacity(0.78)))
+                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .lineLimit(3).truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
             if let desc = i.commandDescription {
-                Text(desc).font(.system(size: 11)).foregroundStyle(VNColor.muted).lineLimit(1)
+                Text(desc).font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(VNColor.paper.opacity(0.42)).lineLimit(1)
             }
         }
-        .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-        .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
     private var buttons: some View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
-            WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
+            WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
             WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
         }
@@ -119,5 +124,77 @@ struct ApprovalCard: View {
             WideButton(title: "Keep planning", kind: .deny) { store.resolve(approval, .deny) }
             WideButton(title: "Approve plan", kind: .primary) { store.resolve(approval, .allow) }
         }
+    }
+}
+
+// MARK: - AskUserQuestion
+
+/// Renders agent questions with tappable options. Single question, single
+/// select → tapping answers immediately (VI's "Tap to select"). Otherwise
+/// selections accumulate and an Answer button submits one label per question.
+private struct QuestionPrompt: View {
+    let questions: [VNQuestion]
+    let submit: ([String]) -> Void
+    @State private var picked: [Int: Set<String>] = [:]
+
+    private var instant: Bool { questions.count == 1 && !questions[0].multiSelect }
+    private var complete: Bool { (0..<questions.count).allSatisfy { !(picked[$0] ?? []).isEmpty } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(questions.enumerated()), id: \.offset) { qi, q in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(q.question)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(VNColor.paper.opacity(0.86))
+                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach(q.options, id: \.label) { opt in
+                        optionRow(qi: qi, q: q, opt: opt)
+                    }
+                }
+            }
+            if !instant {
+                WideButton(title: "Answer", kind: .primary) {
+                    submit(questions.indices.map { (picked[$0] ?? []).sorted().joined(separator: ", ") })
+                }
+                .disabled(!complete)
+                .opacity(complete ? 1 : 0.4)
+            }
+        }
+    }
+
+    private func optionRow(qi: Int, q: VNQuestion, opt: VNQuestion.Option) -> some View {
+        let isOn = picked[qi]?.contains(opt.label) ?? false
+        return Button {
+            if instant { submit([opt.label]); return }
+            var set = picked[qi] ?? []
+            if q.multiSelect {
+                if isOn { set.remove(opt.label) } else { set.insert(opt.label) }
+            } else {
+                set = [opt.label]
+            }
+            picked[qi] = set
+        } label: {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(isOn ? VNColor.invader : VNColor.faint)
+                    .padding(.top, 1)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(opt.label).font(.system(size: 11.8, weight: .medium)).foregroundStyle(VNColor.text)
+                    if let d = opt.description, !d.isEmpty {
+                        Text(d).font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(Color.white.opacity(isOn ? 0.07 : 0.035), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .strokeBorder(isOn ? VNColor.invader.opacity(0.5) : Color.white.opacity(0.05)))
     }
 }

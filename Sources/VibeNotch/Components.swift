@@ -75,20 +75,47 @@ struct PillCluster: View {
 
 // MARK: - Buttons
 
-/// Full-width action button used on the approval card.
+/// Round header icon button (mute, settings) — VI recipe.
+struct HeaderIconButton: View {
+    let symbol: String
+    let tint: Color
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 22, height: 22)
+                .background(.white.opacity(0.08), in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Full-width action button used on the approval card (VI metrics).
+/// `hint` renders a keyboard shortcut ("^A") inside the button, VI-style.
 struct WideButton: View {
     enum Kind { case deny, primary, always, danger }
     let title: String
     let kind: Kind
+    var hint: String?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title).font(.system(size: 12.5, weight: .semibold))
-                .frame(maxWidth: .infinity).padding(.vertical, 8)
+            HStack(spacing: 5) {
+                Text(title).font(.system(size: 11.8, weight: .semibold))
+                if let hint {
+                    Text(hint).font(VNFont.sysMono(9.5, .semibold)).opacity(0.55)
+                }
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity).padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-        .background(background, in: RoundedRectangle(cornerRadius: 9))
+        .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .strokeBorder(Color.white.opacity(kind == .deny ? 0.09 : 0), lineWidth: 1))
         .foregroundStyle(foreground)
     }
 

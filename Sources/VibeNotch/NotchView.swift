@@ -9,12 +9,28 @@ struct ExpandedContent: View {
     @ObservedObject var store: EventStore
     @ObservedObject var usage: UsageModel
 
+    @State private var muted = !SoundManager.shared.enabled
+
     var body: some View {
         VStack(spacing: 0) {
-            if !usage.providers.isEmpty {
-                UsageChips(providers: usage.providers)
-                    .padding(.horizontal, 18).padding(.top, 5).padding(.bottom, 2)
+            // stats header — usage left, mute + settings right (VI layout)
+            HStack(spacing: 12) {
+                if !usage.providers.isEmpty {
+                    UsageChips(providers: usage.providers)
+                }
+                Spacer(minLength: 8)
+                HeaderIconButton(
+                    symbol: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                    tint: muted ? .orange.opacity(0.92) : .white.opacity(0.62)
+                ) {
+                    SoundManager.shared.enabled.toggle()
+                    muted = !SoundManager.shared.enabled
+                }
+                HeaderIconButton(symbol: "gearshape.fill", tint: .white.opacity(0.62)) {
+                    SettingsWindow.show()
+                }
             }
+            .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 2)
             ZStack {
                 currentCard
                     .id(stateKey)
