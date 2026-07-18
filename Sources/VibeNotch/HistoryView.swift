@@ -177,30 +177,67 @@ private struct HistoryRow: View {
             close()
         } label: {
             HStack(alignment: .center, spacing: 10) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(entry.folder) · \(entry.task)")
-                        .font(.system(size: 11.8, weight: .semibold))
-                        .foregroundStyle(VNColor.text)
+                ProjectTile(name: entry.folder)
+                VStack(alignment: .leading, spacing: 1.5) {
+                    Text(entry.task)
+                        .font(.system(size: 12))
+                        .foregroundStyle(VNColor.text.opacity(0.92))
                         .lineLimit(1).truncationMode(.tail)
-                    Text(entry.cwd).font(VNFont.sysMono(9.5, .regular))
-                        .foregroundStyle(VNColor.faint).lineLimit(1).truncationMode(.middle)
+                    HStack(spacing: 5) {
+                        Text(entry.folder)
+                            .font(VNFont.sysMono(10, .semibold))
+                            .foregroundStyle(ProjectTile.tint(entry.folder))
+                        Text("·").foregroundStyle(VNColor.faint)
+                        Text(ageString(entry.date))
+                            .font(VNFont.sysMono(10, .medium))
+                            .foregroundStyle(VNColor.faint)
+                    }
                 }
                 Spacer(minLength: 8)
-                Text(ageString(entry.date)).font(VNFont.sysMono(10, .medium))
-                    .foregroundStyle(VNColor.paper.opacity(0.45))
                 if hovering {
-                    Image(systemName: "arrow.uturn.forward")
-                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(VNColor.go)
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.forward")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("resume").font(VNFont.sysMono(9.5, .semibold))
+                    }
+                    .foregroundStyle(VNColor.go)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(VNColor.go.opacity(0.12), in: Capsule())
                 }
             }
-            .padding(EdgeInsets(top: 6, leading: 8, bottom: 6, trailing: 8))
+            .padding(EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
-        .help("Resume: claude --resume \(entry.id)")
+        .help("\(entry.cwd)\nclaude --resume \(entry.id)")
+    }
+}
+
+/// Deterministic colored tile per project — same folder, same hue, so
+/// repeated projects group visually at a glance.
+struct ProjectTile: View {
+    let name: String
+
+    private static let palette: [Color] = [
+        Color(hex: 0xD97742), Color(hex: 0x6FB982), Color(hex: 0x4F7DF0),
+        Color(hex: 0xE7A762), Color(hex: 0xC084FC), Color(hex: 0x3E9D8F),
+        Color(hex: 0xE06D8C), Color(hex: 0x8A9BE0),
+    ]
+
+    static func tint(_ name: String) -> Color {
+        var h: UInt32 = 5381
+        for b in name.utf8 { h = (h << 5) &+ h &+ UInt32(b) }
+        return palette[Int(h % UInt32(palette.count))]
+    }
+
+    var body: some View {
+        let tint = Self.tint(name)
+        Text(String(name.prefix(1)).uppercased())
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .frame(width: 24, height: 24)
+            .background(tint.gradient, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
