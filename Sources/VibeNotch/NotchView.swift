@@ -46,7 +46,7 @@ struct ExpandedContent: View {
                     SettingsWindow.show()
                 }
             }
-            .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 2)
+            .padding(.horizontal, 20).padding(.top, -26).padding(.bottom, 4)
             // dictation (^D): pulsing mic + live transcript while listening
             if vox.listening {
                 HStack(spacing: 8) {
