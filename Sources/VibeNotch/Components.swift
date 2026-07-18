@@ -11,9 +11,9 @@ struct AgentPill: View {
     var body: some View {
         let tint = VNColor.agent(source)
         Text(agentName(source))
-            .font(VNFont.sysMono(10.5, .semibold))
+            .font(VNFont.sysMono(9.5, .semibold))
             .foregroundStyle(tint)
-            .padding(.horizontal, 8).padding(.vertical, 3)
+            .padding(.horizontal, 7).padding(.vertical, 2.5)
             .background(tint.opacity(0.13), in: Capsule())
             .overlay(Capsule().strokeBorder(tint.opacity(0.35), lineWidth: 1))
     }
@@ -24,9 +24,9 @@ struct SideBadge: View {
     let text: String
     var body: some View {
         Text(text)
-            .font(VNFont.sysMono(10.5, .medium))
+            .font(VNFont.sysMono(9.5, .medium))
             .foregroundStyle(VNColor.paper.opacity(0.7))
-            .padding(.horizontal, 8).padding(.vertical, 3)
+            .padding(.horizontal, 7).padding(.vertical, 2.5)
             .background(Color.white.opacity(0.06), in: Capsule())
     }
 }
@@ -83,9 +83,9 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 8.5, weight: .semibold))
                 .foregroundStyle(tint)
-                .frame(width: 22, height: 22)
+                .frame(width: 18, height: 18)
                 .background(.white.opacity(0.08), in: Circle())
         }
         .buttonStyle(.plain)
@@ -104,13 +104,13 @@ struct WideButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 5) {
-                Text(title).font(.system(size: 11.8, weight: .semibold))
+                Text(title).font(.system(size: 11, weight: .semibold))
                 if let hint {
                     Text(hint).font(VNFont.sysMono(9.5, .semibold)).opacity(0.55)
                 }
             }
             .lineLimit(1)
-            .frame(maxWidth: .infinity).padding(.vertical, 8)
+            .frame(maxWidth: .infinity).padding(.vertical, 6.5)
         }
         .buttonStyle(.plain)
         .background(background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -137,9 +137,8 @@ struct AgentIcon: View {
     let source: String
     var size: CGFloat = 16
     var body: some View {
-        Image(systemName: source == "codex" ? "asterisk" : "sparkle")
-            .font(.system(size: size * 0.85, weight: .semibold))
-            .foregroundStyle(VNColor.agent(source))
+        // the mascot IS the agent icon (VI style): pixel invader in brand color
+        PixelInvader(color: VNColor.agent(source), px: size / 8)
     }
 }
 

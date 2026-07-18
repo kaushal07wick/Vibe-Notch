@@ -25,32 +25,39 @@ struct UsageChips: View {
     let providers: [ProviderUsage]
 
     var body: some View {
-        HStack(spacing: 7) {
+        // VI header style: flat text, every window inline — `❋ 5h 35% 17m | 7d 21% 5d20h`
+        HStack(spacing: 12) {
             ForEach(providers, id: \.provider) { p in
-                if let peak = p.peak { chip(p.provider, peak) }
+                HStack(spacing: 6) {
+                    Text(providers.count > 1 ? p.provider : "❋")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(VNColor.agent(p.provider.lowercased()))
+                    ForEach(Array(p.windows.enumerated()), id: \.offset) { i, w in
+                        if i > 0 {
+                            Text("|").font(VNFont.sysMono(10.5, .regular))
+                                .foregroundStyle(Color.white.opacity(0.18))
+                        }
+                        windowSegment(w)
+                    }
+                }
             }
             Spacer(minLength: 0)
         }
+        .help(helpText)
     }
 
-    private func chip(_ provider: String, _ w: ProviderUsage.Window) -> some View {
-        HStack(spacing: 5) {
-            Text(provider).font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.74))
-            Text(w.label).font(VNFont.sysMono(10.5, .semibold))
-                .foregroundStyle(Color.white.opacity(0.42))
+    private func windowSegment(_ w: ProviderUsage.Window) -> some View {
+        HStack(spacing: 4) {
+            Text(w.label).font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.88))
             Text("\(Int(w.usedPercentage.rounded()))%")
-                .font(VNFont.sysMono(11.5, .bold))
+                .font(.system(size: 11.5, weight: .bold))
                 .foregroundStyle(usageColor(w.usedPercentage))
             if let resets = w.resetsAt {
-                Text(shortRemaining(until: resets)).font(VNFont.sysMono(10.5, .medium))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                Text(shortRemaining(until: resets)).font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.32))
             }
         }
-        .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(Color.white.opacity(0.055), in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
-        .help(helpText)
     }
 
     private var helpText: String {

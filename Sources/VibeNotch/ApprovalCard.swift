@@ -32,8 +32,8 @@ struct ApprovalCard: View {
                     .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
             }
         }
-        .padding(EdgeInsets(top: 6, leading: 15, bottom: 10, trailing: 15))
-        .frame(width: 540)
+        .padding(EdgeInsets(top: 5, leading: 13, bottom: 9, trailing: 13))
+        .frame(width: 500)
     }
 
     private var header: some View {
@@ -41,9 +41,9 @@ struct ApprovalCard: View {
             AgentIcon(source: i.source)
             VStack(alignment: .leading, spacing: 2) {
                 Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
-                    .font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                    .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                 if let user = i.userMessage {
-                    Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                    Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
                         .lineLimit(1).truncationMode(.tail)
                 }
             }
@@ -54,8 +54,8 @@ struct ApprovalCard: View {
 
     private var toolLine: some View {
         HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(VNColor.amber)
-            Text(i.tool ?? "Tool").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.amber)
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(VNColor.amber)
+            Text(i.tool ?? "Tool").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(VNColor.amber)
             Spacer(minLength: 0)
         }
     }

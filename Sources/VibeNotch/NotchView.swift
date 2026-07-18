@@ -30,7 +30,7 @@ struct ExpandedContent: View {
                     SettingsWindow.show()
                 }
             }
-            .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 2)
+            .padding(.horizontal, 15).padding(.top, 5).padding(.bottom, 1)
             ZStack {
                 currentCard
                     .id(stateKey)
@@ -68,17 +68,13 @@ struct ExpandedContent: View {
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 5) {
-            if activeAgents.isEmpty {
-                PixelInvader(color: VNColor.invader, px: 1.8) // idle mascot
-            } else {
-                // subtle: at most two invaders in the resting notch
-                ForEach(activeAgents.prefix(2), id: \.self) { PixelInvader(color: VNColor.agent($0), px: 1.8) }
-            }
+        Group {
+            // subtle: a single tiny invader — most recent agent's color
+            PixelInvader(color: activeAgents.first.map(VNColor.agent) ?? VNColor.invader, px: 1)
         }
-        // fixed equal-width flanks keep the black shape centred on the physical notch
-        .frame(width: 54)
-        .padding(.horizontal, 4)
+        // physical notch is ~166pt; ~12pt flanks keep the shape barely wider + centred
+        .frame(width: 12)
+        .padding(.horizontal, 2)
     }
 
     /// Distinct agents that have a live session, most-recent first.
@@ -98,16 +94,16 @@ struct CompactTrailing: View {
         Group {
             if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: 10.5, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(VNColor.text)
             } else {
-                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
+                Circle().fill(VNColor.faint).frame(width: 4, height: 4)
             }
         }
         // mirror of CompactLeading — equal width keeps the notch split evenly
-        .frame(width: 54)
-        .padding(.horizontal, 4)
+        .frame(width: 12)
+        .padding(.horizontal, 2)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
 }

@@ -22,7 +22,7 @@ struct ActivityCard: View {
 
     private var idlePill: some View {
         HStack(spacing: 12) {
-            PixelInvader(color: VNColor.invader, px: 3)
+            PixelInvader(color: VNColor.invader, px: 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text("vibe-notch").font(.system(size: 13, weight: .semibold))
                 Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
@@ -30,8 +30,8 @@ struct ActivityCard: View {
             }
             Spacer(minLength: 12)
         }
-        .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
-        .frame(width: 300)
+        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
+        .frame(width: 260)
     }
 
     // MARK: Single session
@@ -42,9 +42,9 @@ struct ActivityCard: View {
                 AgentIcon(source: s.source)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(sessionTitle(folder: s.folder, task: s.task))
-                        .font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                        .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                        Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
                             .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -53,8 +53,8 @@ struct ActivityCard: View {
             }
             SessionStatusLine(s: s, full: full)
         }
-        .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-        .frame(width: 540, alignment: .leading)
+        .padding(EdgeInsets(top: 5, leading: 13, bottom: 8, trailing: 13))
+        .frame(width: 500, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -68,8 +68,8 @@ struct ActivityCard: View {
             }
             .padding(.top, 9)
         }
-        .padding(EdgeInsets(top: 9, leading: 18, bottom: 12, trailing: 18))
-        .frame(width: 540, alignment: .leading)
+        .padding(EdgeInsets(top: 8, leading: 14, bottom: 10, trailing: 14))
+        .frame(width: 500, alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -171,13 +171,13 @@ struct TerminalBlock: View {
     var body: some View {
         let tail = text.components(separatedBy: "\n").suffix(lines).joined(separator: "\n")
         Text(prompt ? "$ \(tail)" : tail)
-            .font(VNFont.mono(11))
+            .font(.system(size: 10.5, design: .monospaced))
             .foregroundStyle(Color(hex: 0xC8CDD4))
             .lineLimit(lines).truncationMode(.tail)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(9)
-            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 8))
+            .padding(8)
+            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 7))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(VNColor.hair))
     }
 }
