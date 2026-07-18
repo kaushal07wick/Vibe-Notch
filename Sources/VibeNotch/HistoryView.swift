@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VibeNotchCore
 
 // Session history — past Claude sessions read straight from
 // ~/.claude/projects/<dir>/<sessionId>.jsonl. Click one → a terminal opens at
@@ -120,6 +121,9 @@ struct HistoryList: View {
             .padding(.bottom, 6)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
 
+            // today's recap + lifetime mascot level
+            recap
+
             if entries.isEmpty {
                 Text("No past sessions found.")
                     .font(.system(size: 11)).foregroundStyle(VNColor.faint)
@@ -137,6 +141,28 @@ struct HistoryList: View {
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
         .frame(width: 620, alignment: .leading)
+    }
+}
+
+extension HistoryList {
+    var recap: some View {
+        let today = StatsLog.today()
+        let level = StatsLog.mascotLevel(totals: StatsLog.totals())
+        let bits = [
+            today["sessions"].map { "\($0) session\($0 == 1 ? "" : "s")" },
+            today["approved"].map { "\($0) approved" },
+            today["autoApproved"].map { "\($0) auto" },
+            today["replies"].map { "\($0) repl\($0 == 1 ? "y" : "ies")" },
+        ].compactMap { $0 }
+        return HStack(spacing: 8) {
+            EvolvedInvader(px: 1.4)
+            Text(bits.isEmpty ? "Quiet day so far." : "Today: " + bits.joined(separator: " · "))
+                .font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.muted)
+            Spacer(minLength: 8)
+            Text("Lv.\(level)").font(VNFont.sysMono(10, .semibold))
+                .foregroundStyle(VNColor.paper.opacity(0.4))
+        }
+        .padding(.vertical, 6)
     }
 }
 

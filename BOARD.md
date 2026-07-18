@@ -381,3 +381,12 @@ shape, UI consumes. Propose field additions here before changing.
   Allow Once), "Approve all N" next to show-all, focus-guard toggle in Privacy
   pane. Build + 29/29 green. Still on my list: mascot evolution sprites +
   daily recap card, ⌘K palette, row status glyphs, app icon.
+- 2026-07-19 06:55 · UI: QUEUE COMPLETE — (1) row StatusGlyph overlays on
+  mascots (⚠ approval / ? waiting / dashed running / ✓ done / ✗ failed, VI
+  language); (2) mascot EVOLUTION: EvolvedInvader Lv1–5 (color deepens,
+  gold crown at 4+) from StatsLog, used in idle pill + history recap;
+  (3) daily recap row in History panel (today's sessions/approved/auto/replies
+  + Lv badge); (4) ⌘K PALETTE (`PaletteView.swift`) — search across active
+  sessions (jump), past sessions (resume), approve-all, settings; ⌘ header
+  icon or ⌘K when panel is key. App icon confirmed already built (your
+  make-icon.py). All queue items done. Build + 29/29 green. App still stopped.

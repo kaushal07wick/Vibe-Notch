@@ -1,4 +1,5 @@
 import SwiftUI
+import VibeNotchCore
 
 // Per-agent pixel-art brand sprites, drawn in code (no image assets).
 // Grid chars → colors; `.` is transparent. Two frames = idle animation.
@@ -227,6 +228,60 @@ struct AgentSpriteView: View {
             }
         } else {
             PixelInvader(color: VNColor.agent(source), px: size / 11)
+        }
+    }
+}
+
+// MARK: - Mascot evolution
+
+/// The invader grows with lifetime activity (StatsLog.mascotLevel 1…5):
+/// color deepens, antennae at 3+, a gold crown at 4+.
+struct EvolvedInvader: View {
+    var px: CGFloat = 2
+    @State private var level = 1
+
+    private static let levelColors: [Color] = [
+        Color(hex: 0x4F7DF0),  // 1 — blue
+        Color(hex: 0x42B883),  // 2 — green
+        Color(hex: 0x3AA8A0),  // 3 — teal
+        Color(hex: 0x9B6DFF),  // 4 — violet
+        Color(hex: 0xE8B33C),  // 5 — gold
+    ]
+
+    var body: some View {
+        VStack(spacing: px * 0.5) {
+            if level >= 4 {
+                PixelGlyph(grid: ["o.o.o"], color: Color(hex: 0xE8B33C), px: px) // crown
+            }
+            PixelInvader(color: Self.levelColors[min(level, 5) - 1], px: px)
+        }
+        .onAppear { level = StatsLog.mascotLevel(totals: StatsLog.totals()) }
+        .help("Invader level \(level)/5 — grows with your sessions")
+    }
+}
+
+/// Session-state glyph shown beside the mascot in rows (VI's language).
+struct StatusGlyph: View {
+    let event: String
+    var body: some View {
+        switch event {
+        case "PermissionRequest":
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 8)).foregroundStyle(VNColor.amber)
+        case "Notification":
+            Image(systemName: "questionmark.circle.fill")
+                .font(.system(size: 8)).foregroundStyle(VNColor.amber)
+        case "PreToolUse", "PostToolUse", "UserPromptSubmit":
+            Image(systemName: "circle.dashed")
+                .font(.system(size: 8)).foregroundStyle(VNColor.running)
+        case "Stop":
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 8)).foregroundStyle(VNColor.go)
+        case "PostToolUseFailure", "StopFailure":
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 8)).foregroundStyle(VNColor.stop)
+        default:
+            EmptyView()
         }
     }
 }

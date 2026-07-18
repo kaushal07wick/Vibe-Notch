@@ -12,6 +12,7 @@ struct ExpandedContent: View {
 
     @State private var muted = !SoundManager.shared.enabled
     @State private var showHistory = false
+    @State private var showPalette = false
     @State private var history: [ResumeEntry] = []
 
     var body: some View {
@@ -22,10 +23,17 @@ struct ExpandedContent: View {
                     UsageChips(providers: usage.providers)
                 }
                 Spacer(minLength: 8)
+                HeaderIconButton(symbol: "command",
+                                 tint: showPalette ? VNColor.go : .white.opacity(0.62)) {
+                    showPalette.toggle()
+                    if showPalette { showHistory = false }
+                }
+                .keyboardShortcut("k", modifiers: .command)
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62)) {
                     if !showHistory { history = SessionHistory.load() }
                     showHistory.toggle()
+                    if showHistory { showPalette = false }
                 }
                 HeaderIconButton(
                     symbol: muted ? "speaker.slash.fill" : "speaker.wave.2.fill",
@@ -80,7 +88,9 @@ struct ExpandedContent: View {
                 .padding(.horizontal, 20).padding(.vertical, 3)
             }
             ZStack {
-                if showHistory && store.pending.isEmpty {
+                if showPalette {
+                    PaletteView(store: store) { showPalette = false }
+                } else if showHistory && store.pending.isEmpty {
                     HistoryList(entries: history) { showHistory = false }
                 } else {
                     currentCard

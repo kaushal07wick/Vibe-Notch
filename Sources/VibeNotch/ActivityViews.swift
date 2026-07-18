@@ -22,7 +22,7 @@ struct ActivityCard: View {
 
     private var idlePill: some View {
         HStack(spacing: 12) {
-            PixelInvader(color: VNColor.invader, px: 2)
+            EvolvedInvader(px: 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text("vibe-notch").font(.system(size: 13, weight: .semibold))
                 Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
@@ -221,6 +221,9 @@ struct SessionRow: View {
         Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty) } label: {
             HStack(alignment: .center, spacing: 10) {
                 AgentIcon(source: s.source, size: 18)
+                    .overlay(alignment: .bottomTrailing) {
+                        StatusGlyph(event: s.event).offset(x: 5, y: 3)
+                    }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(sessionTitle(folder: s.folder, task: s.task))
                         .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
