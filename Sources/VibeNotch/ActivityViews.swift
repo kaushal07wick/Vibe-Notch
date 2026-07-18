@@ -24,7 +24,7 @@ struct ActivityCard: View {
             PixelInvader(color: VNColor.invader, px: 3)
             VStack(alignment: .leading, spacing: 2) {
                 Text("vibe-notch").font(.system(size: 13, weight: .semibold))
-                Text(ClaudeInstaller.isConnected ? "no active sessions" : "not connected")
+                Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
                     .font(.system(size: 11)).foregroundStyle(VNColor.muted)
             }
             Spacer(minLength: 12)

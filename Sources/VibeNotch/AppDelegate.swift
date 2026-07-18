@@ -10,11 +10,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
-        AgentInstallers.all.forEach { $0.reconcile() } // pick up newly-added activity hooks
+        autoConnectDetectedAgents()
         setupStatusItem()
         notch = NotchPanelController(store: store)
         notch.show()
         startServer()
+    }
+
+    /// Zero-config: wire every detected agent on launch; refresh already-connected
+    /// ones so newly added hook events land. Fail-open — errors are logged only.
+    private func autoConnectDetectedAgents() {
+        let hookBinary = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
+        for spec in Agents.detected {
+            let installer = AgentHookInstaller(spec)
+            if installer.isConnected {
+                installer.reconcile()
+            } else {
+                do { try installer.connect(hookBinarySource: hookBinary) }
+                catch { NSLog("VibeNotch: could not connect \(spec.name): \(error)") }
+            }
+        }
     }
 
     private func startServer() {
@@ -49,15 +64,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildMenu(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let header = NSMenuItem(title: "Agents  (click to connect)", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: "Agents", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
 
-        for installer in AgentInstallers.all {
-            let item = NSMenuItem(title: installer.displayName, action: #selector(toggleAgent(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = installer.id
-            item.state = installer.isConnected ? .on : .off
+        // Detected agents are toggleable; undetected ones shown dimmed for discoverability.
+        for spec in Agents.all {
+            let installer = AgentHookInstaller(spec)
+            let item = NSMenuItem(title: spec.name, action: #selector(toggleAgent(_:)), keyEquivalent: "")
+            item.representedObject = spec.id
+            if spec.isDetected {
+                item.target = self
+                item.state = installer.isConnected ? .on : .off
+            } else {
+                item.isEnabled = false
+                item.title = "\(spec.name)  (not installed)"
+            }
             menu.addItem(item)
         }
 
@@ -83,7 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleAgent(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? String, let installer = AgentInstallers.byID(id) else { return }
+        guard let id = sender.representedObject as? String, let spec = Agents.byID(id) else { return }
+        let installer = AgentHookInstaller(spec)
         do {
             if installer.isConnected {
                 try installer.disconnect()
@@ -94,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             let alert = NSAlert()
             alert.messageText = "Vibe Notch"
-            alert.informativeText = "Could not update \(installer.displayName) hooks:\n\(error.localizedDescription)"
+            alert.informativeText = "Could not update \(spec.name) hooks:\n\(error.localizedDescription)"
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }

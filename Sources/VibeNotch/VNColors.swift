@@ -1,4 +1,5 @@
 import SwiftUI
+import VibeNotchCore
 
 /// Palette matched to Open Island's spec — warm paper on near-black ink,
 /// tinted status/agent colors.
@@ -23,13 +24,17 @@ enum VNColor {
     /// Per-agent brand hue (matches Open Island's AgentSession colors).
     static func agent(_ source: String) -> Color {
         switch source {
-        case "codex":    return Color(hex: 0x4AA3DF)
-        case "cursor":   return Color(hex: 0x7A5CFF)
-        case "gemini":   return Color(hex: 0x42E86B)
-        case "grok":     return Color(hex: 0x22C55E)
-        case "kimi":     return Color(hex: 0xFDE047)
-        case "opencode": return Color(hex: 0xFFB547)
-        default:         return Color(hex: 0xD97742) // claude
+        case "codex":     return Color(hex: 0x4AA3DF)
+        case "cursor":    return Color(hex: 0x7A5CFF)
+        case "gemini":    return Color(hex: 0x42E86B)
+        case "grok":      return Color(hex: 0x22C55E)
+        case "kimi":      return Color(hex: 0xFDE047)
+        case "opencode":  return Color(hex: 0xFFB547)
+        case "qwen":      return Color(hex: 0xC084FC)
+        case "qoder":     return Color(hex: 0xFF6B9F)
+        case "droid":     return Color(hex: 0x6E9FFF)
+        case "codebuddy": return Color(hex: 0xFCA5A5)
+        default:          return Color(hex: 0xD97742) // claude
         }
     }
 }
@@ -43,17 +48,9 @@ enum VNFont {
     }
 }
 
-/// Display name for an agent source.
+/// Lowercase badge name for an agent source (matches the reference style).
 func agentName(_ source: String) -> String {
-    switch source {
-    case "codex": return "codex"
-    case "gemini": return "gemini"
-    case "cursor": return "cursor"
-    case "grok": return "grok"
-    case "kimi": return "kimi"
-    case "opencode": return "opencode"
-    default: return "claude"
-    }
+    Agents.byID(source) != nil || source == "claude" ? source : "claude"
 }
 
 extension Color {

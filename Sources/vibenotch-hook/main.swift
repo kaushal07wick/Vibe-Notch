@@ -149,9 +149,61 @@ if source == "codex" {
     exit(0)
 }
 
-// Claude Code: hook JSON on stdin.
+// All other agents send hook JSON on stdin.
 let stdin = FileHandle.standardInput.readDataToEndOfFile()
 let obj = (try? JSONSerialization.jsonObject(with: stdin)) as? [String: Any] ?? [:]
+
+/// First present key, snake_case or camelCase (Cursor uses camelCase).
+let field: ([String]) -> Any? = { keys in
+    for k in keys where obj[k] != nil { return obj[k] }
+    return nil
+}
+
+if source == "gemini" {
+    // Gemini CLI: same settings.json shape, its own event names → map to ours.
+    let raw = field(["hook_event_name", "hookEventName"]) as? String ?? "Unknown"
+    let mapped: String
+    switch raw {
+    case "BeforeAgent": mapped = "UserPromptSubmit"
+    case "AfterAgent": mapped = "Stop"
+    case "SessionStart", "SessionEnd", "Notification": mapped = raw
+    default: exit(0)
+    }
+    let msg = VNInbound(type: .notify, source: "gemini", event: mapped,
+                        title: oneLine(field(["prompt"]) as? String),
+                        detail: (field(["message"]) as? String) ?? oneLine(field(["prompt_response", "promptResponse"]) as? String),
+                        userMessage: oneLine(field(["prompt"]) as? String),
+                        cwd: field(["cwd"]) as? String, terminal: terminal,
+                        sessionId: field(["session_id", "sessionID"]) as? String)
+    _ = IPCClient.send(msg)
+    exit(0)
+}
+
+if source == "cursor" {
+    let raw = field(["hook_event_name", "hookEventName"]) as? String ?? "Unknown"
+    let mapped: String
+    var tool: String?
+    var detail: String?
+    switch raw {
+    case "beforeSubmitPrompt": mapped = "UserPromptSubmit"
+    case "beforeShellExecution":
+        mapped = "PreToolUse"; tool = "Shell"; detail = field(["command"]) as? String
+    case "afterFileEdit":
+        mapped = "PostToolUse"; tool = "Edit"; detail = field(["file_path", "filePath"]) as? String
+    case "stop": mapped = "Stop"
+    default: exit(0)
+    }
+    let workspaces = field(["workspace_roots", "workspaceRoots"]) as? [String]
+    let msg = VNInbound(type: .notify, source: "cursor", event: mapped,
+                        tool: tool, detail: detail,
+                        userMessage: oneLine(field(["prompt"]) as? String),
+                        cwd: (field(["cwd"]) as? String) ?? workspaces?.first, terminal: terminal,
+                        sessionId: field(["conversation_id", "conversationId"]) as? String)
+    _ = IPCClient.send(msg)
+    exit(0)
+}
+
+// Claude-schema family (claude, qwen, qoder, droid, codebuddy): identical payloads.
 let event = obj["hook_event_name"] as? String ?? "Unknown"
 let tool = obj["tool_name"] as? String
 let toolInput = obj["tool_input"] as? [String: Any]
@@ -160,7 +212,7 @@ let sessionId = obj["session_id"] as? String
 
 if event == "PermissionRequest" {
     let transcript = obj["transcript_path"] as? String
-    let msg = VNInbound(type: .request, source: "claude", event: event,
+    let msg = VNInbound(type: .request, source: source, event: event,
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
                         userMessage: oneLine(userText(transcript, first: false)),
@@ -190,7 +242,7 @@ case "Stop":                  activityDetail = lastAssistantText(transcript).map
 case "SessionStart", "UserPromptSubmit", "SessionEnd": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
-let msg = VNInbound(type: .notify, source: "claude", event: event,
+let msg = VNInbound(type: .notify, source: source, event: event,
                     title: task, tool: (event == "PreToolUse" || event == "PostToolUse") ? tool : nil,
                     detail: activityDetail, userMessage: lastUser,
                     cwd: cwd, terminal: terminal,
