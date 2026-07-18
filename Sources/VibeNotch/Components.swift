@@ -198,40 +198,39 @@ struct AgentIcon: View {
     }
 }
 
-/// A rotating pixel spinner — a bright head with a long comet trail orbiting
-/// a 5×5 pixel ring. Smooth (16 steps), unmistakably "working".
+/// Radar sweep — a beam rotating from the center of a 5×5 pixel grid with a
+/// ghost trail. The owl watches; the radar scans. Amber, like the owl's eyes.
 struct PixelRingSpinner: View {
     var color: Color
     var px: CGFloat = 2.2
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// The 16 perimeter cells of a 5×5 grid, clockwise from top-left.
-    private static let ring: [(Int, Int)] = [
-        (0, 0), (1, 0), (2, 0), (3, 0), (4, 0),
-        (4, 1), (4, 2), (4, 3), (4, 4),
-        (3, 4), (2, 4), (1, 4), (0, 4),
-        (0, 3), (0, 2), (0, 1),
+    /// 12 beam directions: the two cells the beam lights beyond the center.
+    private static let beams: [[(Int, Int)]] = [
+        [(2, 0), (2, 1)], [(3, 0), (3, 1)], [(4, 1), (3, 2)], [(4, 2), (3, 2)],
+        [(4, 3), (3, 2)], [(3, 4), (3, 3)], [(2, 4), (2, 3)], [(1, 4), (1, 3)],
+        [(0, 3), (1, 2)], [(0, 2), (1, 2)], [(0, 1), (1, 2)], [(1, 0), (1, 1)],
     ]
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.07)) { ctx in
+        TimelineView(.periodic(from: .now, by: 0.085)) { ctx in
             Canvas { c, _ in
+                func put(_ x: Int, _ y: Int, _ alpha: Double) {
+                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                       width: px, height: px)),
+                           with: .color(color.opacity(alpha)))
+                }
                 if active && !reduceMotion {
-                    let head = Int(ctx.date.timeIntervalSinceReferenceDate / 0.07) % 16
-                    for offset in 0..<7 { // head + 6-cell comet trail
-                        let cell = Self.ring[(head - offset + 16) % 16]
-                        let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
-                                          width: px, height: px)
-                        c.fill(Path(rect), with: .color(color.opacity(1.0 - Double(offset) * 0.145)))
-                    }
+                    let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.085) % 12
+                    put(2, 2, 1.0)                                   // dish
+                    for (x, y) in Self.beams[i] { put(x, y, 0.95) }  // beam
+                    for (x, y) in Self.beams[(i + 11) % 12] { put(x, y, 0.35) } // ghost
+                    for (x, y) in Self.beams[(i + 10) % 12] { put(x, y, 0.15) } // fainter ghost
                 } else {
-                    // idle: four dim cardinal points — a resting compass
-                    for cell in [(2, 0), (4, 2), (2, 4), (0, 2)] {
-                        let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
-                                          width: px, height: px)
-                        c.fill(Path(rect), with: .color(color.opacity(0.35)))
-                    }
+                    // idle: dim center + cardinal points — a resting scope
+                    put(2, 2, 0.45)
+                    for (x, y) in [(2, 0), (4, 2), (2, 4), (0, 2)] { put(x, y, 0.2) }
                 }
             }
             .frame(width: 5 * px, height: 5 * px)

@@ -1027,7 +1027,7 @@ struct StatusGlyph: View {
 /// still and dim when idle. (Bars read as a music equalizer — replaced.)
 struct PixelSpinner: View {
     var active: Bool
-    var color: Color = Color(hex: 0x6FB982)
+    var color: Color = Color(hex: 0xF0B43C) // owl-eye amber
 
     var body: some View {
         PixelRingSpinner(color: color, px: 2, active: active)
