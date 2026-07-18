@@ -124,6 +124,17 @@ if event == "PermissionRequest" {
                         gitBranch: gitInfo(cwd).branch, gitDirty: gitInfo(cwd).dirty,
                         sessionId: sessionId)
     let reply = IPCClient.send(msg)
+    if reply == nil {
+        // Evidence trail for "the notch missed a permission": app unreachable
+        // or no decision — the agent's own prompt takes over either way.
+        let line = "\(ISO8601DateFormatter().string(from: Date())) source=\(source) tool=\(tool ?? "?") sid=\(sessionId ?? "?")\n"
+        let log = VNPaths.data.appendingPathComponent("missed-permissions.log")
+        if let handle = try? FileHandle(forWritingTo: log) {
+            _ = try? handle.seekToEnd(); try? handle.write(contentsOf: Data(line.utf8)); try? handle.close()
+        } else {
+            try? line.write(to: log, atomically: true, encoding: .utf8)
+        }
+    }
     switch reply?.decision.agentBehavior {
     case .allow: emitDecision("allow", answers: reply?.answers, originalInput: toolInput)
     case .deny: emitDecision("deny", answers: nil, originalInput: nil)
