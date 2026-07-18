@@ -331,6 +331,8 @@ if event == "PermissionRequest" {
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
                         plan: toolInput?["plan"] as? String,
+                        diffOld: toolInput?["old_string"] as? String,
+                        diffNew: (toolInput?["new_string"] as? String) ?? (tool == "Write" ? toolInput?["content"] as? String : nil),
                         questions: parseQuestions(toolInput),
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),

@@ -19,6 +19,8 @@ public struct VNInbound: Codable, Sendable {
     public var detail: String?             // full text — command, or the agent's last message
     public var commandDescription: String? // the agent's one-line explanation of the command
     public var plan: String?               // Markdown plan text (ExitPlanMode approvals)
+    public var diffOld: String?            // Edit approvals: text being replaced
+    public var diffNew: String?            // Edit/Write approvals: new text
     public var questions: [VNQuestion]?    // AskUserQuestion multiple-choice payload
     public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
@@ -36,6 +38,7 @@ public struct VNInbound: Codable, Sendable {
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
                 commandDescription: String? = nil, plan: String? = nil,
+                diffOld: String? = nil, diffNew: String? = nil,
                 questions: [VNQuestion]? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
                 termMeta: [String: String]? = nil,
@@ -50,6 +53,8 @@ public struct VNInbound: Codable, Sendable {
         self.detail = detail
         self.commandDescription = commandDescription
         self.plan = plan
+        self.diffOld = diffOld
+        self.diffNew = diffNew
         self.questions = questions
         self.userMessage = userMessage
         self.cwd = cwd
