@@ -22,13 +22,38 @@ tmux/split-pane precision jump.
 
 ## Why the two agents differ
 
-- **Claude Code** exposes a **`PreToolUse` hook** that can *block up to 600s* and return
-  `{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision":
-  "allow"|"deny"|"ask", ...}}` on stdout (exit 0). That is a real blocking
-  GUI-approval channel.
+- **Claude Code** exposes a dedicated **`PermissionRequest` hook** that can block for a
+  configurable timeout (the live Vibe Island sets **`"timeout": 86400`** — 24h) and
+  return `{"hookSpecificOutput": {"permissionDecision": "allow"|"deny"|"ask", ...}}` on
+  stdout (exit 0). That is the real blocking GUI-approval channel. All other events
+  (SessionStart, PreToolUse, PostToolUse, Notification, Stop, …) are fire-and-forget
+  and drive status/notifications.
 - **Codex** exposes only **`notify`** — a program run with a single JSON argv on
   `agent-turn-complete`. It is notification-only; Codex approvals live in its TUI.
   So v1 gives Codex notifications + jump, not approve/deny.
+
+## Ground truth (reverse-engineered from live Vibe Island v1.0.42)
+
+Matched against the running app on this Mac. We mirror this shape.
+
+- **App:** bundle `app.vibeisland.macos`, `LSUIElement`, `LSMinimumSystemVersion 14.0`,
+  native Swift. Ours: bundle `com.kaushalchoudhary.vibenotch`, same flags, macOS 14+.
+- **Hook client:** one binary wired into *every* Claude event via
+  `/bin/sh -c '[ -x "$BIN" ] && "$BIN" --source claude; exit 0'` (fail-open). Blocking
+  approval = `PermissionRequest` with `timeout: 86400`. Their binary is Go
+  (cross-compiled for remote Linux); ours is Swift (local-only v1).
+- **IPC:** Unix socket at `~/.vibe-island/run/vibe-island.sock` + `vibe-island.pid` +
+  `vibe-island.lastrun`. Ours: `~/.vibenotch/run/{vibenotch.sock,vibenotch.pid}`.
+- **Layout:** `~/.vibe-island/{bin,run,cache,data,ssh,custom-sounds}`. Ours mirrors
+  `{bin,run,cache,data}` in v1.
+- **Terminal jump:** per-session **OSC-2 title tracking** (cache file keyed by the
+  first 16 chars of the session UUID holds the terminal's title) + a
+  `ghostty-terminal-bindings.json` map (session-prefix → `{bundleIdentifier,
+  ghosttyPid, terminalId}`). This is how Ghostty precision jump is done — pull it into
+  P2 instead of P4 now that the mechanism is known.
+- Also present (later phases): `vibe-island-statusline` (Claude statusline binary),
+  `cache/usage-persist*.json` (quota tracking), `Sounds/` (8-bit alerts), agent icons
+  for claude/codex/cursor/gemini/kimi/zai.
 
 ## Architecture
 
@@ -56,10 +81,12 @@ small change.
 
 ### 3. `vibenotch-hook` — CLI binary (shipped in the bundle)
 One small binary, mode by flag/argv:
-- **Claude Code PreToolUse** (default stdin mode): read hook JSON from stdin → open
-  socket → send `request` → **block ≤590s** (under the 600s cap; on timeout or socket
-  error, emit `defer` so Claude's normal flow still works — never hang the agent) →
-  translate the socket reply into the `hookSpecificOutput` JSON → stdout, exit 0.
+- **Claude Code `--source claude` (stdin mode):** read hook JSON from stdin, branch on
+  `hook_event_name`. For `PermissionRequest`: open socket → send `request` → **block**
+  (hook configured with `timeout: 86400`; on socket error/timeout emit `defer` so
+  Claude's normal flow still works — never hang the agent) → translate the socket reply
+  into `hookSpecificOutput` JSON → stdout, exit 0. For all other events: send `notify`,
+  exit 0.
 - **Claude Code Notification/Stop** hooks: send `notify`, exit 0.
 - **Codex notify** (`--codex`): argv[1] is the JSON payload → send `notify` → exit 0.
 
