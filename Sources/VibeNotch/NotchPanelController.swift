@@ -46,8 +46,7 @@ final class NotchPanelController {
 
     private func refresh() {
         if store.hovering != notch.isHovering { store.hovering = notch.isHovering } // drives brief→full
-        let hasEvent = !store.pending.isEmpty || store.flash != nil || store.lastNotification != nil
-        let want = hasEvent || notch.isHovering
+        let want = !store.pending.isEmpty || store.flash != nil || notch.isHovering
         guard want != expanded else { return } // avoid re-triggering the morph on every change
         expanded = want
         Task {

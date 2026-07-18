@@ -90,7 +90,8 @@ if source == "codex" {
         event: (obj?["type"] as? String) ?? "agent-turn-complete",
         title: "Codex is waiting",
         detail: obj?["last-assistant-message"] as? String,
-        cwd: obj?["cwd"] as? String, terminal: terminal
+        cwd: obj?["cwd"] as? String, terminal: terminal,
+        sessionId: (obj?["session-id"] as? String) ?? "codex"
     )
     _ = IPCClient.send(msg)
     exit(0)
@@ -124,22 +125,21 @@ if event == "PermissionRequest" {
     exit(0)
 }
 
-// Only Stop and Notification become cards; other events (SessionStart, PostToolUse…)
-// are dropped to keep the notch quiet.
-let assistant = lastAssistantText(obj["transcript_path"] as? String)
-let title: String
-let detail: String?
+// Activity update — fold this event into the session's live state.
+let transcript = obj["transcript_path"] as? String
+let task = userText(transcript, first: true).map { String($0.prefix(140)) }
+let lastUser = userText(transcript, first: false)
+let activityDetail: String?
 switch event {
-case "Stop":
-    title = "Claude finished"
-    detail = assistant
-case "Notification":
-    title = (obj["message"] as? String) ?? "Claude"
-    detail = assistant ?? (obj["message"] as? String)
-default:
-    exit(0)
+case "PreToolUse":            activityDetail = summarize(toolInput)
+case "Notification":          activityDetail = obj["message"] as? String
+case "Stop":                  activityDetail = lastAssistantText(transcript)
+case "SessionStart", "UserPromptSubmit", "PostToolUse": activityDetail = nil
+default:                      exit(0) // ignore anything else
 }
 let msg = VNInbound(type: .notify, source: "claude", event: event,
-                    title: title, tool: tool, detail: detail, cwd: cwd, terminal: terminal, sessionId: sessionId)
+                    title: task, tool: (event == "PreToolUse" ? tool : nil),
+                    detail: activityDetail, userMessage: lastUser,
+                    cwd: cwd, terminal: terminal, sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)

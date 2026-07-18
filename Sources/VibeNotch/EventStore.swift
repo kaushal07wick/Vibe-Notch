@@ -2,32 +2,47 @@ import Foundation
 import VibeNotchCore
 
 /// A pending Claude permission request awaiting the user's decision.
-/// `reply` signals the blocked hook connection with the chosen decision.
 struct PendingApproval: Identifiable {
     let id: UUID
     let inbound: VNInbound
     let reply: @Sendable (VNDecision) -> Void
 }
 
-/// Drives the notch UI: the approval queue, the latest notification, and a
-/// brief post-decision flash. Notifications and flashes auto-clear.
+/// What one agent session is currently doing — updated on every hook event.
+struct SessionActivity: Identifiable {
+    let sessionId: String
+    var source: String
+    var folder: String?
+    var task: String?
+    var userMessage: String?
+    var tool: String?     // the tool it's running right now (from PreToolUse)
+    var detail: String?   // command / message / last assistant text
+    var event: String     // last hook event — drives the status label
+    var terminal: String?
+    var updatedAt: Date
+    var id: String { sessionId }
+}
+
+/// Drives the notch UI: the approval queue, live session activity, hover state,
+/// and a brief post-decision flash.
 @MainActor
 final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
-    @Published var lastNotification: VNInbound?
+    @Published var sessions: [String: SessionActivity] = [:]
     @Published var flash: VNDecision?
     @Published var hovering = false
 
-    private var noteGen = 0
-
-    func enqueue(_ approval: PendingApproval) {
-        pending.append(approval)
+    /// Sessions active in the last 30 minutes, newest first.
+    var activeSessions: [SessionActivity] {
+        let cutoff = Date().addingTimeInterval(-1800)
+        return sessions.values.filter { $0.updatedAt > cutoff }.sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    /// The hook disconnected before a decision — drop the card silently.
-    func cancel(_ id: UUID) {
-        pending.removeAll { $0.id == id }
-    }
+    var activeSession: SessionActivity? { activeSessions.first }
+
+    func enqueue(_ approval: PendingApproval) { pending.append(approval) }
+
+    func cancel(_ id: UUID) { pending.removeAll { $0.id == id } }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
         approval.reply(decision)
@@ -35,19 +50,26 @@ final class EventStore: ObservableObject {
         showFlash(decision)
     }
 
-    func note(_ inbound: VNInbound) {
-        lastNotification = inbound
-        noteGen += 1
-        scheduleClear(noteGen)
+    /// Fold a hook event into the session's current activity.
+    func updateSession(_ i: VNInbound) {
+        guard let sid = i.sessionId else { return }
+        var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, updatedAt: Date())
+        s.source = i.source
+        if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }
+        if let t = i.title { s.task = t }
+        if let u = i.userMessage { s.userMessage = u }
+        s.tool = i.tool                 // nil clears the "running X" when the turn moves on
+        if let d = i.detail { s.detail = d }
+        s.event = i.event
+        s.terminal = i.terminal ?? s.terminal
+        s.updatedAt = Date()
+        sessions[sid] = s
+        pruneStale()
     }
 
-    /// Auto-dismiss after a few seconds — but keep it up while the user is reading (hovering).
-    private func scheduleClear(_ generation: Int) {
-        Task {
-            try? await Task.sleep(for: .seconds(5))
-            guard generation == noteGen else { return }
-            if hovering { scheduleClear(generation) } else { lastNotification = nil }
-        }
+    private func pruneStale() {
+        let cutoff = Date().addingTimeInterval(-3600)
+        sessions = sessions.filter { $0.value.updatedAt > cutoff }
     }
 
     private func showFlash(_ decision: VNDecision) {

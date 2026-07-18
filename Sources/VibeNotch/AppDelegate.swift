@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
+        ClaudeInstaller.reconcileIfConnected() // pick up newly-added activity hooks
         setupStatusItem()
         notch = NotchPanelController(store: store)
         notch.show()
@@ -19,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startServer() {
         server = IPCServer(
             onNotify: { [weak self] inbound in
-                Task { @MainActor in self?.store.note(inbound) }
+                Task { @MainActor in self?.store.updateSession(inbound) }
             },
             onRequest: { [weak self] id, inbound, complete in
                 Task { @MainActor in

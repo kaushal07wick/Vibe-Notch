@@ -11,12 +11,16 @@ public enum ClaudeInstaller {
     /// Substring that uniquely identifies our hook entries (distinct from vibe-island-bridge).
     static let marker = "vibenotch-hook"
 
-    /// Events we register. PermissionRequest blocks for approval; the rest are notifications.
+    /// Events we register. PermissionRequest blocks for approval; the rest feed
+    /// live session activity (what the agent is working on).
     static let events: [(name: String, timeout: Int?)] = [
         ("PermissionRequest", 86_400),
         ("Notification", nil),
         ("Stop", nil),
         ("SessionStart", nil),
+        ("UserPromptSubmit", nil),
+        ("PreToolUse", nil),
+        ("PostToolUse", nil),
     ]
 
     public static var settingsURL: URL {
@@ -91,6 +95,13 @@ public enum ClaudeInstaller {
         let settings = readSettings() ?? [:]
         backupOnce(settings)
         try writeSettings(installed(into: settings))
+    }
+
+    /// If already connected, re-apply the hook set so newly-added events land
+    /// without the user re-clicking Connect. Idempotent no-op otherwise.
+    public static func reconcileIfConnected() {
+        guard isConnected, let settings = readSettings() else { return }
+        try? writeSettings(installed(into: settings))
     }
 
     /// Remove our hooks from settings.json. Leaves the installed binary in place.

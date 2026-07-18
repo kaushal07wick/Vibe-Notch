@@ -24,8 +24,8 @@ struct ExpandedContent: View {
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
         if let f = store.flash { return "flash-\(f.rawValue)" }
-        if store.lastNotification != nil { return "notif" }
-        return "status"
+        if let s = store.activeSession { return "act-\(s.id)-\(s.event)" }
+        return "idle"
     }
 
     @ViewBuilder private var currentCard: some View {
@@ -33,17 +33,21 @@ struct ExpandedContent: View {
             ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
         } else if let flash = store.flash {
             FlashPill(decision: flash)
-        } else if let note = store.lastNotification {
-            NotificationCard(inbound: note, full: store.hovering)
         } else {
-            StatusPanel(store: store)
+            ActivityCard(session: store.activeSession, full: store.hovering)
         }
     }
 
     private var seam: SeamStyle {
         if let a = store.pending.first { return SeamStyle(color: VNColor.agent(a.inbound.source), pulses: true) }
         if let f = store.flash { return SeamStyle(color: f == .allow ? VNColor.go : VNColor.stop, pulses: false) }
-        if let n = store.lastNotification { return SeamStyle(color: VNColor.agent(n.source), pulses: false) }
+        if let s = store.activeSession {
+            switch s.event {
+            case "Notification": return SeamStyle(color: VNColor.amber, pulses: true)
+            case "Stop": return SeamStyle(color: VNColor.go, pulses: false)
+            default: return SeamStyle(color: VNColor.agent(s.source), pulses: false)
+            }
+        }
         return SeamStyle(color: VNColor.faint, pulses: false, dim: true)
     }
 }
@@ -76,7 +80,7 @@ struct CompactTrailing: View {
         }
         .padding(.trailing, 13).padding(.leading, 6)
     }
-    private var count: Int { store.pending.count + (store.lastNotification != nil ? 1 : 0) }
+    private var count: Int { max(store.pending.count, store.activeSessions.count) }
 }
 
 // MARK: - Cards
@@ -144,54 +148,80 @@ private struct ApprovalCard: View {
     }
 }
 
-private struct NotificationCard: View {
-    let inbound: VNInbound
+/// Shows what the active agent session is doing right now (or an idle pill).
+private struct ActivityCard: View {
+    let session: SessionActivity?
     let full: Bool
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 7) {
-                PixelInvader(color: VNColor.invader, px: 2)
-                Text(titleText).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                Spacer(minLength: 8)
-                AgentPill(source: inbound.source)
-                if let term = inbound.terminal { TermPill(name: term) }
-            }
-            if let body = inbound.detail, !body.isEmpty {
-                Text(body)
-                    .font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
-                    .lineLimit(full ? 12 : 2).truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-        .frame(width: 540, alignment: .leading)
-        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
-    }
-    private var titleText: String {
-        let folder = (inbound.cwd as NSString?)?.lastPathComponent
-        if let f = folder, let t = inbound.title { return "\(f) · \(t)" }
-        return inbound.title ?? (inbound.source == "codex" ? "Codex" : "Claude")
-    }
-}
 
-private struct StatusPanel: View {
-    @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 12) {
-            PixelInvader(color: VNColor.invader, px: 3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("vibe-notch").font(.system(size: 13, weight: .semibold))
-                HStack(spacing: 6) {
-                    Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
-                    Text(ClaudeInstaller.isConnected ? "claude connected" : "not connected")
+        if let s = session {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top, spacing: 8) {
+                    PixelInvader(color: VNColor.invader, px: 2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(titleText(s)).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                        if let user = s.userMessage {
+                            Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                                .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    HStack(spacing: 5) {
+                        AgentPill(source: s.source)
+                        if let term = s.terminal { TermPill(name: term) }
+                    }
+                }
+                activityLine(s)
+            }
+            .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
+            .frame(width: 520, alignment: .leading)
+            .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
+        } else {
+            HStack(spacing: 12) {
+                PixelInvader(color: VNColor.invader, px: 3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("vibe-notch").font(.system(size: 13, weight: .semibold))
+                    Text(ClaudeInstaller.isConnected ? "no active sessions" : "not connected")
                         .font(.system(size: 11)).foregroundStyle(VNColor.muted)
                 }
+                Spacer(minLength: 12)
             }
-            Spacer(minLength: 12)
+            .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
+            .frame(width: 300)
         }
-        .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
-        .frame(width: 300)
+    }
+
+    private func titleText(_ s: SessionActivity) -> String {
+        let folder = s.folder ?? "session"
+        if let task = s.task, !task.isEmpty { return "\(folder) · \(task)" }
+        return folder
+    }
+
+    @ViewBuilder private func activityLine(_ s: SessionActivity) -> some View {
+        HStack(spacing: 6) {
+            switch s.event {
+            case "PreToolUse":
+                Image(systemName: "gearshape.fill").font(.system(size: 10)).foregroundStyle(VNColor.invader)
+                Text("Running \(s.tool ?? "tool")").font(.system(size: 11.5, weight: .medium))
+                if let d = s.detail {
+                    Text(d).font(VNFont.mono(11)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.middle)
+                }
+            case "Notification":
+                Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
+                Text(s.detail ?? "Waiting for input").font(.system(size: 11.5)).foregroundStyle(VNColor.amber).lineLimit(1)
+            case "Stop":
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
+                Text(s.detail ?? "Finished").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
+                    .lineLimit(full ? 5 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
+            case "UserPromptSubmit":
+                Image(systemName: "ellipsis.circle").font(.system(size: 10)).foregroundStyle(VNColor.muted)
+                Text("Thinking…").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
+            default:
+                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
+                Text(s.detail ?? "Working…").font(.system(size: 11.5)).foregroundStyle(VNColor.muted).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 
