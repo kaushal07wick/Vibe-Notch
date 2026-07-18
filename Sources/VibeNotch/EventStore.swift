@@ -104,6 +104,7 @@ final class EventStore: ObservableObject {
         }
         approval.reply(VNReply(decision: decision))
         pending.removeAll { $0.id == approval.id }
+        StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
         showFlash(decision.agentBehavior)
     }
 
@@ -129,6 +130,7 @@ final class EventStore: ObservableObject {
         }
 
         let wasWaiting = sessions[sid]?.event == "Notification"
+        if sessions[sid] == nil { StatsLog.bump("sessions") }
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source
         if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }

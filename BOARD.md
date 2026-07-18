@@ -195,3 +195,7 @@ shape, UI consumes. Propose field additions here before changing.
   exact tab; bundle-id activation for the rest.
   UI: TerminalJumper.jump(terminal:tty:meta:) — pass `s.termMeta ?? [:]` as
   meta from rows/JumpPill (old 2-arg call still compiles). 20/20 tests.
+- 2026-07-19 03:20 · backend: StatsLog (daily approved/denied/sessions counters
+  in ~/.vibenotch/data/stats-YYYY-MM.json — free data for a Usage/stats pane if
+  UI wants it) + menu-bar badge (pending count beside the sparkle). App still
+  NOT launched — everything lands on next start.

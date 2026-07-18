@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import VibeNotchCore
 
 @MainActor
@@ -23,6 +24,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shortcuts = ShortcutMonitor(store: store)
         startServer()
         tunnels.start()
+        observeBadge()
+    }
+
+    /// Menu-bar icon shows the pending-approval count ("✦ 2") so a waiting
+    /// agent is visible even when the notch is hidden or on another display.
+    private var badgeObserver: AnyCancellable?
+    private func observeBadge() {
+        badgeObserver = store.$pending.sink { [weak self] pending in
+            self?.statusItem.button?.title = pending.isEmpty ? "" : " \(pending.count)"
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
