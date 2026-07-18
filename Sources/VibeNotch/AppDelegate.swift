@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
-        ClaudeInstaller.reconcileIfConnected() // pick up newly-added activity hooks
+        AgentInstallers.all.forEach { $0.reconcile() } // pick up newly-added activity hooks
         setupStatusItem()
         notch = NotchPanelController(store: store)
         notch.show()
@@ -49,16 +49,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildMenu(_ menu: NSMenu) {
         menu.removeAllItems()
 
-        let connected = ClaudeInstaller.isConnected
-        let status = NSMenuItem(title: connected ? "Claude Code: connected" : "Claude Code: not connected",
-                                action: nil, keyEquivalent: "")
-        status.isEnabled = false
-        menu.addItem(status)
+        let header = NSMenuItem(title: "Agents  (click to connect)", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
 
-        let toggleClaude = NSMenuItem(title: connected ? "Disconnect Claude Code" : "Connect Claude Code",
-                                      action: #selector(toggleClaudeConnection), keyEquivalent: "")
-        toggleClaude.target = self
-        menu.addItem(toggleClaude)
+        for installer in AgentInstallers.all {
+            let item = NSMenuItem(title: installer.displayName, action: #selector(toggleAgent(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = installer.id
+            item.state = installer.isConnected ? .on : .off
+            menu.addItem(item)
+        }
 
         menu.addItem(.separator())
         let sound = NSMenuItem(title: "Sound alerts", action: #selector(toggleSound), keyEquivalent: "")
@@ -81,18 +82,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if SoundManager.shared.enabled { SoundManager.shared.play(.done) }
     }
 
-    @objc private func toggleClaudeConnection() {
+    @objc private func toggleAgent(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, let installer = AgentInstallers.byID(id) else { return }
         do {
-            if ClaudeInstaller.isConnected {
-                try ClaudeInstaller.disconnect()
+            if installer.isConnected {
+                try installer.disconnect()
             } else {
                 let src = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
-                try ClaudeInstaller.connect(hookBinarySource: src)
+                try installer.connect(hookBinarySource: src)
             }
         } catch {
             let alert = NSAlert()
             alert.messageText = "Vibe Notch"
-            alert.informativeText = "Could not update Claude Code hooks:\n\(error.localizedDescription)"
+            alert.informativeText = "Could not update \(installer.displayName) hooks:\n\(error.localizedDescription)"
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }
