@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: IPCServer!
     private var shortcuts: ShortcutMonitor!
     private let tunnels = SSHTunnelManager()
+    private let privacy = PrivacyGuard()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
@@ -25,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startServer()
         tunnels.start()
         observeBadge()
+        privacy.onChange = { [weak self] sharing in self?.store.privacyHold = sharing }
+        privacy.start()
     }
 
     /// Menu-bar icon shows the pending-approval count ("✦ 2") so a waiting

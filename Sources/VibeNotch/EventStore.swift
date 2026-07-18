@@ -47,6 +47,14 @@ final class EventStore: ObservableObject {
     /// until the session ends or the app restarts.
     private var bypassedSessions: Set<String> = []
 
+    /// Screen-share privacy hold: cards queue silently while true.
+    @Published var privacyHold = false {
+        didSet {
+            guard oldValue != privacyHold, !privacyHold, !pending.isEmpty else { return }
+            SoundManager.shared.play(.permission) // share ended — surface the queue
+        }
+    }
+
     /// True once a pending approval has waited past the escalation threshold —
     /// the menu-bar badge turns ⚠ and the chime repeats once.
     @Published private(set) var escalated = false
@@ -104,7 +112,8 @@ final class EventStore: ObservableObject {
             return
         }
         // Safe-listed simple command → silent auto-approve (flow, not noise).
-        if VNSettings.safeListEnabled, approval.inbound.tool == "Bash",
+        let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
+        if VNSettings.safeListEnabled, policy.safeList, approval.inbound.tool == "Bash",
            let command = approval.inbound.detail,
            SafeList.matches(command, patterns: SafeList.patterns()) {
             approval.reply(VNReply(decision: .allow))
@@ -112,7 +121,7 @@ final class EventStore: ObservableObject {
             return
         }
         pending.append(approval)
-        SoundManager.shared.play(.permission)
+        if !privacyHold { SoundManager.shared.play(.permission) }
     }
 
     func cancel(_ id: UUID) {
@@ -128,9 +137,12 @@ final class EventStore: ObservableObject {
     }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
+        let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         switch decision {
-        case .alwaysAllow where approval.inbound.host != nil:
-            break // remote session — the rule belongs on the server, not here
+        case .alwaysAllow where approval.inbound.host != nil || !policy.alwaysAllow:
+            break // remote session or strict project — no persisted rule
+        case .bypass where !policy.bypass:
+            break // strict project — this click is allow-once only
         case .alwaysAllow:
             // Persist a permission rule so the agent stops asking for this.
             PermissionRules.addAllowRule(source: approval.inbound.source,

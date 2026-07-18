@@ -41,6 +41,12 @@ enum VNSettings {
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 
+    /// Hold approval cards while the screen is being shared.
+    static var screenShareGuard: Bool {
+        get { d.object(forKey: "screenShareGuard") as? Bool ?? true }
+        set { d.set(newValue, forKey: "screenShareGuard") }
+    }
+
     /// ntfy.sh topic for phone escalation pings. Empty = off (default).
     static var ntfyTopic: String {
         get { d.string(forKey: "ntfyTopic") ?? "" }

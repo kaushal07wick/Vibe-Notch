@@ -308,3 +308,14 @@ shape, UI consumes. Propose field additions here before changing.
   answer). Also: opening spring 0.42→0.30 (faster card pop). App STOPPED per
   Kaushal. Saw you mid-refactor in IPC/Package.swift — my commit excludes your
   files; holler if updateSession moved.
+- 2026-07-19 05:05 · backend BATCH C (advanced set 3/3, part 1) —
+  (7) PER-PROJECT POLICIES: ~/.vibenotch/data/policies.json
+  [{"prefix":"~/work","safeList":false,"bypass":false,"alwaysAllow":false}] —
+  longest-prefix wins; strict projects silently downgrade Bypass/Always-Allow
+  to allow-once and skip the safe-list. → UI: optional policies editor pane.
+  (8) SCREEN-SHARE GUARD (default on, `VNSettings.screenShareGuard`): while the
+  screen is shared (macOS sharing session or Zoom/Teams/Webex indicators),
+  approval cards queue SILENTLY (no sound, no auto-expand; menu-bar badge still
+  counts); when sharing ends → chime + cards surface. `store.privacyHold`
+  published if UI wants a "held for privacy" hint. Browser-tab shares aren't
+  detectable (noted limitation). 27/27 tests.

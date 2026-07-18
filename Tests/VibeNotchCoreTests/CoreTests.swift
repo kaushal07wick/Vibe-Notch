@@ -300,3 +300,19 @@ extension CoreTests {
         XCTAssertEqual(reply, #"{"ok":true,"sessions":[]}"#)
     }
 }
+
+extension CoreTests {
+    func testPolicyLongestPrefixWins() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let policies = [
+            Policy(prefix: "~/Desktop/workspace", safeList: true, bypass: true),
+            Policy(prefix: "~/Desktop/workspace/work", safeList: false, bypass: false),
+        ]
+        let strict = Policies.policy(for: "\(home)/Desktop/workspace/work/api", in: policies)
+        XCTAssertFalse(strict.safeList); XCTAssertFalse(strict.bypass)
+        let relaxed = Policies.policy(for: "\(home)/Desktop/workspace/personal/x", in: policies)
+        XCTAssertTrue(relaxed.safeList)
+        let unmatched = Policies.policy(for: "/tmp/elsewhere", in: policies)
+        XCTAssertTrue(unmatched.safeList && unmatched.bypass && unmatched.alwaysAllow)
+    }
+}
