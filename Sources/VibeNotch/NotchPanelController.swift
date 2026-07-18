@@ -129,3 +129,20 @@ final class NotchPanelController {
         Task { await notch.compact() }
     }
 }
+
+/// Is the app that hosts this session's terminal currently frontmost?
+@MainActor
+private func terminalIsFrontmost(_ terminal: String?) -> Bool {
+    guard let terminal else { return false }
+    let front = NSWorkspace.shared.frontmostApplication
+    let name = front?.localizedName ?? ""
+    let bundle = front?.bundleIdentifier ?? ""
+    switch terminal {
+    case "Ghostty":  return bundle == "com.mitchellh.ghostty" || name == "Ghostty"
+    case "iTerm":    return bundle == "com.googlecode.iterm2" || name.hasPrefix("iTerm")
+    case "Terminal": return bundle == "com.apple.Terminal"
+    case "Warp":     return bundle.hasPrefix("dev.warp") || name == "Warp"
+    case "VS Code":  return bundle == "com.microsoft.VSCode" || name.contains("Code")
+    default:         return name == terminal
+    }
+}

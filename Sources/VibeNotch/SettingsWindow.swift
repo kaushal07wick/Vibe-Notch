@@ -134,6 +134,10 @@ private struct GeneralPane: View {
                    caption: "Disappear entirely when no agent sessions are active.") {
             VNToggle(isOn: VNSettings.autoHideWhenIdle) { VNSettings.autoHideWhenIdle = $0 }
         }
+        SettingRow(label: "Smart suppression",
+                   caption: "Don't pop approval cards while the agent's terminal is the app you're using.") {
+            VNToggle(isOn: VNSettings.smartSuppression) { VNSettings.smartSuppression = $0 }
+        }
         SettingRow(label: "Undo window",
                    caption: "Hold decisions this long so they can be taken back. 0 sends them instantly.") {
             UndoField()

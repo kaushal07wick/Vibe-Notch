@@ -2,6 +2,17 @@ import Foundation
 
 /// Line-delimited JSON messages between the `vibenotch-hook` client and the app,
 /// carried over the Unix socket at `VNPaths.socket`.
+///
+/// COMPATIBILITY CONTRACT: hooks installed in agent configs outlive app
+/// updates. Every field is optional-decoded, unknown fields are ignored, and
+/// `v`/`hookVersion` let either side detect skew. Never repurpose a field.
+
+public enum VNProtocol {
+    /// Wire protocol version — bump only on breaking shape changes.
+    public static let version = 1
+    /// Build version stamped into the hook binary and checked by the app.
+    public static let build = "0.2.0"
+}
 
 public enum VNMessageType: String, Codable, Sendable {
     case notify   // fire-and-forget; server acks by closing
@@ -11,6 +22,8 @@ public enum VNMessageType: String, Codable, Sendable {
 
 /// A message from the hook client to the app.
 public struct VNInbound: Codable, Sendable {
+    public var v: Int?                     // wire protocol version (VNProtocol.version)
+    public var hookVersion: String?        // sender build — lets the app spot stale hooks
     public var type: VNMessageType
     public var source: String     // "claude" | "codex"
     public var event: String      // hook event name, e.g. "PermissionRequest", "Stop"
@@ -45,6 +58,8 @@ public struct VNInbound: Codable, Sendable {
                 model: String? = nil, host: String? = nil,
                 gitBranch: String? = nil, gitDirty: Bool? = nil,
                 tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil) {
+        self.v = VNProtocol.version
+        self.hookVersion = VNProtocol.build
         self.type = type
         self.source = source
         self.event = event

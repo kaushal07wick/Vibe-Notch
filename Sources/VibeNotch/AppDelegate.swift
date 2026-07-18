@@ -102,7 +102,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startServer() {
         server = IPCServer(
             onNotify: { [weak self] inbound in
-                Task { @MainActor in self?.store.updateSession(inbound) }
+                Task { @MainActor in
+                    self?.checkHookVersion(inbound)
+                    self?.store.updateSession(inbound)
+                }
             },
             onRequest: { [weak self] id, inbound, complete in
                 Task { @MainActor in
@@ -167,6 +170,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default:
             return fail("unknown action")
         }
+    }
+
+    private var repairedHook = false
+    /// Stale hook binary (left from an older app) → reinstall ours once.
+    private func checkHookVersion(_ inbound: VNInbound) {
+        guard !repairedHook, let version = inbound.hookVersion,
+              version != VNProtocol.build else { return }
+        repairedHook = true
+        NSLog("VibeNotch: hook \(version) != app \(VNProtocol.build) — repairing")
+        let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
+        try? AgentHookInstaller.installHookBinary(from: bundled)
     }
 
     private func setupStatusItem() {

@@ -36,6 +36,13 @@ enum VNSettings {
     }
 
     /// Hide the compact notch entirely when no sessions are active.
+    /// Don't auto-pop approval cards while the agent's own terminal is
+    /// frontmost — you're already looking at the prompt there.
+    static var smartSuppression: Bool {
+        get { d.object(forKey: "smartSuppression") as? Bool ?? true }
+        set { d.set(newValue, forKey: "smartSuppression") }
+    }
+
     static var autoHideWhenIdle: Bool {
         get { d.bool(forKey: "autoHideWhenIdle") }
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
