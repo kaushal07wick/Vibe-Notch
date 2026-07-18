@@ -15,6 +15,7 @@ enum VNColor {
 
     static let claude = Color(hex: 0xD97757)
     static let codex = Color(hex: 0x10A37F)
+    static let invader = Color(hex: 0x4F7DF0)   // the pixel mascot blue
 
     static func agent(_ source: String) -> Color { source == "codex" ? codex : claude }
 }

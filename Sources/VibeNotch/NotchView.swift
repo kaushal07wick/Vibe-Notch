@@ -2,11 +2,10 @@ import SwiftUI
 import VibeNotchCore
 
 // Content only — DynamicNotchKit draws the notch shape, background, and morph.
-// We supply the expanded panel and the two compact flanks.
+// Matches Vibe Island: animated pixel invader in compact, wide cards on expand.
 
 // MARK: - Expanded
 
-/// The panel shown when the notch is expanded (an event, or on hover).
 struct ExpandedContent: View {
     @ObservedObject var store: EventStore
 
@@ -14,16 +13,14 @@ struct ExpandedContent: View {
         ZStack {
             currentCard
                 .id(stateKey)
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.94).combined(with: .opacity),
-                    removal: .opacity))
+                .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                        removal: .opacity))
         }
         .foregroundStyle(VNColor.text)
-        .animation(.spring(response: 0.36, dampingFraction: 0.78), value: stateKey)
+        .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)
         .overlay(alignment: .bottom) { GlowSeam(style: seam) }
     }
 
-    /// Identity for the visible state — drives the cross-fade/scale transition.
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
         if let f = store.flash { return "flash-\(f.rawValue)" }
@@ -37,7 +34,7 @@ struct ExpandedContent: View {
         } else if let flash = store.flash {
             FlashPill(decision: flash)
         } else if let note = store.lastNotification {
-            NotificationRow(inbound: note, full: store.hovering)
+            NotificationCard(inbound: note, full: store.hovering)
         } else {
             StatusPanel(store: store)
         }
@@ -51,166 +48,130 @@ struct ExpandedContent: View {
     }
 }
 
-// MARK: - Compact flanks (either side of the physical notch)
+// MARK: - Compact flanks
 
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var breathe = false
     var body: some View {
-        PixelCaret(color: hue)
-            .opacity(breathe ? 1 : 0.7)
-            .padding(.leading, 10).padding(.trailing, 6)
-            .onAppear {
-                if !reduceMotion {
-                    withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { breathe = true }
-                }
-            }
-    }
-    private var hue: Color {
-        if let a = store.pending.first { return VNColor.agent(a.inbound.source) }
-        return VNColor.claude
+        HStack(spacing: 5) {
+            PixelInvader(color: VNColor.invader)
+            PixelInvader(color: VNColor.invader.opacity(0.65))
+        }
+        .padding(.leading, 11).padding(.trailing, 6)
     }
 }
 
 struct CompactTrailing: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        Circle().fill(dot)
-            .frame(width: 7, height: 7)
-            .padding(.trailing, 12).padding(.leading, 6)
+        Group {
+            if count > 0 {
+                Text("\(count)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(VNColor.text)
+            } else {
+                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
+            }
+        }
+        .padding(.trailing, 13).padding(.leading, 6)
     }
-    private var dot: Color {
-        if store.pending.first != nil { return VNColor.amber }
-        if let f = store.flash { return f == .allow ? VNColor.go : VNColor.stop }
-        if let n = store.lastNotification { return VNColor.agent(n.source) }
-        return VNColor.faint
-    }
+    private var count: Int { store.pending.count + (store.lastNotification != nil ? 1 : 0) }
 }
 
 // MARK: - Cards
-
-private struct StatusPanel: View {
-    @ObservedObject var store: EventStore
-    var body: some View {
-        HStack(spacing: 12) {
-            AsciiCreature()
-            VStack(alignment: .leading, spacing: 2) {
-                Text("VIBE NOTCH").font(VNFont.mono(12)).tracking(0.5)
-                HStack(spacing: 6) {
-                    Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
-                    Text(ClaudeInstaller.isConnected ? "claude connected" : "not connected")
-                        .font(VNFont.mono(10.5)).foregroundStyle(VNColor.muted)
-                }
-            }
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 11)
-    }
-}
-
-/// A blinking ASCII cat in DepartureMono. First-pass mascot — frames cycle on a timeline.
-struct AsciiCreature: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let frames = [
-        " /\\_/\\\n( o.o )\n > ^ <",
-        " /\\_/\\\n( -.- )\n > ^ <",
-        " /\\_/\\\n( o.o )\n > ^ <",
-        " /\\_/\\\n( o.O )\n > ^ <",
-    ]
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
-            let i = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.5) % frames.count
-            Text(frames[i])
-                .font(VNFont.mono(9))
-                .lineSpacing(1)
-                .foregroundStyle(VNColor.claude)
-                .fixedSize()
-        }
-    }
-}
 
 private struct ApprovalCard: View {
     let approval: PendingApproval
     @ObservedObject var store: EventStore
     let queued: Int
 
-    private var hue: Color { VNColor.agent(approval.inbound.source) }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 6) {
-                Text(approval.inbound.tool ?? "Permission")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .lineLimit(1)
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 7) {
+                PixelInvader(color: VNColor.invader, px: 2)
+                Text(folder).font(.system(size: 14, weight: .semibold)).lineLimit(1)
                 Spacer(minLength: 8)
                 AgentPill(source: approval.inbound.source)
                 if let term = approval.inbound.terminal { TermPill(name: term) }
             }
-            Text(approval.inbound.detail ?? "—")
-                .font(VNFont.mono(12))
-                .lineLimit(2).truncationMode(.middle)
-                .foregroundStyle(Color(hex: 0xE7E8E4))
-                .padding(.horizontal, 9).padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(VNColor.hair))
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 10)).foregroundStyle(VNColor.amber)
+                Text(approval.inbound.tool ?? "Tool")
+                    .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.amber)
+                Text(approval.inbound.detail ?? "")
+                    .font(VNFont.mono(11.5)).foregroundStyle(Color(hex: 0xE7E8E4))
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
             HStack(spacing: 8) {
-                if let cwd = approval.inbound.cwd {
-                    Text(abbreviate(cwd))
-                        .font(VNFont.mono(10))
-                        .foregroundStyle(VNColor.muted)
-                        .lineLimit(1).truncationMode(.head)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
-                }
-                Spacer(minLength: 4)
-                if queued > 0 {
-                    Text("+\(queued)").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
-                }
-                Button("Deny") { store.resolve(approval, .deny) }
-                    .buttonStyle(NotchButton(kind: .deny))
-                Button("Approve") { store.resolve(approval, .allow) }
-                    .buttonStyle(NotchButton(kind: .approve(hue)))
+                WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
+                WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
+                WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .allow) }
+            }
+            if queued > 0 {
+                Text("Show all \(queued + 1) requests")
+                    .font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .padding(EdgeInsets(top: 4, leading: 14, bottom: 6, trailing: 14))
-        .frame(width: 322)
+        .padding(EdgeInsets(top: 6, leading: 15, bottom: 10, trailing: 15))
+        .frame(width: 540)
     }
 
-    private func abbreviate(_ path: String) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
+    private var folder: String { (approval.inbound.cwd as NSString?)?.lastPathComponent ?? "session" }
 }
 
-private struct NotificationRow: View {
+private struct NotificationCard: View {
     let inbound: VNInbound
     let full: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Text(inbound.title ?? label)
-                    .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+            HStack(spacing: 7) {
+                PixelInvader(color: VNColor.invader, px: 2)
+                Text(titleText).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 8)
                 AgentPill(source: inbound.source)
                 if let term = inbound.terminal { TermPill(name: term) }
             }
             if let body = inbound.detail, !body.isEmpty {
                 Text(body)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(VNColor.muted)
-                    .lineLimit(full ? 12 : 2)
-                    .truncationMode(.tail)
+                    .font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
+                    .lineLimit(full ? 12 : 2).truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
-        .frame(width: 322, alignment: .leading)
+        .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
+        .frame(width: 540, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
-    private var label: String { inbound.source == "codex" ? "Codex" : "Claude" }
+    private var titleText: String {
+        let folder = (inbound.cwd as NSString?)?.lastPathComponent
+        if let f = folder, let t = inbound.title { return "\(f) · \(t)" }
+        return inbound.title ?? (inbound.source == "codex" ? "Codex" : "Claude")
+    }
+}
+
+private struct StatusPanel: View {
+    @ObservedObject var store: EventStore
+    var body: some View {
+        HStack(spacing: 12) {
+            PixelInvader(color: VNColor.invader, px: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("vibe-notch").font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
+                    Text(ClaudeInstaller.isConnected ? "claude connected" : "not connected")
+                        .font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                }
+            }
+            Spacer(minLength: 12)
+        }
+        .padding(EdgeInsets(top: 7, leading: 16, bottom: 9, trailing: 16))
+        .frame(width: 300)
+    }
 }
 
 private struct FlashPill: View {
@@ -219,19 +180,18 @@ private struct FlashPill: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: decision == .allow ? "checkmark" : "xmark")
-                .font(.system(size: 11, weight: .bold))
-                .scaleEffect(shown ? 1 : 0.3)
-                .opacity(shown ? 1 : 0)
+                .font(.system(size: 11, weight: .bold)).scaleEffect(shown ? 1 : 0.3).opacity(shown ? 1 : 0)
             Text(decision == .allow ? "Approved" : "Denied").font(.system(size: 12.5, weight: .medium))
             Spacer(minLength: 0)
         }
         .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
         .padding(.horizontal, 18).padding(.vertical, 12)
+        .frame(width: 260, alignment: .leading)
         .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true } }
     }
 }
 
-// MARK: - Pills (agent + terminal)
+// MARK: - Pills, buttons
 
 private struct AgentPill: View {
     let source: String
@@ -255,7 +215,25 @@ private struct TermPill: View {
     }
 }
 
-// MARK: - Shared pieces
+private struct WideButton: View {
+    enum Kind { case deny, primary, danger }
+    let title: String
+    let kind: Kind
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 12.5, weight: .semibold))
+                .frame(maxWidth: .infinity).padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .background(bg, in: RoundedRectangle(cornerRadius: 9))
+        .foregroundStyle(fg)
+    }
+    private var bg: Color { switch kind { case .deny: VNColor.ink2; case .primary: .white; case .danger: Color(hex: 0xB0413F) } }
+    private var fg: Color { switch kind { case .deny: VNColor.text; case .primary: .black; case .danger: .white } }
+}
+
+// MARK: - Seam
 
 struct SeamStyle { var color: Color; var pulses: Bool; var dim: Bool = false }
 
@@ -266,7 +244,7 @@ private struct GlowSeam: View {
     var body: some View {
         Capsule().fill(style.color)
             .frame(height: 2).shadow(color: style.color, radius: 5)
-            .padding(.horizontal, 26).padding(.bottom, 1)
+            .padding(.horizontal, 30).padding(.bottom, 1)
             .opacity(style.dim ? 0.45 : (style.pulses ? (on ? 1 : 0.4) : 0.9))
             .onAppear {
                 if style.pulses && !reduceMotion {
@@ -276,40 +254,53 @@ private struct GlowSeam: View {
     }
 }
 
-/// The pixel caret — the notch is a caret. 7×4 downward chevron.
-struct PixelCaret: View {
-    var color: Color
-    var px: CGFloat = 3
-    private let cells: [(Int, Int)] = [(0,0),(6,0),(1,1),(5,1),(2,2),(4,2),(3,3)]
-    var body: some View {
-        Canvas { ctx, _ in
-            for (c, r) in cells {
-                ctx.fill(Path(CGRect(x: CGFloat(c) * px, y: CGFloat(r) * px, width: px, height: px)),
-                         with: .color(color))
-            }
-        }
-        .frame(width: 7 * px, height: 4 * px)
-        .shadow(color: color.opacity(0.5), radius: 2)
-    }
-}
+// MARK: - Animated pixel invader (the ASCII mascot)
 
-private struct NotchButton: ButtonStyle {
-    enum Kind { case deny; case approve(Color) }
-    let kind: Kind
-    func makeBody(configuration: Configuration) -> some View {
-        let label = configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 15).padding(.vertical, 6)
-        switch kind {
-        case .deny:
-            return AnyView(label.foregroundStyle(VNColor.text)
-                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
-                .opacity(configuration.isPressed ? 0.7 : 1))
-        case .approve(let hue):
-            return AnyView(label.foregroundStyle(Color(hex: 0x16110E))
-                .background(hue, in: RoundedRectangle(cornerRadius: 9))
-                .brightness(configuration.isPressed ? -0.06 : 0))
+struct PixelInvader: View {
+    var color: Color
+    var px: CGFloat = 2.5
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let frameA = [
+        "..X.....X..",
+        "...X...X...",
+        "..XXXXXXX..",
+        ".XX.XXX.XX.",
+        "XXXXXXXXXXX",
+        "X.XXXXXXX.X",
+        "X.X.....X.X",
+        "...XX.XX...",
+    ]
+    private static let frameB = [
+        "..X.....X..",
+        "X..X...X..X",
+        "X.XXXXXXX.X",
+        "XXX.XXX.XXX",
+        "XXXXXXXXXXX",
+        ".XXXXXXXXX.",
+        "..X.....X..",
+        ".X.......X.",
+    ]
+
+    private func cells(_ rows: [String]) -> [(Int, Int)] {
+        var out: [(Int, Int)] = []
+        for (y, row) in rows.enumerated() {
+            for (x, ch) in row.enumerated() where ch == "X" { out.append((x, y)) }
+        }
+        return out
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
+            let useA = reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
+            let f = cells(useA ? Self.frameA : Self.frameB)
+            Canvas { c, _ in
+                for (x, y) in f {
+                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: px, height: px)),
+                           with: .color(color))
+                }
+            }
+            .frame(width: 11 * px, height: 8 * px)
         }
     }
 }
