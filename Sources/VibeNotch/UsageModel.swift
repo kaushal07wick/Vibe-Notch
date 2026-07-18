@@ -42,6 +42,10 @@ struct UsageChips: View {
             Text("\(Int(w.usedPercentage.rounded()))%")
                 .font(VNFont.sysMono(11.5, .bold))
                 .foregroundStyle(usageColor(w.usedPercentage))
+            if let resets = w.resetsAt {
+                Text(shortRemaining(until: resets)).font(VNFont.sysMono(10.5, .medium))
+                    .foregroundStyle(Color.white.opacity(0.35))
+            }
         }
         .padding(.horizontal, 8).padding(.vertical, 4)
         .background(Color.white.opacity(0.055), in: Capsule())
@@ -62,6 +66,14 @@ struct UsageChips: View {
         if pct >= 90 { return Color.red.opacity(0.95) }
         if pct >= 70 { return Color.orange.opacity(0.95) }
         return Color.green.opacity(0.95)
+    }
+
+    /// Compact reset countdown shown inline: "20m", "5h20m", "5d20h".
+    private func shortRemaining(until date: Date) -> String {
+        let s = max(0, Int(date.timeIntervalSinceNow))
+        if s >= 86400 { return "\(s / 86400)d\((s % 86400) / 3600)h" }
+        if s >= 3600 { return "\(s / 3600)h\((s % 3600) / 60)m" }
+        return "\(s / 60)m"
     }
 
     private func remaining(until date: Date) -> String {
