@@ -20,6 +20,7 @@ struct SessionActivity: Identifiable, Codable {
     var event: String     // last hook event — drives the status label
     var terminal: String?
     var tty: String?
+    var termMeta: [String: String]?
     var model: String?
     var host: String?        // remote hostname (SSH sessions)
     var subagents: Int = 0   // live subagent count (SubagentStart/Stop)
@@ -138,6 +139,7 @@ final class EventStore: ObservableObject {
         s.event = i.event
         s.terminal = i.terminal ?? s.terminal
         s.tty = i.tty ?? s.tty
+        s.termMeta = i.termMeta ?? s.termMeta
         s.model = i.model ?? s.model
         s.host = i.host ?? s.host
         s.updatedAt = Date()

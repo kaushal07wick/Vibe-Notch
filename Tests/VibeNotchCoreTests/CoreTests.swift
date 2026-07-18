@@ -201,3 +201,37 @@ extension CoreTests {
         XCTAssertTrue(steps[1].1.contains("deploy@box:.vibenotch/vibenotch-hook.py"))
     }
 }
+
+extension CoreTests {
+    func testTerminalDetection() {
+        XCTAssertEqual(TerminalDetector.detect(env: ["GHOSTTY_BIN_DIR": "/x"]).name, "Ghostty")
+        XCTAssertEqual(TerminalDetector.detect(env: ["TERM_PROGRAM": "WezTerm", "WEZTERM_PANE": "7"]).name, "WezTerm")
+        XCTAssertEqual(TerminalDetector.detect(env: ["KITTY_WINDOW_ID": "3"]).name, "kitty")
+        XCTAssertEqual(TerminalDetector.detect(env: ["TERM_PROGRAM": "Apple_Terminal"]).name, "Terminal")
+        XCTAssertEqual(TerminalDetector.detect(env: ["TERM_PROGRAM": "vscode",
+                                                     "VSCODE_GIT_ASKPASS_MAIN": "/Applications/Cursor.app/x"]).name, "Cursor")
+        XCTAssertEqual(TerminalDetector.detect(env: ["ALACRITTY_WINDOW_ID": "1"]).name, "Alacritty")
+        XCTAssertNil(TerminalDetector.detect(env: [:]).name)
+        XCTAssertEqual(TerminalDetector.detect(env: ["TMUX": "/tmp/t,1,0", "TMUX_PANE": "%5",
+                                                     "TERM_PROGRAM": "iTerm.app"]).meta["TMUX_PANE"], "%5")
+        XCTAssertEqual(TerminalDetector.nameFromProcessList(["zsh", "wezterm-gui"]), "WezTerm")
+        XCTAssertNil(TerminalDetector.nameFromProcessList(["zsh", "login"]))
+    }
+
+    func testJumpPlanStrategies() {
+        // tmux wins even inside iTerm, and targets the right socket + pane
+        let tmux = JumpPlan.make(terminal: "iTerm", tty: "ttys001",
+                                 meta: ["TMUX": "/tmp/tmux-501/default,4711,0", "TMUX_PANE": "%3"])
+        XCTAssertEqual(tmux.command, ["/usr/bin/env", "tmux", "-S", "/tmp/tmux-501/default", "switch-client", "-t", "%3"])
+        // wezterm pane
+        let wez = JumpPlan.make(terminal: "WezTerm", tty: nil, meta: ["WEZTERM_PANE": "9"])
+        XCTAssertEqual(wez.command?.contains("activate-pane"), true)
+        XCTAssertEqual(wez.bundleID, "com.github.wez.wezterm")
+        // iTerm tty script
+        let iterm = JumpPlan.make(terminal: "iTerm", tty: "ttys004", meta: [:])
+        XCTAssertTrue(iterm.useTTYScript)
+        // plain fallback still resolves the app
+        XCTAssertEqual(JumpPlan.make(terminal: "kitty", tty: nil, meta: [:]).bundleID, "net.kovidgoyal.kitty")
+        XCTAssertEqual(JumpPlan.make(terminal: "Cursor", tty: nil, meta: [:]).bundleID, "com.todesktop.230313mzl4w4u92")
+    }
+}

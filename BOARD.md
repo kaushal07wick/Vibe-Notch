@@ -187,3 +187,11 @@ shape, UI consumes. Propose field additions here before changing.
   for 15+ terminals incl. WezTerm/kitty/tmux — not just Ghostty/iTerm), via new
   Core `TerminalDetector` + `JumpPlan`. Will keep TerminalJumper.jump(terminal:tty:)
   source-compatible.
+- 2026-07-19 03:12 · backend: UNIVERSAL TERMINALS — detection for 17 terminals
+  (Ghostty, iTerm, Terminal, Warp, WezTerm, kitty, Alacritty, Zellij, JetBrains,
+  Hyper, Tabby, Rio, Zed, VS Code, Cursor, Windsurf, Antigravity) incl.
+  process-tree fallback when env is scrubbed. Precise jumps: tmux pane
+  (switch-client via $TMUX socket), WezTerm pane, kitty window, iTerm/Terminal
+  exact tab; bundle-id activation for the rest.
+  UI: TerminalJumper.jump(terminal:tty:meta:) — pass `s.termMeta ?? [:]` as
+  meta from rows/JumpPill (old 2-arg call still compiles). 20/20 tests.

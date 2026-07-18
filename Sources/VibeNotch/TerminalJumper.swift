@@ -1,16 +1,30 @@
 import AppKit
+import VibeNotchCore
 
 /// Focuses the terminal an agent runs in. With a tty, selects the **exact
 /// tab/session** in iTerm2 or Terminal.app via AppleScript; otherwise (or for
 /// terminals without a scripting API, e.g. Ghostty) activates the app.
 enum TerminalJumper {
-    static func jump(terminal: String?, tty: String? = nil) {
-        if let tty, let terminal, jumpToTab(terminal: terminal, tty: tty) { return }
-        activate(terminal)
+    static func jump(terminal: String?, tty: String? = nil, meta: [String: String] = [:]) {
+        let plan = JumpPlan.make(terminal: terminal, tty: tty, meta: meta)
+        if let command = plan.command { runCommand(command) } // pane focus (tmux/wezterm/kitty)
+        if plan.useTTYScript, let terminal, let tty, jumpToTab(terminal: terminal, tty: tty) { return }
+        activate(bundleID: plan.bundleID, name: terminal)
     }
 
     /// Back-compat convenience.
     static func jump(_ terminal: String?) { jump(terminal: terminal, tty: nil) }
+
+    /// Best-effort CLI focus (tmux switch-client / wezterm activate-pane / kitty focus).
+    private static func runCommand(_ argv: [String]) {
+        guard let exe = argv.first else { return }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: exe)
+        p.arguments = Array(argv.dropFirst())
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
+    }
 
     // MARK: Exact tab via AppleScript
 
@@ -68,22 +82,19 @@ enum TerminalJumper {
 
     // MARK: App activation fallback
 
-    private static func activate(_ terminal: String?) {
-        guard let bundleID = bundleID(for: terminal),
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = true
-        NSWorkspace.shared.openApplication(at: url, configuration: config)
-    }
-
-    private static func bundleID(for terminal: String?) -> String? {
-        switch terminal {
-        case "Ghostty": return "com.mitchellh.ghostty"
-        case "iTerm": return "com.googlecode.iterm2"
-        case "Terminal": return "com.apple.Terminal"
-        case "VS Code": return "com.microsoft.VSCode"
-        case "Warp": return "dev.warp.Warp-Stable"
-        default: return nil
+    private static func activate(bundleID: String?, name: String?) {
+        if let bundleID,
+           let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = true
+            NSWorkspace.shared.openApplication(at: url, configuration: config)
+            return
+        }
+        // Unknown terminal — try activating a running app by name.
+        if let name, let app = NSWorkspace.shared.runningApplications.first(where: {
+            $0.localizedName?.localizedCaseInsensitiveContains(name) == true
+        }) {
+            app.activate()
         }
     }
 }

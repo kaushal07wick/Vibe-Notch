@@ -145,22 +145,25 @@ private func shell(_ path: String, _ args: [String]) -> String? {
     return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-/// Display name of the terminal the agent runs in, from inherited env.
-func terminalName() -> String? {
-    let env = ProcessInfo.processInfo.environment
-    if env["GHOSTTY_RESOURCES_DIR"] != nil || env["GHOSTTY_BIN_DIR"] != nil { return "Ghostty" }
-    guard let t = env["TERM_PROGRAM"], !t.isEmpty else { return nil }
-    switch t {
-    case "iTerm.app": return "iTerm"
-    case "Apple_Terminal": return "Terminal"
-    case "vscode": return "VS Code"
-    case "WarpTerminal": return "Warp"
-    default: return t.lowercased().contains("ghostty") ? "Ghostty" : t
+/// Terminal identity + precise-jump metadata. Env first; if the env says
+/// nothing (some agents scrub it), fall back to ancestor process names.
+func detectTerminal() -> (name: String?, meta: [String: String]) {
+    let detected = TerminalDetector.detect(env: ProcessInfo.processInfo.environment)
+    if detected.name != nil { return detected }
+    var ancestors: [String] = []
+    var pid = getppid()
+    for _ in 0..<8 {
+        guard pid > 1, let out = shell("/bin/ps", ["-p", "\(pid)", "-o", "comm=,ppid="]) else { break }
+        let parts = out.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard parts.count >= 2 else { break }
+        ancestors.append(parts.dropLast().joined(separator: " "))
+        pid = Int32(parts.last ?? "") ?? 1
     }
+    return (TerminalDetector.nameFromProcessList(ancestors), detected.meta)
 }
 
 let source = argValue(after: "--source") ?? "claude"
-let terminal = terminalName()
+let (terminal, termMeta) = detectTerminal()
 
 // Every agent sends hook JSON on stdin — except legacy Codex `notify`,
 // which passes the payload as the last argv instead.
@@ -281,6 +284,7 @@ if event == "PermissionRequest" {
                         questions: parseQuestions(toolInput),
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),
+                        termMeta: termMeta.isEmpty ? nil : termMeta,
                         model: lastAssistantModel(transcript), sessionId: sessionId)
     let reply = IPCClient.send(msg)
     switch reply?.decision.agentBehavior {
@@ -310,6 +314,7 @@ let msg = VNInbound(type: .notify, source: source, event: event,
                     title: task, tool: (event == "PreToolUse" || event == "PostToolUse") ? tool : nil,
                     detail: activityDetail, userMessage: lastUser,
                     cwd: cwd, terminal: terminal, tty: ttyName(),
+                    termMeta: termMeta.isEmpty ? nil : termMeta,
                     model: lastAssistantModel(transcript), sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)
