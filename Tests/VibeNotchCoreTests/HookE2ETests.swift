@@ -158,3 +158,36 @@ extension HookE2ETests {
         XCTAssertTrue(out.contains(#""behavior": "deny""#) || out.contains(#""behavior":"deny""#), "got: \(out)")
     }
 }
+
+extension HookE2ETests {
+    /// User answers in the terminal → agent kills the hook → server must fire
+    /// onCancel so the notch card dismisses instead of lingering.
+    func testHookDeathCancelsPendingRequest() throws {
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
+        let sock = NSTemporaryDirectory() + "e2e-cx-\(UUID().uuidString.prefix(8)).sock"
+        let cancelled = expectation(description: "onCancel fired")
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { _ in },
+                               onRequest: { _, _, _ in /* never decide */ },
+                               onCancel: { _ in cancelled.fulfill() })
+        try server.start()
+        defer { server.stop() }
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: hookBinaryPathForExtension)
+        p.arguments = ["--source", "claude"]
+        p.environment = ProcessInfo.processInfo.environment
+            .merging(["VIBENOTCH_SOCKET": sock]) { _, new in new }
+        let inPipe = Pipe()
+        p.standardInput = inPipe
+        p.standardOutput = FileHandle.nullDevice
+        try p.run()
+        inPipe.fileHandleForWriting.write(Data(#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"x"},"session_id":"cx"}"#.utf8))
+        inPipe.fileHandleForWriting.closeFile()
+
+        Thread.sleep(forTimeInterval: 0.5) // let the request register
+        p.terminate()                      // Claude cancelling the hook
+
+        wait(for: [cancelled], timeout: 5)
+    }
+}

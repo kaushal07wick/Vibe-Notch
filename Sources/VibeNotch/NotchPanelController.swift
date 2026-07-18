@@ -84,7 +84,13 @@ final class NotchPanelController {
         guard want != expanded else { return } // avoid re-triggering the morph
         expanded = want
         Task {
-            if want { await notch.expand() } else { await notch.compact() }
+            if want {
+                await notch.expand()
+                // First click must land on a button, not just focus the panel.
+                if hasPending { notch.windowController?.window?.makeKey() }
+            } else {
+                await notch.compact()
+            }
         }
     }
 }

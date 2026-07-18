@@ -35,7 +35,6 @@ struct SessionActivity: Identifiable, Codable {
 final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var sessions: [String: SessionActivity] = [:]
-    @Published var flash: VNDecision?
     @Published var hovering = false
 
     /// Sessions the user chose to Bypass — further requests auto-approve
@@ -105,14 +104,12 @@ final class EventStore: ObservableObject {
         approval.reply(VNReply(decision: decision))
         pending.removeAll { $0.id == approval.id }
         StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
-        showFlash(decision.agentBehavior)
     }
 
     /// Answer an AskUserQuestion card: one selected option label per question.
     func answer(_ approval: PendingApproval, answers: [String]) {
         approval.reply(VNReply(decision: .allow, answers: answers))
         pending.removeAll { $0.id == approval.id }
-        showFlash(.allow)
     }
 
     /// Fold a hook event into the session's current activity.
@@ -156,11 +153,4 @@ final class EventStore: ObservableObject {
         sessions = sessions.filter { $0.value.updatedAt > cutoff }
     }
 
-    private func showFlash(_ decision: VNDecision) {
-        flash = decision
-        Task {
-            try? await Task.sleep(for: .seconds(1.1))
-            if pending.isEmpty { flash = nil }
-        }
-    }
 }

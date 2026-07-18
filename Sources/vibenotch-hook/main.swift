@@ -21,13 +21,42 @@ func summarize(_ input: [String: Any]?) -> String? {
     return nil
 }
 
+/// Bounded transcript view: the head (first user prompt lives there) and the
+/// tail (latest messages). One read total instead of four full-file passes —
+/// this was the approval-card latency on long sessions.
+struct Transcript {
+    let headLines: [String]
+    let tailLines: [String]
+
+    init?(_ path: String?) {
+        guard let path, let fh = FileHandle(forReadingAtPath: path) else { return nil }
+        defer { try? fh.close() }
+        let size = (try? fh.seekToEnd()) ?? 0
+
+        try? fh.seek(toOffset: 0)
+        let headData = fh.readData(ofLength: 64 * 1024)
+        var head = String(decoding: headData, as: UTF8.self).components(separatedBy: "\n")
+        if UInt64(headData.count) < size { head.removeLast() } // drop partial line
+        headLines = head
+
+        let tailCap: UInt64 = 256 * 1024
+        let offset = size > tailCap ? size - tailCap : 0
+        try? fh.seek(toOffset: offset)
+        var tail = String(decoding: fh.readDataToEndOfFile(), as: UTF8.self).components(separatedBy: "\n")
+        if offset > 0, !tail.isEmpty { tail.removeFirst() } // drop partial line
+        tailLines = tail
+    }
+
+    static func parse(_ line: String) -> [String: Any]? {
+        guard let data = line.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+}
+
 /// Text of the last assistant message in a Claude Code transcript (JSONL).
-/// ponytail: reads the whole file; for very long sessions, tail-read the last chunk.
-func lastAssistantText(_ path: String?) -> String? {
-    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-    for line in content.split(separator: "\n").reversed() {
-        guard let data = line.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+func lastAssistantText(_ t: Transcript?) -> String? {
+    for line in (t?.tailLines ?? []).reversed() {
+        guard let obj = Transcript.parse(line) else { continue }
         let msg = (obj["message"] as? [String: Any]) ?? obj
         let role = (msg["role"] as? String) ?? (obj["type"] as? String)
         guard role == "assistant" else { continue }
@@ -38,12 +67,11 @@ func lastAssistantText(_ path: String?) -> String? {
     return nil
 }
 
+
 /// The model id from the last assistant message, mapped to a friendly name.
-func lastAssistantModel(_ path: String?) -> String? {
-    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-    for line in content.split(separator: "\n").reversed() {
-        guard let data = line.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+func lastAssistantModel(_ t: Transcript?) -> String? {
+    for line in (t?.tailLines ?? []).reversed() {
+        guard let obj = Transcript.parse(line) else { continue }
         let msg = (obj["message"] as? [String: Any]) ?? obj
         guard (msg["role"] as? String) == "assistant", let id = msg["model"] as? String else { continue }
         return friendlyModel(id)
@@ -99,13 +127,11 @@ func oneLine(_ text: String?) -> String? {
     return nil
 }
 
-/// First (task) or last user message in a transcript, skipping tool-result/system noise.
-func userText(_ path: String?, first: Bool) -> String? {
-    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
-    let lines = content.split(separator: "\n")
-    for line in (first ? Array(lines) : lines.reversed()) {
-        guard let data = line.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+/// First (task) or last user message, skipping tool-result/system noise.
+func userText(_ t: Transcript?, first: Bool) -> String? {
+    let lines = first ? (t?.headLines ?? []) : (t?.tailLines ?? []).reversed().map { $0 }
+    for line in lines {
+        guard let obj = Transcript.parse(line) else { continue }
         let msg = (obj["message"] as? [String: Any]) ?? obj
         let role = (msg["role"] as? String) ?? (obj["type"] as? String)
         guard role == "user", let text = extractText(msg["content"]) ?? extractText(obj["content"]) else { continue }
@@ -276,7 +302,7 @@ func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String
 }
 
 if event == "PermissionRequest" {
-    let transcript = obj["transcript_path"] as? String
+    let transcript = Transcript(obj["transcript_path"] as? String)
     let msg = VNInbound(type: .request, source: source, event: event,
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
@@ -296,7 +322,7 @@ if event == "PermissionRequest" {
 }
 
 // Activity update — fold this event into the session's live state.
-let transcript = obj["transcript_path"] as? String
+let transcript = Transcript(obj["transcript_path"] as? String)
 let task = oneLine(userText(transcript, first: true))
 let lastUser = oneLine(userText(transcript, first: false))
 let activityDetail: String?

@@ -224,3 +224,14 @@ shape, UI consumes. Propose field additions here before changing.
   content test. Covers BOTH decide-in-notch and answered-in-terminal
   (measured: 572pt expanded → collapsed after cancel). Backend: review, and
   `store.flash` looks fully dead now — safe to delete from EventStore.
+- 2026-07-19 03:40 · backend: ALL FOUR UI ASKS DONE —
+  (1) latency: hook was full-reading the transcript 4× per event (MBs on long
+  sessions); now ONE bounded head+tail read (64KB/256KB). This was the
+  approval-card delay.
+  (2) cancel-on-terminal-answer: proven at transport level — new E2E test kills
+  the hook mid-request, onCancel fires (<5s). Pairs with your refresh fix.
+  (3) first-click: on expand-with-pending the panel is made key
+  (windowController.makeKey) so click #1 hits the button. Verify feel when
+  launches are allowed again.
+  (4) `store.flash` fully deleted (your refresh change reviewed — good catch,
+  approach approved). 21/21 tests.
