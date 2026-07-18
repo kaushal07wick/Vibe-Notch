@@ -69,6 +69,22 @@ private func extractText(_ content: Any?) -> String? {
     return nil
 }
 
+/// The real terminal output from a PostToolUse payload's `tool_response`.
+func toolOutput(_ obj: [String: Any]) -> String? {
+    guard let resp = obj["tool_response"] else { return nil }
+    if let s = resp as? String { return s.isEmpty ? nil : s }
+    if let d = resp as? [String: Any] {
+        for key in ["stdout", "output", "content", "result", "stderr"] {
+            if let s = d[key] as? String, !s.isEmpty { return s }
+        }
+        if let arr = d["content"] as? [[String: Any]] {
+            let text = arr.compactMap { $0["text"] as? String }.joined(separator: "\n")
+            if !text.isEmpty { return text }
+        }
+    }
+    return nil
+}
+
 /// First meaningful line of text — skips code fences, blanks, and markdown headers —
 /// so the notch never shows a raw multi-line code dump. Truncated to one line.
 func oneLine(_ text: String?) -> String? {
@@ -168,13 +184,14 @@ let lastUser = oneLine(userText(transcript, first: false))
 let activityDetail: String?
 switch event {
 case "PreToolUse":            activityDetail = summarize(toolInput)
+case "PostToolUse":           activityDetail = toolOutput(obj).map { String($0.prefix(1200)) }
 case "Notification":          activityDetail = obj["message"] as? String
-case "Stop":                  activityDetail = oneLine(lastAssistantText(transcript))
-case "SessionStart", "UserPromptSubmit", "PostToolUse", "SessionEnd": activityDetail = nil
+case "Stop":                  activityDetail = lastAssistantText(transcript).map { String($0.prefix(1200)) }
+case "SessionStart", "UserPromptSubmit", "SessionEnd": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
 let msg = VNInbound(type: .notify, source: "claude", event: event,
-                    title: task, tool: (event == "PreToolUse" ? tool : nil),
+                    title: task, tool: (event == "PreToolUse" || event == "PostToolUse") ? tool : nil,
                     detail: activityDetail, userMessage: lastUser,
                     cwd: cwd, terminal: terminal,
                     model: lastAssistantModel(transcript), sessionId: sessionId)

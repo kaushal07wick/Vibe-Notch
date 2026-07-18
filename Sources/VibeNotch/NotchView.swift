@@ -229,30 +229,66 @@ private struct ActivityCard: View {
     }
 
     @ViewBuilder private func activityLine(_ s: SessionActivity) -> some View {
-        HStack(spacing: 6) {
-            switch s.event {
-            case "PreToolUse":
-                Image(systemName: "gearshape.fill").font(.system(size: 10)).foregroundStyle(VNColor.invader)
-                Text("Running \(s.tool ?? "tool")").font(.system(size: 11.5, weight: .medium))
-                if let d = s.detail {
-                    Text(d).font(VNFont.mono(11)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.middle)
-                }
-            case "Notification":
-                Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
-                Text(s.detail ?? "Waiting for input").font(.system(size: 11.5)).foregroundStyle(VNColor.amber).lineLimit(1)
-            case "Stop":
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
-                Text(s.detail ?? "Finished").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
-                    .lineLimit(1).truncationMode(.tail)
-            case "UserPromptSubmit":
-                Image(systemName: "ellipsis.circle").font(.system(size: 10)).foregroundStyle(VNColor.muted)
-                Text("Thinking…").font(.system(size: 11.5)).foregroundStyle(VNColor.muted)
-            default:
-                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
-                Text(s.detail ?? "Working…").font(.system(size: 11.5)).foregroundStyle(VNColor.muted).lineLimit(1)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                statusIcon(s.event)
+                Text(statusLabel(s)).font(.system(size: 11.5, weight: .medium)).foregroundStyle(statusColor(s.event))
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            // the real terminal text — command, output, or the agent's message
+            if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
+                TerminalBlock(text: detail, prompt: s.event == "PreToolUse", lines: full ? 8 : 3)
+            }
         }
+    }
+
+    @ViewBuilder private func statusIcon(_ event: String) -> some View {
+        switch event {
+        case "PreToolUse": Image(systemName: "gearshape.fill").font(.system(size: 10)).foregroundStyle(VNColor.invader)
+        case "PostToolUse": Image(systemName: "terminal.fill").font(.system(size: 10)).foregroundStyle(VNColor.muted)
+        case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
+        case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
+        case "UserPromptSubmit": Image(systemName: "ellipsis.circle").font(.system(size: 10)).foregroundStyle(VNColor.muted)
+        default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
+        }
+    }
+
+    private func statusLabel(_ s: SessionActivity) -> String {
+        switch s.event {
+        case "PreToolUse": return "Running \(s.tool ?? "tool")"
+        case "PostToolUse": return s.tool ?? "Output"
+        case "Notification": return s.detail ?? "Waiting for input"
+        case "Stop": return "Finished"
+        case "UserPromptSubmit": return "Thinking…"
+        default: return "Working…"
+        }
+    }
+
+    private func statusColor(_ event: String) -> Color {
+        switch event {
+        case "Notification": return VNColor.amber
+        case "Stop": return VNColor.go
+        default: return VNColor.text
+        }
+    }
+}
+
+/// A terminal-style block — the tail of the real command output/message, in mono.
+private struct TerminalBlock: View {
+    let text: String
+    var prompt: Bool = false
+    let lines: Int
+    var body: some View {
+        let tail = text.components(separatedBy: "\n").suffix(lines).joined(separator: "\n")
+        Text(prompt ? "$ \(tail)" : tail)
+            .font(VNFont.mono(11))
+            .foregroundStyle(Color(hex: 0xC8CDD4))
+            .lineLimit(lines).truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(9)
+            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(VNColor.hair))
     }
 }
 
