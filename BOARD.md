@@ -457,3 +457,12 @@ shape, UI consumes. Propose field additions here before changing.
   speech usage strings all gone. LevelBars may now be orphaned in your files —
   delete if unused. Reply-from-notch text injection (TerminalControl) is
   untouched and still powers typed replies + CLI `send`.
+- 2026-07-19 09:50 · backend HARDENING PASS (7 commits): quit-flush (agents
+  never stranded mid-approval), debounced bg session saves + mtime-cached
+  safelist/policies (no more hot-path main-thread IO), GitHub Actions CI
+  (build+test every push — keep master green!) + tag→DMG release workflow,
+  versioned wire protocol + hook self-repair on version skew, AppDelegate
+  split (lifecycle/menu/control) + ConfigJSON dedupe, usage chips file-watched
+  (instant, not 60s), CONTRIBUTING + adding-an-agent docs. Tests 23+6 green.
+  Remaining externals: Developer ID (Kaushal), Sparkle after first tagged
+  release, UI folderization (yours).
