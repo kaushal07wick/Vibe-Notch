@@ -50,7 +50,7 @@ final class CoreTests: XCTestCase {
         let server = IPCServer(
             socketPath: sock,
             onNotify: { _ in },
-            onRequest: { _, complete in complete(.deny) } // auto-deny
+            onRequest: { _, _, complete in complete(.deny) } // auto-deny
         )
         try server.start()
         defer { server.stop() }

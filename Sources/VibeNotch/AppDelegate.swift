@@ -21,10 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onNotify: { [weak self] inbound in
                 Task { @MainActor in self?.store.note(inbound) }
             },
-            onRequest: { [weak self] inbound, complete in
+            onRequest: { [weak self] id, inbound, complete in
                 Task { @MainActor in
-                    self?.store.enqueue(PendingApproval(inbound: inbound, reply: complete))
+                    self?.store.enqueue(PendingApproval(id: id, inbound: inbound, reply: complete))
                 }
+            },
+            onCancel: { [weak self] id in
+                Task { @MainActor in self?.store.cancel(id) }
             }
         )
         do { try server.start() }

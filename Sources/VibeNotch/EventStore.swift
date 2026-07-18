@@ -4,7 +4,7 @@ import VibeNotchCore
 /// A pending Claude permission request awaiting the user's decision.
 /// `reply` signals the blocked hook connection with the chosen decision.
 struct PendingApproval: Identifiable {
-    let id = UUID()
+    let id: UUID
     let inbound: VNInbound
     let reply: @Sendable (VNDecision) -> Void
 }
@@ -22,6 +22,11 @@ final class EventStore: ObservableObject {
 
     func enqueue(_ approval: PendingApproval) {
         pending.append(approval)
+    }
+
+    /// The hook disconnected before a decision — drop the card silently.
+    func cancel(_ id: UUID) {
+        pending.removeAll { $0.id == id }
     }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {

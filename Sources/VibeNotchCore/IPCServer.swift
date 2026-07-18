@@ -7,20 +7,24 @@ public enum VNError: Error { case socket(String) }
 /// until the app supplies a decision via the handler's completion.
 public final class IPCServer: @unchecked Sendable {
     public typealias NotifyHandler = @Sendable (VNInbound) -> Void
-    public typealias RequestHandler = @Sendable (VNInbound, @escaping @Sendable (VNDecision) -> Void) -> Void
+    public typealias RequestHandler = @Sendable (UUID, VNInbound, @escaping @Sendable (VNDecision) -> Void) -> Void
+    public typealias CancelHandler = @Sendable (UUID) -> Void
 
     private let socketPath: String
     private var listenFD: Int32 = -1
     private let onNotify: NotifyHandler
     private let onRequest: RequestHandler
+    private let onCancel: CancelHandler
     private let queue = DispatchQueue(label: "vibenotch.ipc", attributes: .concurrent)
 
     public init(socketPath: String = VNPaths.socket.path,
                 onNotify: @escaping NotifyHandler,
-                onRequest: @escaping RequestHandler) {
+                onRequest: @escaping RequestHandler,
+                onCancel: @escaping CancelHandler = { _ in }) {
         self.socketPath = socketPath
         self.onNotify = onNotify
         self.onRequest = onRequest
+        self.onCancel = onCancel
     }
 
     public func start() throws {
@@ -64,11 +68,19 @@ public final class IPCServer: @unchecked Sendable {
         case .notify:
             onNotify(msg)
         case .request:
+            let id = UUID()
             let sem = DispatchSemaphore(value: 0)
             let box = DecisionBox()
-            onRequest(msg) { decision in box.value = decision; sem.signal() }
+            onRequest(id, msg) { decision in box.decide(decision); sem.signal() }
+            // Watch the connection: if the hook dies/times out before a decision,
+            // read() returns EOF/error → cancel so the card doesn't linger.
+            queue.async {
+                var byte: UInt8 = 0
+                if read(fd, &byte, 1) <= 0 { box.cancel(); sem.signal() }
+            }
             sem.wait()
-            guard var out = try? JSONEncoder().encode(VNReply(decision: box.value)) else { return }
+            if box.isCancelled { onCancel(id); return }
+            guard var out = try? JSONEncoder().encode(VNReply(decision: box.decision)) else { return }
             out.append(0x0A)
             _ = out.withUnsafeBytes { write(fd, $0.baseAddress, out.count) }
         }
@@ -86,5 +98,14 @@ public final class IPCServer: @unchecked Sendable {
         return buf.isEmpty ? nil : String(decoding: buf, as: UTF8.self)
     }
 
-    private final class DecisionBox: @unchecked Sendable { var value: VNDecision = .ask }
+    /// Thread-safe: whichever of decide()/cancel() wins first sticks.
+    private final class DecisionBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _decision: VNDecision?
+        private var _cancelled = false
+        func decide(_ d: VNDecision) { lock.lock(); if _decision == nil && !_cancelled { _decision = d }; lock.unlock() }
+        func cancel() { lock.lock(); if _decision == nil { _cancelled = true }; lock.unlock() }
+        var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return _cancelled }
+        var decision: VNDecision { lock.lock(); defer { lock.unlock() }; return _decision ?? .ask }
+    }
 }
