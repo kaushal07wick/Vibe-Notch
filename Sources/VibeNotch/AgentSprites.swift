@@ -1035,10 +1035,11 @@ struct StatusGlyph: View {
 /// still and dim when idle. (Bars read as a music equalizer — replaced.)
 struct PixelSpinner: View {
     var active: Bool
-    var color: Color = Color(hex: 0xF0B43C) // owl-eye amber
+    var color: Color = Color(hex: 0x6EA7FF) // activity blue (matches Vibe Island)
 
     var body: some View {
-        PixelRingSpinner(color: color, px: 2, active: active)
+        // the classic pixel invader — marches while agents work, still when idle
+        PixelInvader(color: active ? color : color.opacity(0.4), px: 1.3, animated: active)
     }
 }
 

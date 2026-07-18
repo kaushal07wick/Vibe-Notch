@@ -245,6 +245,7 @@ struct PixelRingSpinner: View {
 struct PixelInvader: View {
     var color: Color
     var px: CGFloat = 2.5
+    var animated = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let frameA = [
@@ -278,7 +279,7 @@ struct PixelInvader: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
-            let useA = reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
+            let useA = !animated || reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.4) % 2 == 0
             let f = cells(useA ? Self.frameA : Self.frameB)
             Canvas { c, _ in
                 for (x, y) in f {
