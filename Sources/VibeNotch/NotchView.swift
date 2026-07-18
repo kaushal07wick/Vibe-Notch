@@ -7,13 +7,20 @@ import VibeNotchCore
 /// The expanded panel: approval card > decision flash > session activity.
 struct ExpandedContent: View {
     @ObservedObject var store: EventStore
+    @ObservedObject var usage: UsageModel
 
     var body: some View {
-        ZStack {
-            currentCard
-                .id(stateKey)
-                .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
-                                        removal: .opacity))
+        VStack(spacing: 0) {
+            if !usage.providers.isEmpty {
+                UsageChips(providers: usage.providers)
+                    .padding(.horizontal, 18).padding(.top, 5).padding(.bottom, 2)
+            }
+            ZStack {
+                currentCard
+                    .id(stateKey)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
+                                            removal: .opacity))
+            }
         }
         .foregroundStyle(VNColor.text)
         .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)

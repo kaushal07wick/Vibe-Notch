@@ -92,3 +92,35 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(IPCClient.send(note, socketPath: sock, timeout: 5))
     }
 }
+
+extension CoreTests {
+    // MARK: Usage parsing
+
+    func testClaudeUsageParsing() throws {
+        let json = #"{"five_hour":{"used_percentage":26.4,"resets_at":1784500000},"seven_day":{"utilization":42.0,"resets_at":"2026-07-23T10:00:00Z"}}"#
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rl-\(UUID()).json")
+        try json.write(to: url, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let usage = try XCTUnwrap(UsageLoader.loadClaude(from: url))
+        XCTAssertEqual(usage.windows.count, 2)
+        XCTAssertEqual(usage.windows[0].label, "5h")
+        XCTAssertEqual(usage.windows[0].usedPercentage, 26.4, accuracy: 0.01)
+        XCTAssertNotNil(usage.windows[1].resetsAt, "ISO8601 resets_at must parse")
+        XCTAssertEqual(usage.peak?.label, "7d", "peak = highest used percentage")
+    }
+
+    func testCodexUsageParsing() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("codex-\(UUID())/a")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let lines = [
+            #"{"type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":11.0,"window_minutes":300,"resets_at":1784500000},"secondary":{"used_percent":67.0,"window_minutes":10080}}}}"#,
+        ].joined(separator: "\n")
+        try lines.write(to: dir.appendingPathComponent("rollout-2026.jsonl"), atomically: true, encoding: .utf8)
+
+        let usage = try XCTUnwrap(UsageLoader.loadCodex(sessionsDir: dir.deletingLastPathComponent()))
+        XCTAssertEqual(usage.windows.map(\.label), ["5h", "7d"])
+        XCTAssertEqual(usage.peak?.usedPercentage ?? 0, 67.0, accuracy: 0.01)
+    }
+}

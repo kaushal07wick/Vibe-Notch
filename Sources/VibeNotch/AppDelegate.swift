@@ -5,14 +5,17 @@ import VibeNotchCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let store = EventStore()
+    private let usage = UsageModel()
     private var notch: NotchPanelController!
     private var server: IPCServer!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
         autoConnectDetectedAgents()
+        StatusLineInstaller.installIfNeeded()
+        usage.start()
         setupStatusItem()
-        notch = NotchPanelController(store: store)
+        notch = NotchPanelController(store: store, usage: usage)
         notch.show()
         startServer()
     }

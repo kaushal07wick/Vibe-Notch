@@ -12,12 +12,12 @@ final class NotchPanelController {
     private var cancellables: [AnyCancellable] = []
     private var expanded: Bool?
 
-    init(store: EventStore) {
+    init(store: EventStore, usage: UsageModel) {
         self.store = store
         notch = DynamicNotch(
             hoverBehavior: .all,
             style: .auto,
-            expanded: { ExpandedContent(store: store) },
+            expanded: { ExpandedContent(store: store, usage: usage) },
             compactLeading: { CompactLeading(store: store) },
             compactTrailing: { CompactTrailing(store: store) }
         )
