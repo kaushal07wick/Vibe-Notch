@@ -7,9 +7,9 @@ enum VNSound {
 
     var notes: [(freq: Double, ms: Int)] {
         switch self {
-        case .permission: return [(660, 80), (990, 130)]   // rising "hey, look"
-        case .waiting:    return [(523, 120)]              // single mid ping
-        case .done:       return [(784, 70), (1046, 120)]  // happy two-note
+        case .permission: return [(880, 95), (1318.5, 320)]                 // A5→E6 cheerful chime
+        case .waiting:    return [(1046.5, 260)]                            // soft C6 bloop
+        case .done:       return [(1046.5, 95), (1318.5, 95), (1568, 340)]  // C-E-G, happy rise
         }
     }
 }
@@ -32,15 +32,18 @@ final class SoundManager {
     // MARK: WAV synthesis
 
     private static func wav(for sound: VNSound) -> Data {
-        let sampleRate = 22_050
+        let sampleRate = 44_100
         var samples: [Int16] = []
         for note in sound.notes {
             let count = sampleRate * note.ms / 1000
-            let period = Double(sampleRate) / note.freq
             for i in 0..<count {
-                let square: Double = i.truncatingPhase(period) < period / 2 ? 1 : -1
-                let fade = min(1.0, Double(min(i, count - i)) / 220.0) // avoid clicks
-                samples.append(Int16(square * 0.22 * fade * 32_767))
+                let t = Double(i) / Double(sampleRate)
+                let attack = min(1.0, t / 0.006)                            // 6ms soft attack, no click
+                let decay = exp(-t * 6.5)                                   // bell-like fade
+                let wave = sin(2 * .pi * note.freq * t)
+                    + 0.28 * sin(2 * .pi * note.freq * 2 * t)               // 2nd harmonic warmth
+                let s = wave * attack * decay * 0.34
+                samples.append(Int16(max(-1, min(1, s)) * 32_767))
             }
         }
         return pcmWav(samples, sampleRate: sampleRate)
@@ -58,9 +61,4 @@ final class SoundManager {
         for s in samples { var x = s.littleEndian; withUnsafeBytes(of: &x) { d.append(contentsOf: $0) } }
         return d
     }
-}
-
-private extension Int {
-    /// Phase within one wave period.
-    func truncatingPhase(_ period: Double) -> Double { Double(self).truncatingRemainder(dividingBy: period) }
 }

@@ -58,11 +58,20 @@ struct ExpandedContent: View {
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 5) {
-            PixelInvader(color: VNColor.invader)
-            PixelInvader(color: VNColor.invader.opacity(0.65))
+        HStack(spacing: 6) {
+            if activeAgents.isEmpty {
+                PixelInvader(color: VNColor.invader) // idle mascot
+            } else {
+                ForEach(activeAgents, id: \.self) { AgentIcon(source: $0, size: 15) }
+            }
         }
         .padding(.leading, 11).padding(.trailing, 6)
+    }
+    /// Distinct agents that have a live session, most-recent first.
+    private var activeAgents: [String] {
+        var seen = Set<String>(); var out: [String] = []
+        for s in store.activeSessions where !seen.contains(s.source) { seen.insert(s.source); out.append(s.source) }
+        return out
     }
 }
 
@@ -95,7 +104,7 @@ private struct ApprovalCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-                PixelInvader(color: VNColor.invader, px: 2)
+                AgentIcon(source: i.source)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(titleText).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     if let user = i.userMessage {
@@ -182,7 +191,7 @@ private struct ActivityCard: View {
         VStack(alignment: .leading, spacing: 6) {
             StatsHeader(elapsed: elapsedString(since: s.startedAt), activeCount: sessions.count)
             HStack(alignment: .top, spacing: 8) {
-                PixelInvader(color: VNColor.invader, px: 2)
+                AgentIcon(source: s.source)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(titleText(s)).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     if let user = s.userMessage {
@@ -256,7 +265,7 @@ private struct SessionRow: View {
     var body: some View {
         Button { TerminalJumper.jump(s.terminal) } label: {
             HStack(spacing: 9) {
-                PixelInvader(color: VNColor.invader, px: 1.5)
+                AgentIcon(source: s.source, size: 13)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(s.folder ?? "session").font(.system(size: 12, weight: .semibold)).lineLimit(1)
                     Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.tail)
@@ -329,6 +338,17 @@ private struct AgentPill: View {
             .foregroundStyle(Color(hex: 0x1A120E))
             .padding(.horizontal, 7).padding(.vertical, 2.5)
             .background(VNColor.agent(source), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+/// Per-agent brand glyph — Claude clay sparkle, Codex blue mark.
+struct AgentIcon: View {
+    let source: String
+    var size: CGFloat = 16
+    var body: some View {
+        Image(systemName: source == "codex" ? "asterisk" : "sparkle")
+            .font(.system(size: size * 0.85, weight: .semibold))
+            .foregroundStyle(VNColor.agent(source))
     }
 }
 
