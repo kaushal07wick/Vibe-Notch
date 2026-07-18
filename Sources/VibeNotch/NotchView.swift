@@ -136,7 +136,7 @@ private struct ApprovalCard: View {
             }
         }
         .padding(EdgeInsets(top: 6, leading: 15, bottom: 10, trailing: 15))
-        .frame(width: 560)
+        .frame(width: 540)
     }
 
     private var titleText: String {
@@ -197,16 +197,48 @@ private struct ActivityCard: View {
             activityLine(s)
         }
         .padding(EdgeInsets(top: 6, leading: 15, bottom: 9, trailing: 15))
-        .frame(width: 560, alignment: .leading)
+        .frame(width: 540, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
     private var listCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(sessions) { s in SessionRow(s: s) }
+        VStack(alignment: .leading, spacing: 0) {
+            sessionsHeader
+            VStack(alignment: .leading, spacing: 13) {
+                ForEach(sessions) { s in SessionRow(s: s) }
+            }
+            .padding(.top, 11)
         }
-        .padding(EdgeInsets(top: 10, leading: 15, bottom: 12, trailing: 15))
-        .frame(width: 560, alignment: .leading)
+        .padding(EdgeInsets(top: 9, leading: 18, bottom: 12, trailing: 18))
+        .frame(width: 540, alignment: .leading)
+    }
+
+    private var sessionsHeader: some View {
+        HStack(spacing: 9) {
+            Text("SESSIONS").font(VNFont.sysMono(10.5, .semibold)).tracking(1.4)
+                .foregroundStyle(VNColor.paper.opacity(0.55))
+            Spacer(minLength: 8)
+            ForEach(metrics, id: \.label) { metric in
+                HStack(spacing: 4) {
+                    if let color = metric.color { Circle().fill(color).frame(width: 5.5, height: 5.5) }
+                    Text(metric.label).font(VNFont.sysMono(10.5, .semibold))
+                        .foregroundStyle(VNColor.paper.opacity(metric.color == nil ? 0.34 : 0.48))
+                }
+            }
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
+    }
+
+    private var metrics: [(label: String, color: Color?)] {
+        let running = sessions.filter { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }.count
+        let waiting = sessions.filter { $0.event == "Notification" }.count
+        let done = sessions.filter { $0.event == "Stop" }.count
+        var out: [(String, Color?)] = [("\(sessions.count) Sessions", nil)]
+        if waiting > 0 { out.append(("\(waiting) waiting", VNColor.amber)) }
+        if running > 0 { out.append(("\(running) running", VNColor.running)) }
+        if done > 0 { out.append(("\(done) done", VNColor.go)) }
+        return out
     }
 
     private func titleText(_ s: SessionActivity) -> String {
@@ -299,6 +331,9 @@ private struct SessionRow: View {
                     AgentPill(source: s.source)
                     if let m = s.model { ModelPill(model: m) }
                     if let t = s.terminal { TermPill(name: t) }
+                    Text(ageString(s.updatedAt)).font(VNFont.sysMono(10.5, .medium))
+                        .foregroundStyle(VNColor.paper.opacity(0.45))
+                        .frame(minWidth: 28, alignment: .trailing)
                 }
             }
             .padding(.vertical, 4).contentShape(Rectangle())
@@ -482,4 +517,13 @@ struct PixelInvader: View {
             .frame(width: 11 * px, height: 8 * px)
         }
     }
+}
+
+/// Relative age: <1m / Nm / Nh / Nd
+func ageString(_ date: Date) -> String {
+    let s = max(0, Int(Date().timeIntervalSince(date)))
+    if s < 60 { return "<1m" }
+    if s < 3600 { return "\(s / 60)m" }
+    if s < 86400 { return "\(s / 3600)h" }
+    return "\(s / 86400)d"
 }
