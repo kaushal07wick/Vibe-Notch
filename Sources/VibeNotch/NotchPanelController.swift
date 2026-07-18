@@ -12,9 +12,6 @@ final class NotchPanelController {
     private var cancellables: [AnyCancellable] = []
     private var expanded: Bool?
     private var lastPendingCount = 0
-    /// After a decision the cursor is still over the panel — ignore hover
-    /// briefly so the collapse isn't immediately re-expanded.
-    private var suppressHoverUntil = Date.distantPast
     /// After any auto-collapse, hover may not re-expand until the pointer has
     /// actually left the notch — otherwise a parked cursor loops expand/collapse.
     private var needsHoverExit = false
@@ -73,7 +70,6 @@ final class NotchPanelController {
         if lastPendingCount > 0 && !hasPending {
             lastPendingCount = 0
             needsHoverExit = true
-            suppressHoverUntil = Date().addingTimeInterval(1.2)
             expanded = false
             Task { await notch.compact() }
             return
@@ -81,7 +77,9 @@ final class NotchPanelController {
         lastPendingCount = store.pending.count
 
         if !notch.isHovering { needsHoverExit = false }
-        let hovering = notch.isHovering && !needsHoverExit && Date() > suppressHoverUntil
+        // Flag-based only: any pointer-exit re-arms hover instantly. (The old
+        // timed windows left hover dead with nothing scheduled to re-check.)
+        let hovering = notch.isHovering && !needsHoverExit
         // smart suppression: if you're already looking at the agent's terminal,
         // the prompt is right in front of you — no popup (badge + hover still work)
         let suppressed = VNSettings.smartSuppression && !hovering
@@ -134,7 +132,7 @@ final class NotchPanelController {
     /// ESC — collapse immediately.
     func collapseNow() {
         dwellTask?.cancel()
-        suppressHoverUntil = Date().addingTimeInterval(1.5)
+        needsHoverExit = true
         expanded = false
         Task { await notch.compact() }
     }
