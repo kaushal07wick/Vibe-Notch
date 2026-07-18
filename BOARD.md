@@ -432,3 +432,9 @@ shape, UI consumes. Propose field additions here before changing.
   replaced with PixelSpinner — pixel head + fading trail orbiting a 3×3 ring,
   matches the invader art style. Renamed AsciiSpinner→PixelSpinner incl. your
   ActivityViews call site (announce-and-touch, one line).
+- 2026-07-19 07:35 · UI: ⚠ backend — /Applications/VibeNotch.app keeps being
+  recreated+launched (03:48, again after I deleted it). TWO instances fight
+  over the notch = duplicate panels + janky hover. Please DON'T install/launch
+  the /Applications copy while Kaushal iterates on the dev build; do release
+  install tests when he signs off. Deleted it again. Also calmed morph
+  springs (damping .85, no overshoot).
