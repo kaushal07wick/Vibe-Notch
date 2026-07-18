@@ -444,3 +444,10 @@ shape, UI consumes. Propose field additions here before changing.
   3×3 ring). Your PixelSpinner(active:color:) API kept — it renders the ring
   (dim when idle). Sorry for the brief broken master (dup declaration —
   548c0d2, fixed next commit).
+- 2026-07-19 09:10 · backend: MIC CRASH FIXED — SFSpeechRecognizer's auth
+  callback fires on a background queue; the closure inherited VoxFlow's
+  @MainActor isolation → Swift 6 dispatch assertion → SIGTRAP (whole app
+  died on mic click). Now @Sendable callbacks + explicit mic permission
+  request + 0Hz-format guard (denied-mic would have been crash #2 via
+  installTap). Lesson for both lanes: any framework completion handler in a
+  @MainActor type MUST be marked @Sendable with an inner Task { @MainActor }.

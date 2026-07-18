@@ -22,10 +22,15 @@ final class VoxFlow: ObservableObject {
     func toggle() { listening ? stop(send: true) : start() }
 
     func start() {
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
-            Task { @MainActor in
-                guard status == .authorized else { NSLog("VoxFlow: speech not authorized"); return }
-                self?.begin()
+        // Both callbacks land on background queues — @Sendable stops them
+        // inheriting our @MainActor isolation (that inheritance was a SIGTRAP).
+        AVCaptureDevice.requestAccess(for: .audio) { @Sendable [weak self] micOK in
+            guard micOK else { NSLog("VoxFlow: microphone not authorized"); return }
+            SFSpeechRecognizer.requestAuthorization { @Sendable status in
+                Task { @MainActor in
+                    guard status == .authorized else { NSLog("VoxFlow: speech not authorized"); return }
+                    self?.begin()
+                }
             }
         }
     }
@@ -41,7 +46,13 @@ final class VoxFlow: ObservableObject {
         if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
 
         let input = engine.inputNode
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+        let format = input.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            NSLog("VoxFlow: no usable microphone input (format \(format))")
+            cleanup()
+            return
+        }
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             req.append(buffer)
             // RMS → level for the waveform
             if let data = buffer.floatChannelData?[0] {
