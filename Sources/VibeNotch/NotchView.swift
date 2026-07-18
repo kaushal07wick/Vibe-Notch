@@ -49,7 +49,8 @@ struct CompactLeading: View {
             if activeAgents.isEmpty {
                 PixelInvader(color: VNColor.invader) // idle mascot
             } else {
-                ForEach(activeAgents, id: \.self) { AgentIcon(source: $0, size: 15) }
+                // one animated pixel invader per active agent, in its brand color
+                ForEach(activeAgents, id: \.self) { PixelInvader(color: VNColor.agent($0), px: 2) }
             }
         }
         .padding(.leading, 11).padding(.trailing, 6)
@@ -263,11 +264,9 @@ private struct ActivityCard: View {
 
     @ViewBuilder private func statusIcon(_ event: String) -> some View {
         switch event {
-        case "PreToolUse": Image(systemName: "gearshape.fill").font(.system(size: 10)).foregroundStyle(VNColor.invader)
-        case "PostToolUse": Image(systemName: "terminal.fill").font(.system(size: 10)).foregroundStyle(VNColor.muted)
+        case "PreToolUse", "PostToolUse", "UserPromptSubmit": AsciiSpinner(color: VNColor.running)
         case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
         case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
-        case "UserPromptSubmit": Image(systemName: "ellipsis.circle").font(.system(size: 10)).foregroundStyle(VNColor.muted)
         default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
         }
     }
@@ -469,6 +468,22 @@ private struct JumpPill: View {
 
 
 // MARK: - Animated pixel invader (the ASCII mascot)
+
+/// A rotating braille spinner — the "working" ASCII animation.
+struct AsciiSpinner: View {
+    var color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.09)) { ctx in
+            let i = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.09) % frames.count
+            Text(frames[i])
+                .font(VNFont.mono(12))
+                .foregroundStyle(color)
+                .frame(width: 12, alignment: .center)
+        }
+    }
+}
 
 struct PixelInvader: View {
     var color: Color
