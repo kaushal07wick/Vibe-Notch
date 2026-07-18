@@ -13,17 +13,19 @@ public struct VNInbound: Codable, Sendable {
     public var type: VNMessageType
     public var source: String     // "claude" | "codex"
     public var event: String      // hook event name, e.g. "PermissionRequest", "Stop"
+    public var title: String?     // brief label, e.g. "Claude finished", "waiting for input"
     public var tool: String?      // tool name, for approvals
-    public var detail: String?    // command / file path / message preview
+    public var detail: String?    // full text — command, or the agent's last message
     public var cwd: String?
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
-                tool: String? = nil, detail: String? = nil,
+                title: String? = nil, tool: String? = nil, detail: String? = nil,
                 cwd: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
+        self.title = title
         self.tool = tool
         self.detail = detail
         self.cwd = cwd

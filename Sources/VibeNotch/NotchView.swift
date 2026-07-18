@@ -38,7 +38,7 @@ struct ExpandedContent: View {
         } else if let flash = store.flash {
             FlashPill(decision: flash)
         } else if let note = store.lastNotification {
-            NotificationRow(inbound: note)
+            NotificationRow(inbound: note, full: store.hovering)
         } else {
             StatusPanel(store: store)
         }
@@ -187,21 +187,35 @@ private struct ApprovalCard: View {
 
 private struct NotificationRow: View {
     let inbound: VNInbound
+    let full: Bool
     var body: some View {
-        HStack(spacing: 9) {
-            Circle().fill(VNColor.agent(inbound.source)).frame(width: 8, height: 8)
-            Text(inbound.detail ?? label)
-                .font(VNFont.mono(12)).lineLimit(1).truncationMode(.tail)
-            Spacer(minLength: 8)
-            if inbound.source == "codex" {
-                Text("Jump ↵").font(.system(size: 11)).foregroundStyle(VNColor.text)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .overlay(Capsule().strokeBorder(VNColor.hair))
-            } else {
-                Text("now").font(.system(size: 11)).foregroundStyle(VNColor.faint)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 9) {
+                Circle().fill(VNColor.agent(inbound.source)).frame(width: 8, height: 8)
+                Text(inbound.title ?? label)
+                    .font(VNFont.mono(12)).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 8)
+                if inbound.source == "codex" {
+                    Text("Jump ↵").font(VNFont.mono(10)).foregroundStyle(VNColor.text)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .overlay(Capsule().strokeBorder(VNColor.hair))
+                } else {
+                    Text(full ? "hover" : "now").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
+                }
+            }
+            if let body = inbound.detail, !body.isEmpty {
+                Text(body)
+                    .font(VNFont.mono(11))
+                    .foregroundStyle(VNColor.muted)
+                    .lineLimit(full ? 12 : 1)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16).padding(.vertical, 11)
+        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
     private var label: String { inbound.source == "codex" ? "Codex is waiting for input" : inbound.event }
 }

@@ -16,6 +16,7 @@ final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var lastNotification: VNInbound?
     @Published var flash: VNDecision?
+    @Published var hovering = false
 
     private var noteGen = 0
 
@@ -32,10 +33,15 @@ final class EventStore: ObservableObject {
     func note(_ inbound: VNInbound) {
         lastNotification = inbound
         noteGen += 1
-        let generation = noteGen
+        scheduleClear(noteGen)
+    }
+
+    /// Auto-dismiss after a few seconds — but keep it up while the user is reading (hovering).
+    private func scheduleClear(_ generation: Int) {
         Task {
             try? await Task.sleep(for: .seconds(5))
-            if generation == noteGen { lastNotification = nil }
+            guard generation == noteGen else { return }
+            if hovering { scheduleClear(generation) } else { lastNotification = nil }
         }
     }
 

@@ -21,6 +21,32 @@ func summarize(_ input: [String: Any]?) -> String? {
     return nil
 }
 
+/// Text of the last assistant message in a Claude Code transcript (JSONL).
+/// ponytail: reads the whole file; for very long sessions, tail-read the last chunk.
+func lastAssistantText(_ path: String?) -> String? {
+    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+    for line in content.split(separator: "\n").reversed() {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+        let msg = (obj["message"] as? [String: Any]) ?? obj
+        let role = (msg["role"] as? String) ?? (obj["type"] as? String)
+        guard role == "assistant" else { continue }
+        if let text = extractText(msg["content"]) ?? extractText(obj["content"]), !text.isEmpty {
+            return text
+        }
+    }
+    return nil
+}
+
+private func extractText(_ content: Any?) -> String? {
+    if let s = content as? String { return s }
+    if let parts = content as? [[String: Any]] {
+        let texts = parts.compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }
+        return texts.isEmpty ? nil : texts.joined(separator: "\n")
+    }
+    return nil
+}
+
 let source = argValue(after: "--source") ?? "claude"
 
 if source == "codex" {
@@ -30,6 +56,7 @@ if source == "codex" {
     let msg = VNInbound(
         type: .notify, source: "codex",
         event: (obj?["type"] as? String) ?? "agent-turn-complete",
+        title: "Codex is waiting",
         detail: obj?["last-assistant-message"] as? String,
         cwd: obj?["cwd"] as? String
     )
@@ -61,9 +88,22 @@ if event == "PermissionRequest" {
     exit(0)
 }
 
-// Every other event is a fire-and-forget notification.
-let message = obj["message"] as? String
+// Only Stop and Notification become cards; other events (SessionStart, PostToolUse…)
+// are dropped to keep the notch quiet.
+let assistant = lastAssistantText(obj["transcript_path"] as? String)
+let title: String
+let detail: String?
+switch event {
+case "Stop":
+    title = "Claude finished"
+    detail = assistant
+case "Notification":
+    title = (obj["message"] as? String) ?? "Claude"
+    detail = assistant ?? (obj["message"] as? String)
+default:
+    exit(0)
+}
 let msg = VNInbound(type: .notify, source: "claude", event: event,
-                    tool: tool, detail: message ?? summarize(toolInput), cwd: cwd, sessionId: sessionId)
+                    title: title, tool: tool, detail: detail, cwd: cwd, sessionId: sessionId)
 _ = IPCClient.send(msg)
 exit(0)
