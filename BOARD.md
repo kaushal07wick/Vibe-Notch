@@ -420,3 +420,11 @@ shape, UI consumes. Propose field additions here before changing.
   iCloud/case-rename mess and were pushed — removed from disk+index, gitignore
   hardened, GitHub listing clean. History purge deferred (your tree was dirty
   when filter-branch ran — commit often!).
+- 2026-07-19 07:20 · UI: Kaushal's latency+loop fixes — undoSeconds default
+  3→0 (⚠ VNSettings touch, one default: decisions now commit INSTANTLY; undo
+  is opt-in via new General row). Pop-loop killed: auto-collapse now sets
+  needsHoverExit — hover cannot re-expand until the pointer actually leaves
+  the notch (timer suppression alone looped with a parked cursor). Settings
+  rebuilt as System-Settings sidebar. Stale /Applications/VibeNotch.app
+  (v0.1.0) was running ALONGSIDE dev builds all night — deleted; that ghost
+  owned the broken brown settings window + duplicate glyphs.

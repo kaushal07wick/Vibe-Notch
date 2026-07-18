@@ -16,6 +16,9 @@ final class NotchPanelController {
     /// After a decision the cursor is still over the panel — ignore hover
     /// briefly so the collapse isn't immediately re-expanded.
     private var suppressHoverUntil = Date.distantPast
+    /// After any auto-collapse, hover may not re-expand until the pointer has
+    /// actually left the notch — otherwise a parked cursor loops expand/collapse.
+    private var needsHoverExit = false
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
@@ -67,6 +70,7 @@ final class NotchPanelController {
         let hasPending = !store.pending.isEmpty && !store.privacyHold
         if lastPendingCount > 0 && !hasPending {
             lastPendingCount = 0
+            needsHoverExit = true
             suppressHoverUntil = Date().addingTimeInterval(1.2)
             expanded = false
             Task { await notch.compact() }
@@ -74,7 +78,8 @@ final class NotchPanelController {
         }
         lastPendingCount = store.pending.count
 
-        let hovering = notch.isHovering && Date() > suppressHoverUntil
+        if !notch.isHovering { needsHoverExit = false }
+        let hovering = notch.isHovering && !needsHoverExit && Date() > suppressHoverUntil
         // dictation keeps the panel open — the mic press must never collapse it
         let want = hasPending || hovering || vox.listening
 
@@ -115,7 +120,7 @@ final class NotchPanelController {
         dwellTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(5))
             guard !Task.isCancelled, let self, self.store.pending.isEmpty else { return }
-            self.suppressHoverUntil = Date().addingTimeInterval(1.5)
+            self.needsHoverExit = true
             self.expanded = false
             await self.notch.compact()
         }

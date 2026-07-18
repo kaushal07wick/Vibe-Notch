@@ -134,6 +134,10 @@ private struct GeneralPane: View {
                    caption: "Disappear entirely when no agent sessions are active.") {
             VNToggle(isOn: VNSettings.autoHideWhenIdle) { VNSettings.autoHideWhenIdle = $0 }
         }
+        SettingRow(label: "Undo window",
+                   caption: "Hold decisions this long so they can be taken back. 0 sends them instantly.") {
+            UndoField()
+        }
     }
 }
 
@@ -237,5 +241,18 @@ private struct LabsPane: View {
         }
         Text("CLI: ~/.vibenotch/bin/vibenotch — list · approve · deny · send · interrupt")
             .font(.caption.monospaced()).foregroundStyle(.secondary)
+    }
+}
+
+
+private struct UndoField: View {
+    @State private var secs = VNSettings.undoSeconds
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("", value: $secs, format: .number)
+                .textFieldStyle(.roundedBorder).frame(width: 44)
+                .onSubmit { VNSettings.undoSeconds = max(0, secs) }
+            Text("sec").foregroundStyle(.secondary)
+        }
     }
 }

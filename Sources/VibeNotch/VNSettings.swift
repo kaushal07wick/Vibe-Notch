@@ -43,7 +43,7 @@ enum VNSettings {
 
     /// Undo window after a decision, seconds (0 = decisions are instant).
     static var undoSeconds: Int {
-        get { d.object(forKey: "undoSeconds") as? Int ?? 3 }
+        get { d.object(forKey: "undoSeconds") as? Int ?? 0 } // 0 = commit instantly (undo opt-in)
         set { d.set(newValue, forKey: "undoSeconds") }
     }
 
