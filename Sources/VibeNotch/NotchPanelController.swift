@@ -21,6 +21,12 @@ final class NotchPanelController {
             compactLeading: { CompactLeading(store: store) },
             compactTrailing: { CompactTrailing(store: store) }
         )
+        // Springy morph — a little bounce on open/convert, a calm close.
+        notch.transitionConfiguration = .init(
+            openingAnimation: .spring(response: 0.42, dampingFraction: 0.70),
+            closingAnimation: .spring(response: 0.34, dampingFraction: 0.90),
+            conversionAnimation: .spring(response: 0.42, dampingFraction: 0.72)
+        )
         cancellables.append(store.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })

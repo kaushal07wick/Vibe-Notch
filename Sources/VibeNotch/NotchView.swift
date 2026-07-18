@@ -11,20 +11,37 @@ struct ExpandedContent: View {
     @ObservedObject var store: EventStore
 
     var body: some View {
-        Group {
-            if let approval = store.pending.first {
-                ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
-            } else if let flash = store.flash {
-                FlashPill(decision: flash)
-            } else if let note = store.lastNotification {
-                NotificationRow(inbound: note)
-            } else {
-                StatusPanel(store: store)
-            }
+        ZStack {
+            currentCard
+                .id(stateKey)
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.94).combined(with: .opacity),
+                    removal: .opacity))
         }
         .frame(width: 380)
         .foregroundStyle(VNColor.text)
+        .animation(.spring(response: 0.36, dampingFraction: 0.78), value: stateKey)
         .overlay(alignment: .bottom) { GlowSeam(style: seam) }
+    }
+
+    /// Identity for the visible state — drives the cross-fade/scale transition.
+    private var stateKey: String {
+        if let a = store.pending.first { return "approval-\(a.id)" }
+        if let f = store.flash { return "flash-\(f.rawValue)" }
+        if store.lastNotification != nil { return "notif" }
+        return "status"
+    }
+
+    @ViewBuilder private var currentCard: some View {
+        if let approval = store.pending.first {
+            ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
+        } else if let flash = store.flash {
+            FlashPill(decision: flash)
+        } else if let note = store.lastNotification {
+            NotificationRow(inbound: note)
+        } else {
+            StatusPanel(store: store)
+        }
     }
 
     private var seam: SeamStyle {
@@ -39,9 +56,17 @@ struct ExpandedContent: View {
 
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathe = false
     var body: some View {
         PixelCaret(color: hue)
+            .opacity(breathe ? 1 : 0.7)
             .padding(.leading, 10).padding(.trailing, 6)
+            .onAppear {
+                if !reduceMotion {
+                    withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { breathe = true }
+                }
+            }
     }
     private var hue: Color {
         if let a = store.pending.first { return VNColor.agent(a.inbound.source) }
@@ -160,14 +185,19 @@ private struct NotificationRow: View {
 
 private struct FlashPill: View {
     let decision: VNDecision
+    @State private var shown = false
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: decision == .allow ? "checkmark" : "xmark").font(.system(size: 11, weight: .bold))
+            Image(systemName: decision == .allow ? "checkmark" : "xmark")
+                .font(.system(size: 11, weight: .bold))
+                .scaleEffect(shown ? 1 : 0.3)
+                .opacity(shown ? 1 : 0)
             Text(decision == .allow ? "Approved" : "Denied").font(.system(size: 12.5, weight: .medium))
             Spacer(minLength: 0)
         }
         .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
         .padding(.horizontal, 18).padding(.vertical, 12)
+        .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true } }
     }
 }
 
