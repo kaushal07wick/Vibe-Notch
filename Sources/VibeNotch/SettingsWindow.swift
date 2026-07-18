@@ -16,14 +16,12 @@ enum SettingsWindow {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 400),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
-        w.title = "Vibe Notch"
-        w.titlebarAppearsTransparent = true
+        w.title = "Vibe Notch Settings"
         w.isReleasedWhenClosed = false
-        w.backgroundColor = NSColor(red: 0.11, green: 0.09, blue: 0.08, alpha: 1)
         w.contentViewController = NSHostingController(rootView: SettingsRoot())
         w.center()
         window = w
@@ -51,68 +49,32 @@ private enum Pane: String, CaseIterable {
 }
 
 private struct SettingsRoot: View {
-    @State private var pane: Pane = .general
-
     var body: some View {
-        HStack(spacing: 0) {
-            // sidebar
-            VStack(alignment: .leading, spacing: 2) {
-                Text("VIBE NOTCH").font(VNFont.sysMono(9.5, .semibold)).tracking(1.6)
-                    .foregroundStyle(VNColor.paper.opacity(0.4))
-                    .padding(.bottom, 10).padding(.leading, 8)
-                ForEach(Pane.allCases, id: \.self) { p in
-                    Button {
-                        pane = p
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: p.icon).font(.system(size: 11))
-                                .frame(width: 16)
-                            Text(p.rawValue).font(.system(size: 12.5, weight: .medium))
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(pane == p ? VNColor.text : VNColor.muted)
-                        .padding(.horizontal, 8).padding(.vertical, 6)
-                        .background(Color.white.opacity(pane == p ? 0.08 : 0),
-                                    in: RoundedRectangle(cornerRadius: 7))
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-            .padding(EdgeInsets(top: 40, leading: 12, bottom: 14, trailing: 10))
-            .frame(width: 168)
-            .background(Color.black.opacity(0.22))
-
-            // pane
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    switch pane {
-                    case .general: GeneralPane()
-                    case .sound: SoundPane()
-                    case .notifications: NotificationsPane()
-                    case .privacy: PrivacyPane()
-                    case .labs: LabsPane()
-                    }
-                }
-                .padding(EdgeInsets(top: 40, leading: 22, bottom: 22, trailing: 22))
-                .frame(maxWidth: .infinity, alignment: .leading)
+        // native macOS settings: toolbar-style tabs + grouped forms
+        TabView {
+            ForEach(Pane.allCases, id: \.self) { p in
+                Form { pane(p) }
+                    .formStyle(.grouped)
+                    .tabItem { Label(p.rawValue, systemImage: p.icon) }
             }
         }
-        .frame(width: 560, height: 400)
-        .background(Color(hex: 0x1C1714))
-        .foregroundStyle(VNColor.text)
+        .frame(width: 520, height: 420)
+    }
+
+    @ViewBuilder private func pane(_ p: Pane) -> some View {
+        switch p {
+        case .general: GeneralPane()
+        case .sound: SoundPane()
+        case .notifications: NotificationsPane()
+        case .privacy: PrivacyPane()
+        case .labs: LabsPane()
+        }
     }
 }
 
 // MARK: - Shared pane atoms
 
-private struct PaneTitle: View {
-    let text: String
-    var body: some View {
-        Text(text).font(.system(size: 16, weight: .semibold))
-    }
-}
+
 
 private struct SettingRow<Content: View>: View {
     let label: String
@@ -120,18 +82,12 @@ private struct SettingRow<Content: View>: View {
     @ViewBuilder var control: Content
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label).font(.system(size: 12.5))
-                if let caption {
-                    Text(caption).font(.system(size: 10.5)).foregroundStyle(VNColor.faint)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 16)
+        LabeledContent {
             control
+        } label: {
+            Text(label)
+            if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
         }
-        .padding(.vertical, 2)
     }
 }
 
@@ -148,7 +104,6 @@ private struct VNToggle: View {
 
 private struct GeneralPane: View {
     var body: some View {
-        PaneTitle(text: "General")
         SettingRow(label: "Launch at login") {
             VNToggle(isOn: VNSettings.launchAtLogin) { VNSettings.launchAtLogin = $0 }
         }
@@ -163,7 +118,6 @@ private struct SoundPane: View {
     @State private var volume = VNSettings.soundVolume
 
     var body: some View {
-        PaneTitle(text: "Sound")
         SettingRow(label: "Sound alerts") {
             VNToggle(isOn: VNSettings.soundEnabled) { VNSettings.soundEnabled = $0 }
         }
@@ -177,7 +131,7 @@ private struct SoundPane: View {
             .frame(width: 160)
         }
         Text("Custom packs: drop permission/waiting/done (.wav .aiff .mp3 .m4a) into ~/.vibenotch/sounds")
-            .font(.system(size: 10.5)).foregroundStyle(VNColor.faint)
+            .font(.caption).foregroundStyle(.secondary)
     }
 }
 
@@ -186,7 +140,6 @@ private struct NotificationsPane: View {
     @State private var topic = VNSettings.ntfyTopic
 
     var body: some View {
-        PaneTitle(text: "Notifications")
         SettingRow(label: "Escalate unanswered permissions",
                    caption: "Repeat the chime and badge while a request sits unanswered. 0 turns it off.") {
             HStack(spacing: 6) {
@@ -207,7 +160,6 @@ private struct NotificationsPane: View {
 
 private struct PrivacyPane: View {
     var body: some View {
-        PaneTitle(text: "Privacy & Trust")
         SettingRow(label: "Screen-share guard",
                    caption: "While your screen is shared, approval cards queue silently — nothing pops up mid-demo.") {
             VNToggle(isOn: VNSettings.screenShareGuard) { VNSettings.screenShareGuard = $0 }
@@ -242,7 +194,6 @@ private struct LabsPane: View {
     @State private var port = VNSettings.dashboardPort
 
     var body: some View {
-        PaneTitle(text: "Labs")
         SettingRow(label: "Web dashboard",
                    caption: "Sessions + pending approvals in the browser — handy on an iPad via Tailscale. Toggle from the menu bar.") {
             Button("Open") {
@@ -262,6 +213,6 @@ private struct LabsPane: View {
             VNToggle(isOn: VNSettings.lockScreenNotch) { VNSettings.lockScreenNotch = $0 }
         }
         Text("CLI: ~/.vibenotch/bin/vibenotch — list · approve · deny · send · interrupt")
-            .font(VNFont.sysMono(10, .regular)).foregroundStyle(VNColor.faint)
+            .font(.caption.monospaced()).foregroundStyle(.secondary)
     }
 }
