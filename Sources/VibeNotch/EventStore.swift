@@ -9,7 +9,7 @@ struct PendingApproval: Identifiable {
 }
 
 /// What one agent session is currently doing — updated on every hook event.
-struct SessionActivity: Identifiable {
+struct SessionActivity: Identifiable, Codable {
     let sessionId: String
     var source: String
     var folder: String?
@@ -40,6 +40,25 @@ final class EventStore: ObservableObject {
     /// until the session ends or the app restarts.
     private var bypassedSessions: Set<String> = []
 
+    private let persistURL = VNPaths.data.appendingPathComponent("sessions.json")
+
+    init() { loadSessions() }
+
+    /// Restore sessions from disk (dropping anything stale) so a relaunch
+    /// doesn't lose the live picture.
+    private func loadSessions() {
+        guard let data = try? Data(contentsOf: persistURL),
+              let saved = try? JSONDecoder().decode([String: SessionActivity].self, from: data)
+        else { return }
+        let cutoff = Date().addingTimeInterval(-3600)
+        sessions = saved.filter { $0.value.updatedAt > cutoff }
+    }
+
+    private func saveSessions() {
+        guard let data = try? JSONEncoder().encode(sessions) else { return }
+        try? data.write(to: persistURL, options: .atomic)
+    }
+
     /// Sessions active in the last 30 minutes, newest first.
     var activeSessions: [SessionActivity] {
         let cutoff = Date().addingTimeInterval(-1800)
@@ -64,6 +83,7 @@ final class EventStore: ObservableObject {
     /// The session reappears on its next hook event.
     func dismiss(sessionId: String) {
         sessions.removeValue(forKey: sessionId)
+        saveSessions()
     }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
@@ -86,7 +106,7 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
-        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); bypassedSessions.remove(sid); return }
+        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); bypassedSessions.remove(sid); saveSessions(); return }
 
         // Subagent events adjust the count without disturbing the main status.
         if i.event == "SubagentStart" || i.event == "SubagentStop" {
@@ -113,6 +133,7 @@ final class EventStore: ObservableObject {
         sessions[sid] = s
         if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }
         pruneStale()
+        saveSessions()
     }
 
     private func pruneStale() {
