@@ -94,7 +94,7 @@ enum VNSettings {
 
     /// Localhost web dashboard (0 = off).
     static var dashboardPort: Int {
-        get { d.integer(forKey: "dashboardPort") }
+        get { let v = d.integer(forKey: "dashboardPort"); return v == 0 ? 4141 : v }
         set { d.set(newValue, forKey: "dashboardPort") }
     }
 

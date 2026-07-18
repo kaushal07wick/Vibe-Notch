@@ -21,6 +21,8 @@ enum SettingsWindow {
             backing: .buffered, defer: false
         )
         w.title = "Vibe Notch Settings"
+        w.titleVisibility = .hidden
+        w.titlebarAppearsTransparent = true
         w.isReleasedWhenClosed = false
         w.contentViewController = NSHostingController(rootView: SettingsRoot())
         w.center()
@@ -49,11 +51,11 @@ private enum Pane: String, CaseIterable {
 
     var iconColor: Color {
         switch self {
-        case .general: .gray
-        case .sound: .pink
-        case .notifications: .red
-        case .privacy: .blue
-        case .labs: .purple
+        case .general: Color(hex: 0x8E8E93)        // system gray
+        case .sound: Color(hex: 0xFF2D55)          // system pink/red
+        case .notifications: Color(hex: 0xFF9500)  // system orange
+        case .privacy: Color(hex: 0x007AFF)        // system blue
+        case .labs: Color(hex: 0xAF52DE)           // system purple
         }
     }
 
@@ -109,10 +111,10 @@ private struct SettingsRoot: View {
             }
             .listStyle(.sidebar)
             .navigationSplitViewColumnWidth(190)
+            .toolbar(removing: .sidebarToggle)
         } detail: {
             Form { pane(selected) }
                 .formStyle(.grouped)
-                .navigationTitle(selected.rawValue)
         }
         .frame(width: 660, height: 440)
     }
