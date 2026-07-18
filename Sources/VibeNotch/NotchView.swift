@@ -139,36 +139,36 @@ private struct ApprovalCard: View {
     private var hue: Color { VNColor.agent(approval.inbound.source) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 8) {
-                Circle().fill(hue).frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 7) {
+                Circle().fill(hue).frame(width: 7, height: 7)
                 Text(approval.inbound.tool ?? approval.inbound.event)
                     .font(VNFont.mono(13))
                 Spacer(minLength: 8)
                 Text(approval.inbound.source.uppercased())
-                    .font(VNFont.mono(9.5))
-                    .tracking(1.2).foregroundStyle(VNColor.muted)
+                    .font(VNFont.mono(9))
+                    .tracking(1.0).foregroundStyle(VNColor.muted)
             }
             Text(approval.inbound.detail ?? "—")
                 .font(VNFont.mono(12))
                 .lineLimit(2).truncationMode(.middle)
-                .foregroundStyle(Color(hex: 0xDFE0DD))
-                .padding(.horizontal, 10).padding(.vertical, 8)
+                .foregroundStyle(Color(hex: 0xE7E8E4))
+                .padding(.horizontal, 9).padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
+                .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(VNColor.hair))
             HStack(spacing: 8) {
                 if let cwd = approval.inbound.cwd {
                     Text(abbreviate(cwd))
-                        .font(VNFont.mono(10.5))
+                        .font(VNFont.mono(10))
                         .foregroundStyle(VNColor.muted)
                         .lineLimit(1).truncationMode(.head)
-                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 6))
                 }
                 Spacer(minLength: 4)
                 if queued > 0 {
-                    Text("\(queued) more").font(.system(size: 10)).foregroundStyle(VNColor.faint)
+                    Text("+\(queued)").font(VNFont.mono(10)).foregroundStyle(VNColor.faint)
                 }
                 Button("Deny") { store.resolve(approval, .deny) }
                     .buttonStyle(NotchButton(kind: .deny))
@@ -176,7 +176,7 @@ private struct ApprovalCard: View {
                     .buttonStyle(NotchButton(kind: .approve(hue)))
             }
         }
-        .padding(EdgeInsets(top: 12, leading: 14, bottom: 14, trailing: 14))
+        .padding(EdgeInsets(top: 4, leading: 15, bottom: 6, trailing: 15))
     }
 
     private func abbreviate(_ path: String) -> String {
@@ -248,8 +248,8 @@ private struct GlowSeam: View {
     @State private var on = false
     var body: some View {
         Capsule().fill(style.color)
-            .frame(height: 2).shadow(color: style.color, radius: 6)
-            .padding(.horizontal, 40).padding(.bottom, 3)
+            .frame(height: 2).shadow(color: style.color, radius: 5)
+            .padding(.horizontal, 26).padding(.bottom, 1)
             .opacity(style.dim ? 0.45 : (style.pulses ? (on ? 1 : 0.4) : 0.9))
             .onAppear {
                 if style.pulses && !reduceMotion {
