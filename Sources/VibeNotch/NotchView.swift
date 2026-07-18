@@ -23,6 +23,11 @@ struct ExpandedContent: View {
                     UsageChips(providers: usage.providers)
                 }
                 Spacer(minLength: 8)
+                // dictate to the active agent (^D works too)
+                HeaderIconButton(symbol: vox.listening ? "mic.fill" : "mic",
+                                 tint: vox.listening ? VNColor.stop : .white.opacity(0.62)) {
+                    vox.toggle()
+                }
                 HeaderIconButton(symbol: "command",
                                  tint: showPalette ? VNColor.go : .white.opacity(0.62)) {
                     showPalette.toggle()
