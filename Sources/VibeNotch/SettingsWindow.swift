@@ -16,8 +16,8 @@ enum SettingsWindow {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 440),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
         w.title = "Vibe Notch Settings"
@@ -46,28 +46,42 @@ private enum Pane: String, CaseIterable {
         case .labs: "flask.fill"
         }
     }
+
+    var iconColor: Color {
+        switch self {
+        case .general: .gray
+        case .sound: .pink
+        case .notifications: .red
+        case .privacy: .blue
+        case .labs: .purple
+        }
+    }
 }
 
 private struct SettingsRoot: View {
     @State private var selected: Pane = .general
 
     var body: some View {
-        // native macOS look: segmented tabs over a grouped form — no toolbar
-        // dependency, so the tabs can never collapse into an overflow chevron
-        VStack(spacing: 0) {
-            Picker("", selection: $selected) {
-                ForEach(Pane.allCases, id: \.self) { p in
-                    Text(p.rawValue).tag(p)
+        // System Settings look: sidebar of categories, grouped form detail
+        NavigationSplitView {
+            List(Pane.allCases, id: \.self, selection: Binding(get: { selected }, set: { selected = $0 ?? .general })) { p in
+                Label {
+                    Text(p.rawValue)
+                } icon: {
+                    Image(systemName: p.icon)
+                        .foregroundStyle(.white)
+                        .frame(width: 20, height: 20)
+                        .background(p.iconColor, in: RoundedRectangle(cornerRadius: 5))
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 16).padding(.top, 10)
-
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(190)
+        } detail: {
             Form { pane(selected) }
                 .formStyle(.grouped)
+                .navigationTitle(selected.rawValue)
         }
-        .frame(width: 520, height: 420)
+        .frame(width: 660, height: 440)
     }
 
     @ViewBuilder private func pane(_ p: Pane) -> some View {
