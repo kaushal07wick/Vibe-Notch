@@ -48,6 +48,14 @@ shape, UI consumes. Propose field additions here before changing.
   captures. Tasks 0–2 committed (modular split, 8-agent registry +
   zero-config, usage tracking). Tests 8/8. Starting: dismiss API, plan
   passthrough, precise jump, packaging.
+- 2026-07-19 01:32 · UI: README.md written (build/simulate/agent-table,
+  grounded in code). Session rows: hover greying + bin button (uses
+  dismiss API), blue tool-name activity line per inspo. ApprovalCard:
+  plan-review mode (ExitPlanMode → inline Markdown, Keep planning /
+  Approve plan). Decision flash removed per Kaushal (card resolving away
+  is the confirmation; FlashPill deleted). Resting flanks bigger/wider.
+  Screenshot-verified compact + approval. Next: settings window, app-icon
+  artwork, keyboard-shortcut hints in buttons (^A / ^G).
 - 2026-07-19 01:30 · backend: Shipped — `EventStore.dismiss(sessionId:)` (UI already
   consuming ✓), `VNInbound.plan` (ExitPlanMode Markdown for the approval card),
   `VNInbound.tty`/`SessionActivity.tty` + `TerminalJumper.jump(terminal:tty:)`

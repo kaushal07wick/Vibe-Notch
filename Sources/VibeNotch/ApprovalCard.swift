@@ -9,12 +9,21 @@ struct ApprovalCard: View {
     let queued: Int
     private var i: VNInbound { approval.inbound }
 
+    /// Plan-review mode: `ExitPlanMode` carries the Markdown plan for approval.
+    private var isPlanReview: Bool { i.tool == "ExitPlanMode" && i.plan != nil }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
-            toolLine
-            commandBlock
-            buttons
+            if isPlanReview, let plan = i.plan {
+                planLine
+                planBlock(plan)
+                planButtons
+            } else {
+                toolLine
+                commandBlock
+                buttons
+            }
             if queued > 0 {
                 Text("Show all \(queued + 1) sessions")
                     .font(.system(size: 11)).foregroundStyle(VNColor.faint)
@@ -69,6 +78,46 @@ struct ApprovalCard: View {
             WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
             WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .allow) }
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .allow) }
+        }
+    }
+
+    // MARK: Plan review
+
+    private var planLine: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "doc.text").font(.system(size: 10)).foregroundStyle(VNColor.running)
+            Text("Plan ready for review").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.running)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func planBlock(_ plan: String) -> some View {
+        ScrollView {
+            Text(planAttributed(plan))
+                .font(.system(size: 11.5))
+                .foregroundStyle(VNColor.text.opacity(0.92))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .textSelection(.enabled)
+        }
+        .frame(maxHeight: 230)
+        .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
+    }
+
+    /// Markdown → AttributedString; falls back to plain text if parsing fails.
+    private func planAttributed(_ plan: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: plan,
+            options: .init(allowsExtendedAttributes: false,
+                           interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(plan)
+    }
+
+    private var planButtons: some View {
+        HStack(spacing: 8) {
+            WideButton(title: "Keep planning", kind: .deny) { store.resolve(approval, .deny) }
+            WideButton(title: "Approve plan", kind: .primary) { store.resolve(approval, .allow) }
         }
     }
 }

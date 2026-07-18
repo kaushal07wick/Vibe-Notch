@@ -27,9 +27,10 @@ struct ExpandedContent: View {
     }
 
     /// Identity of the visible state — drives the cross-fade/scale transition.
+    /// (Decision flash intentionally not rendered — the card resolving away is
+    /// the confirmation, matching Vibe Island.)
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
-        if let f = store.flash { return "flash-\(f.rawValue)" }
         let active = store.activeSessions
         guard let s = active.first else { return "idle" }
         return "act-\(active.count)-\(s.id)-\(s.event)"
@@ -38,10 +39,9 @@ struct ExpandedContent: View {
     @ViewBuilder private var currentCard: some View {
         if let approval = store.pending.first {
             ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
-        } else if let flash = store.flash {
-            FlashPill(decision: flash)
         } else {
-            ActivityCard(sessions: store.activeSessions, full: store.hovering)
+            ActivityCard(sessions: store.activeSessions, full: store.hovering,
+                         onDismiss: { store.dismiss(sessionId: $0) })
         }
     }
 }
@@ -52,14 +52,14 @@ struct ExpandedContent: View {
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             if activeAgents.isEmpty {
-                PixelInvader(color: VNColor.invader) // idle mascot
+                PixelInvader(color: VNColor.invader, px: 3) // idle mascot
             } else {
-                ForEach(activeAgents, id: \.self) { PixelInvader(color: VNColor.agent($0), px: 2) }
+                ForEach(activeAgents, id: \.self) { PixelInvader(color: VNColor.agent($0), px: 2.5) }
             }
         }
-        .padding(.leading, 11).padding(.trailing, 6)
+        .padding(.leading, 15).padding(.trailing, 9)
     }
 
     /// Distinct agents that have a live session, most-recent first.
@@ -79,14 +79,14 @@ struct CompactTrailing: View {
         Group {
             if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14.5, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(VNColor.text)
             } else {
-                Circle().fill(VNColor.faint).frame(width: 5, height: 5)
+                Circle().fill(VNColor.faint).frame(width: 6, height: 6)
             }
         }
-        .padding(.trailing, 13).padding(.leading, 6)
+        .padding(.trailing, 16).padding(.leading, 9)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
 }

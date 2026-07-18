@@ -180,24 +180,6 @@ struct PixelInvader: View {
     }
 }
 
-/// Brief post-decision confirmation ("Approved" / "Denied").
-struct FlashPill: View {
-    let decision: VNDecision
-    @State private var shown = false
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: decision == .allow ? "checkmark" : "xmark")
-                .font(.system(size: 11, weight: .bold)).scaleEffect(shown ? 1 : 0.3).opacity(shown ? 1 : 0)
-            Text(decision == .allow ? "Approved" : "Denied").font(.system(size: 12.5, weight: .medium))
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(decision == .allow ? VNColor.go : VNColor.stop)
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .frame(width: 260, alignment: .leading)
-        .onAppear { withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) { shown = true } }
-    }
-}
-
 // MARK: - Helpers
 
 /// Relative age: <1m / Nm / Nh / Nd

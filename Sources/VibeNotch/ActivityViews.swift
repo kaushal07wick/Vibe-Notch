@@ -6,6 +6,7 @@ import VibeNotchCore
 struct ActivityCard: View {
     let sessions: [SessionActivity]
     let full: Bool
+    var onDismiss: (String) -> Void = { _ in }
 
     var body: some View {
         if sessions.isEmpty {
@@ -62,10 +63,10 @@ struct ActivityCard: View {
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             sessionsHeader
-            VStack(alignment: .leading, spacing: 13) {
-                ForEach(sessions) { s in SessionRow(s: s) }
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
             }
-            .padding(.top, 11)
+            .padding(.top, 9)
         }
         .padding(EdgeInsets(top: 9, leading: 18, bottom: 12, trailing: 18))
         .frame(width: 540, alignment: .leading)
@@ -172,9 +173,12 @@ struct TerminalBlock: View {
 
 // MARK: - Session row
 
-/// A compact row per session in the multi-session list — tap to jump to its terminal.
+/// A compact row per session in the multi-session list — tap to jump to its
+/// terminal. Hover highlights the row and reveals a bin button to dismiss it.
 struct SessionRow: View {
     let s: SessionActivity
+    var onDismiss: (String) -> Void = { _ in }
+    @State private var hovering = false
 
     var body: some View {
         Button { TerminalJumper.jump(s.terminal) } label: {
@@ -187,24 +191,50 @@ struct SessionRow: View {
                         Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
                             .lineLimit(1).truncationMode(.tail)
                     }
-                    Text(brief).font(.system(size: 10.5)).foregroundStyle(VNColor.faint).lineLimit(1).truncationMode(.tail)
+                    brief.font(.system(size: 10.5)).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
-                PillCluster(source: s.source, model: s.model, terminal: s.terminal,
-                            showJump: false, age: s.updatedAt)
+                if hovering {
+                    binButton
+                } else {
+                    PillCluster(source: s.source, model: s.model, terminal: s.terminal,
+                                showJump: false, age: s.updatedAt)
+                }
             }
-            .padding(.vertical, 4).contentShape(Rectangle())
+            .padding(EdgeInsets(top: 5, leading: 6, bottom: 5, trailing: 6))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 8))
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
 
-    private var brief: String {
+    private var binButton: some View {
+        Button { onDismiss(s.sessionId) } label: {
+            Image(systemName: "trash")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(VNColor.muted)
+                .padding(6)
+                .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .help("Dismiss session")
+    }
+
+    /// Activity line — tool name in blue, arguments/reply in grey (inspo style).
+    private var brief: Text {
         switch s.event {
-        case "PreToolUse": return "\(s.tool ?? "Running") \(s.detail ?? "")"
-        case "Notification": return "Waiting for input"
-        case "Stop": return s.detail.map { String($0.prefix(80)) } ?? "Finished"
-        case "UserPromptSubmit": return "Thinking…"
-        default: return "Working…"
+        case "PreToolUse", "PostToolUse":
+            return Text(s.tool ?? "Running").foregroundStyle(VNColor.running)
+                 + Text(" \(s.detail?.components(separatedBy: "\n").first ?? "")").foregroundStyle(VNColor.faint)
+        case "Notification":
+            return Text("Waiting for input").foregroundStyle(VNColor.amber)
+        case "Stop":
+            return Text(s.detail.map { String($0.prefix(80)) } ?? "Finished").foregroundStyle(VNColor.faint)
+        case "UserPromptSubmit":
+            return Text("Thinking…").foregroundStyle(VNColor.faint)
+        default:
+            return Text("Working…").foregroundStyle(VNColor.faint)
         }
     }
 }
