@@ -9,7 +9,13 @@ public enum VNPaths {
     public static let cache = home.appendingPathComponent("cache")
     public static let data = home.appendingPathComponent("data")
 
-    public static let socket = run.appendingPathComponent("vibenotch.sock")
+    /// Overridable via VIBENOTCH_SOCKET (used by the E2E test harness).
+    public static var socket: URL {
+        if let override = ProcessInfo.processInfo.environment["VIBENOTCH_SOCKET"], !override.isEmpty {
+            return URL(fileURLWithPath: override)
+        }
+        return run.appendingPathComponent("vibenotch.sock")
+    }
     public static let pid = run.appendingPathComponent("vibenotch.pid")
 
     /// Create the directory tree if missing. Idempotent.

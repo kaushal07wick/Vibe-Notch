@@ -128,3 +128,7 @@ shape, UI consumes. Propose field additions here before changing.
   OpenCode (bundled JS plugin → our socket, permission approve/deny included,
   registered in opencode.json). Registry now 10 agents. Tests 11/11. UI: agent
   colors for kimi/opencode already exist in VNColor.agent.
+- 2026-07-19 02:20 · backend: E2E test harness — the real hook binary runs
+  against an in-test socket server (allow JSON, fail-open, AskUserQuestion
+  answers via updatedInput all verified end-to-end; socket overridable via
+  VIBENOTCH_SOCKET). scripts/uninstall.sh cleans every agent config. 14/14.
