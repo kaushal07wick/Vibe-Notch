@@ -930,6 +930,7 @@ struct PixelGlyph: View {
 struct AgentSpriteView: View {
     let source: String
     var size: CGFloat = 20
+    var animated = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -946,7 +947,7 @@ struct AgentSpriteView: View {
             let rows = CGFloat(sprite.frameA.count)
             let px = size / cols
             TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
-                let useA = reduceMotion || sprite.frameB == nil
+                let useA = !animated || reduceMotion || sprite.frameB == nil
                     || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
                 let grid = useA ? sprite.frameA : sprite.frameB!
                 Canvas { c, _ in
@@ -1017,6 +1018,35 @@ struct StatusGlyph: View {
                 .font(.system(size: 8)).foregroundStyle(VNColor.stop)
         default:
             EmptyView()
+        }
+    }
+}
+
+
+/// Compact activity glyph: three pixel bars that dance while agents work,
+/// still and dim when everything is idle.
+struct PixelSpinner: View {
+    var active: Bool
+    var color: Color = Color(hex: 0x6FB982)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let frames: [[CGFloat]] = [
+        [3, 6, 4], [5, 3, 6], [6, 5, 3], [4, 6, 5],
+    ]
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.28)) { ctx in
+            let heights: [CGFloat] = (active && !reduceMotion)
+                ? Self.frames[Int(ctx.date.timeIntervalSinceReferenceDate / 0.28) % Self.frames.count]
+                : [3, 4, 3]
+            HStack(alignment: .bottom, spacing: 1.5) {
+                ForEach(0..<3, id: \.self) { i in
+                    Rectangle()
+                        .fill(color.opacity(active ? 0.95 : 0.35))
+                        .frame(width: 2, height: heights[i])
+                }
+            }
+            .frame(height: 7, alignment: .bottom)
         }
     }
 }

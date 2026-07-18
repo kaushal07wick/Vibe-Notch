@@ -138,26 +138,26 @@ struct ExpandedContent: View {
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        Group {
-            // subtle: a single tiny invader — amber when a permission has been
-            // waiting too long (escalation), else the most recent agent's color
-            PixelInvader(color: store.escalated ? VNColor.amber
-                         : activeAgents.first.map(VNColor.agent) ?? VNColor.invader, px: 1)
-                .scaleEffect(bounce ? 1.25 : 1)
-        }
-        // physical notch is ~166pt; ~12pt flanks keep the shape barely wider + centred
-        .frame(width: 12)
-        .padding(.horizontal, 2)
-        // little hop on every tool event — the notch visibly "works"
-        .onChange(of: store.activityTick) { _, _ in
-            withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { bounce = true }
-            Task {
-                try? await Task.sleep(for: .milliseconds(180))
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { bounce = false }
+        HStack(spacing: 4) {
+            // stable mascot of the most recent agent (amber when escalated)…
+            if store.escalated {
+                PixelInvader(color: VNColor.amber, px: 1.1)
+            } else if let src = activeAgents.first {
+                AgentSpriteView(source: src, size: 13, animated: false)
+            } else {
+                PixelInvader(color: VNColor.invader, px: 1.1)
             }
+            // …and a pixel spinner that dances while any session works
+            PixelSpinner(active: anyRunning)
         }
+        // mirror-width flanks keep the shape centred on the physical notch
+        .frame(width: 26)
+        .padding(.horizontal, 2)
     }
-    @State private var bounce = false
+
+    private var anyRunning: Bool {
+        store.activeSessions.contains { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }
+    }
 
     /// Distinct agents that have a live session, most-recent first.
     private var activeAgents: [String] {
@@ -196,7 +196,7 @@ struct CompactTrailing: View {
             }
         }
         // mirror of CompactLeading — equal width keeps the notch split evenly
-        .frame(width: 12)
+        .frame(width: 26)
         .padding(.horizontal, 2)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
