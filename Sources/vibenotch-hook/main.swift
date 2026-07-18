@@ -266,10 +266,12 @@ let lastUser = oneLine(userText(transcript, first: false))
 let activityDetail: String?
 switch event {
 case "PreToolUse":            activityDetail = summarize(toolInput)
-case "PostToolUse":           activityDetail = toolOutput(obj).map { String($0.prefix(1200)) }
+case "PostToolUse",
+     "PostToolUseFailure":    activityDetail = toolOutput(obj).map { String($0.prefix(1200)) }
 case "Notification":          activityDetail = obj["message"] as? String
-case "Stop":                  activityDetail = lastAssistantText(transcript).map { String($0.prefix(1200)) }
-case "SessionStart", "UserPromptSubmit", "SessionEnd": activityDetail = nil
+case "Stop", "StopFailure":   activityDetail = lastAssistantText(transcript).map { String($0.prefix(1200)) }
+case "SessionStart", "UserPromptSubmit", "SessionEnd",
+     "SubagentStart", "SubagentStop", "PreCompact": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
 let msg = VNInbound(type: .notify, source: source, event: event,

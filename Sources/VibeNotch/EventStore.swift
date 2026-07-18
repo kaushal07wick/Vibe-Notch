@@ -21,6 +21,7 @@ struct SessionActivity: Identifiable {
     var terminal: String?
     var tty: String?
     var model: String?
+    var subagents: Int = 0   // live subagent count (SubagentStart/Stop)
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -86,6 +87,16 @@ final class EventStore: ObservableObject {
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
         if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); bypassedSessions.remove(sid); return }
+
+        // Subagent events adjust the count without disturbing the main status.
+        if i.event == "SubagentStart" || i.event == "SubagentStop" {
+            guard var s = sessions[sid] else { return }
+            s.subagents = max(0, s.subagents + (i.event == "SubagentStart" ? 1 : -1))
+            s.updatedAt = Date()
+            sessions[sid] = s
+            return
+        }
+
         let wasWaiting = sessions[sid]?.event == "Notification"
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source

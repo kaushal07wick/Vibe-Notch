@@ -45,6 +45,8 @@ public enum Agents {
         .init("Notification"), .init("Stop"), .init("SessionStart"),
         .init("UserPromptSubmit"), .init("PreToolUse"), .init("PostToolUse"),
         .init("SessionEnd"),
+        .init("SubagentStart"), .init("SubagentStop"),
+        .init("PostToolUseFailure"), .init("StopFailure"), .init("PreCompact"),
     ]
 
     /// Gemini CLI's event names (its settings.json uses the same hooks shape).

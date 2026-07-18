@@ -67,3 +67,6 @@ shape, UI consumes. Propose field additions here before changing.
   permission rule: Bash→`Bash(cmd:*)`, others→tool-wide) or `.bypass`
   (auto-approves rest of session) to `store.resolve`. UI: wire the Always
   Allow / Bypass buttons to these instead of `.allow`.
+- 2026-07-19 01:40 · backend: New events wired — `SessionActivity.subagents`
+  (live count), `PostToolUseFailure`/`StopFailure` arrive as events (UI: render
+  failure states red + a "N subagents" chip), `PreCompact` passes through.
