@@ -130,6 +130,9 @@ struct SessionStatusLine: View {
             }
             if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
                 TerminalBlock(text: detail, prompt: s.event == "PreToolUse", lines: full ? 8 : 3)
+                // anything the agent linked (dev server, artifact, built file)
+                // opens straight from the notch
+                LinkChipRow(text: detail)
             }
         }
     }
@@ -209,6 +212,9 @@ struct SessionRow: View {
                             .lineLimit(1).truncationMode(.tail)
                     }
                     brief.font(.system(size: 10.5)).lineLimit(1).truncationMode(.tail)
+                    if let first = LinkFinder.links(in: s.detail, max: 1).first {
+                        LinkChip(url: first).padding(.top, 2)
+                    }
                 }
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
