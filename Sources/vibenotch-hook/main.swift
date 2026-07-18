@@ -10,6 +10,13 @@ func argValue(after flag: String) -> String? {
     return a[i + 1]
 }
 
+/// A local image file referenced by a tool input, if any (UI shows it).
+func imagePath(_ input: [String: Any]?) -> String? {
+    guard let p = (input?["file_path"] as? String) ?? (input?["path"] as? String) else { return nil }
+    let ext = (p as NSString).pathExtension.lowercased()
+    return ["png", "jpg", "jpeg", "gif", "webp", "heic"].contains(ext) ? p : nil
+}
+
 let source = argValue(after: "--source") ?? "claude"
 let (terminal, termMeta) = detectTerminal()
 
@@ -169,6 +176,7 @@ if event == "PermissionRequest" {
                         plan: toolInput?["plan"] as? String,
                         diffOld: toolInput?["old_string"] as? String,
                         diffNew: (toolInput?["new_string"] as? String) ?? (tool == "Write" ? toolInput?["content"] as? String : nil),
+                        imagePath: imagePath(toolInput),
                         questions: parseQuestions(toolInput),
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),

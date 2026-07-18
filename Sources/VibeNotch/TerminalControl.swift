@@ -25,6 +25,14 @@ enum TerminalControl {
         return true
     }
 
+    /// Switch the agent's model by typing its slash command into the pane.
+    /// Claude/forks take `/model <name>`; Codex's `/model` opens its own picker.
+    @discardableResult
+    static func switchModel(_ model: String, in s: SessionActivity) -> Bool {
+        let cmd = model.isEmpty ? "/model" : "/model \(model)"
+        return send(cmd, to: s)
+    }
+
     /// Panic button: SIGINT the foreground process group on the session's tty —
     /// exactly what ^C in that terminal would do.
     @discardableResult

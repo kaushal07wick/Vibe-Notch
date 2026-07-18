@@ -30,6 +30,7 @@ struct SessionActivity: Identifiable, Codable {
     var tokensIn: Int = 0    // accumulated over the session's turns
     var tokensOut: Int = 0
     var console: [String] = []  // rolling terminal mirror (commands + output tails)
+    var imagePath: String?      // last image a tool touched
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -326,6 +327,7 @@ final class EventStore: ObservableObject {
         s.host = i.host ?? s.host
         if let branch = i.gitBranch { s.gitBranch = branch }
         if let dirty = i.gitDirty { s.gitDirty = dirty }
+        if let img = i.imagePath { s.imagePath = img }
         s.tokensIn += i.tokensIn ?? 0
         s.tokensOut += i.tokensOut ?? 0
         appendConsole(&s, from: i)

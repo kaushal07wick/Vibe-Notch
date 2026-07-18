@@ -34,6 +34,7 @@ public struct VNInbound: Codable, Sendable {
     public var plan: String?               // Markdown plan text (ExitPlanMode approvals)
     public var diffOld: String?            // Edit approvals: text being replaced
     public var diffNew: String?            // Edit/Write approvals: new text
+    public var imagePath: String?          // local image file the tool touches (UI shows a thumbnail)
     public var questions: [VNQuestion]?    // AskUserQuestion multiple-choice payload
     public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
@@ -51,7 +52,7 @@ public struct VNInbound: Codable, Sendable {
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
                 commandDescription: String? = nil, plan: String? = nil,
-                diffOld: String? = nil, diffNew: String? = nil,
+                diffOld: String? = nil, diffNew: String? = nil, imagePath: String? = nil,
                 questions: [VNQuestion]? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
                 termMeta: [String: String]? = nil,
@@ -70,6 +71,7 @@ public struct VNInbound: Codable, Sendable {
         self.plan = plan
         self.diffOld = diffOld
         self.diffNew = diffNew
+        self.imagePath = imagePath
         self.questions = questions
         self.userMessage = userMessage
         self.cwd = cwd

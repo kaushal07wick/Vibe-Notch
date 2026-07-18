@@ -43,6 +43,9 @@ extension AppDelegate {
         case "send":
             guard let s = session(for: cmd.sessionId), let text = cmd.detail else { return fail("no such session") }
             return TerminalControl.send(text, to: s) ? #"{"ok":true}"# : fail("terminal not injectable")
+        case "model":
+            guard let s = session(for: cmd.sessionId) else { return fail("no such session") }
+            return TerminalControl.switchModel(cmd.detail ?? "", in: s) ? #"{"ok":true}"# : fail("terminal not injectable")
         case "interrupt":
             guard let s = session(for: cmd.sessionId) else { return fail("no such session") }
             return TerminalControl.interrupt(s) ? #"{"ok":true}"# : fail("no foreground process")
