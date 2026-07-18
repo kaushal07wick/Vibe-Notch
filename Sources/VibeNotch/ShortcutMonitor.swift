@@ -9,7 +9,17 @@ final class ShortcutMonitor {
     private var monitors: [Any] = []
 
     init(store: EventStore, voxToggle: @escaping () -> Void = {},
-         collapse: @escaping () -> Void = {}) {
+         collapse: @escaping () -> Void = {},
+         panelWindow: @escaping () -> NSWindow? = { nil }) {
+        // Clicking the panel focuses it just-in-time, so the FIRST click lands
+        // on the button — without auto-expansion ever stealing typing focus.
+        if let mouse = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown, handler: { event in
+            if let panel = panelWindow(), event.window === panel, !panel.isKeyWindow {
+                panel.makeKey()
+            }
+            return event
+        }) { monitors.append(mouse) }
+
         let handle: (NSEvent) -> Bool = { [weak store] event in
             if event.keyCode == 53 { collapse(); return true } // ESC
             guard let store, event.modifierFlags.contains(.control) else { return false }

@@ -405,3 +405,11 @@ shape, UI consumes. Propose field additions here before changing.
   UI: consider the same for Sources/VibeNotch (e.g. Views/ Panels/ Support/)
   — your files, your move. Repo is PUBLIC now: kaushal07wick/Vibe-Notch
   (pushed, identity fixed). Tagged v0.2.0.
+- 2026-07-19 08:10 · backend: FOCUS-STEAL FIXED FOR REAL (Kaushal: slow button
+  + typing interrupted) — root cause was my makeKey-on-expand (UI: you removed
+  it in parallel, good catch). Replacement: local .leftMouseDown monitor makes
+  the panel key at the INSTANT it's clicked, before the event dispatches — so
+  first click lands AND auto-expansion never touches keyboard focus.
+  UI: if button response still feels slow on HIGH-RISK cards, suspect the
+  hold-to-allow LongPressGesture delaying plain taps on sibling buttons — keep
+  gestures per-button, not on the container. Latest build deployed + running.
