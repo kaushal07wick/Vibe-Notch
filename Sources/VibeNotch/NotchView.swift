@@ -18,7 +18,6 @@ struct ExpandedContent: View {
         }
         .foregroundStyle(VNColor.text)
         .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)
-        .overlay(alignment: .bottom) { GlowSeam(style: seam) }
     }
 
     private var stateKey: String {
@@ -39,18 +38,6 @@ struct ExpandedContent: View {
         }
     }
 
-    private var seam: SeamStyle {
-        if let a = store.pending.first { return SeamStyle(color: VNColor.agent(a.inbound.source), pulses: true) }
-        if let f = store.flash { return SeamStyle(color: f == .allow ? VNColor.go : VNColor.stop, pulses: false) }
-        if let s = store.activeSession {
-            switch s.event {
-            case "Notification": return SeamStyle(color: VNColor.amber, pulses: true)
-            case "Stop": return SeamStyle(color: VNColor.go, pulses: false)
-            default: return SeamStyle(color: VNColor.agent(s.source), pulses: false)
-            }
-        }
-        return SeamStyle(color: VNColor.faint, pulses: false, dim: true)
-    }
 }
 
 // MARK: - Compact flanks
@@ -444,24 +431,7 @@ private struct JumpPill: View {
 
 // MARK: - Seam
 
-struct SeamStyle { var color: Color; var pulses: Bool; var dim: Bool = false }
 
-private struct GlowSeam: View {
-    let style: SeamStyle
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var on = false
-    var body: some View {
-        Capsule().fill(style.color)
-            .frame(height: 2).shadow(color: style.color, radius: 5)
-            .padding(.horizontal, 30).padding(.bottom, 1)
-            .opacity(style.dim ? 0.45 : (style.pulses ? (on ? 1 : 0.4) : 0.9))
-            .onAppear {
-                if style.pulses && !reduceMotion {
-                    withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { on = true }
-                }
-            }
-    }
-}
 
 // MARK: - Animated pixel invader (the ASCII mascot)
 
