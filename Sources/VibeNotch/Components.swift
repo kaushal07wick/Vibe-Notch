@@ -156,18 +156,30 @@ struct AgentIcon: View {
     }
 }
 
-/// A rotating braille spinner — the "working" ASCII animation.
-struct AsciiSpinner: View {
+/// A rotating pixel spinner — a bright head with a fading trail orbiting a
+/// square ring. Same pixel-art language as the invader, nothing music-y.
+struct PixelSpinner: View {
     var color: Color
+    var px: CGFloat = 3.5
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    /// 8 ring cells of a 3×3 grid (center empty), clockwise from top-left.
+    private static let ring: [(Int, Int)] = [
+        (0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (1, 2), (0, 2), (0, 1),
+    ]
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.09)) { ctx in
-            let i = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.09) % frames.count
-            Text(frames[i])
-                .font(VNFont.mono(12))
-                .foregroundStyle(color)
-                .frame(width: 12, alignment: .center)
+        TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
+            let head = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.1) % 8
+            Canvas { c, _ in
+                for offset in 0..<4 { // head + 3 fading trail cells
+                    let cell = Self.ring[(head - offset + 8) % 8]
+                    let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
+                                      width: px, height: px)
+                    c.fill(Path(rect), with: .color(color.opacity(1.0 - Double(offset) * 0.28)))
+                }
+            }
+            .frame(width: 3 * px, height: 3 * px)
         }
     }
 }

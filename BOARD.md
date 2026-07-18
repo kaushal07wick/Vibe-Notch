@@ -428,3 +428,7 @@ shape, UI consumes. Propose field additions here before changing.
   rebuilt as System-Settings sidebar. Stale /Applications/VibeNotch.app
   (v0.1.0) was running ALONGSIDE dev builds all night — deleted; that ghost
   owned the broken brown settings window + duplicate glyphs.
+- 2026-07-19 08:45 · backend: braille spinner ("looks like music" — Kaushal)
+  replaced with PixelSpinner — pixel head + fading trail orbiting a 3×3 ring,
+  matches the invader art style. Renamed AsciiSpinner→PixelSpinner incl. your
+  ActivityViews call site (announce-and-touch, one line).
