@@ -17,7 +17,7 @@ struct ResumeEntry: Identifiable {
 enum SessionHistory {
     /// Newest-first past sessions across all Claude projects. Reads only the
     /// head of each transcript, so a big history stays cheap.
-    static func load(limit: Int = 15) -> [ResumeEntry] {
+    static func load(limit: Int = 30) -> [ResumeEntry] {
         let root = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects")
         guard let dirs = try? FileManager.default.contentsOfDirectory(
@@ -155,7 +155,7 @@ extension HistoryList {
             today["replies"].map { "\($0) repl\($0 == 1 ? "y" : "ies")" },
         ].compactMap { $0 }
         return HStack(spacing: 8) {
-            EvolvedInvader(px: 1.4)
+            OwlMark(px: 1.1)
             Text(bits.isEmpty ? "Quiet day so far." : "Today: " + bits.joined(separator: " · "))
                 .font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.muted)
             Spacer(minLength: 8)

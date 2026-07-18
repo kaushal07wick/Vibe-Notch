@@ -198,25 +198,25 @@ struct AgentIcon: View {
     }
 }
 
-/// Radar sweep — a beam rotating inside a walled 7×7 scope. Dim boundary
-/// ring, bright dish, amber beam with ghost trail. Owl-eye amber.
+/// Radar sweep — a fat rotating wedge on a 7×7 grid. No walls: just a bright
+/// dish and a solid beam slice with fading ghosts. Owl-eye amber.
 struct PixelRingSpinner: View {
     var color: Color
     var px: CGFloat = 1.7
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 8 beam directions — two cells from the dish toward the wall.
-    private static let beams: [[(Int, Int)]] = [
-        [(3, 2), (3, 1)], [(4, 2), (5, 1)], [(4, 3), (5, 3)], [(4, 4), (5, 5)],
-        [(3, 4), (3, 5)], [(2, 4), (1, 5)], [(2, 3), (1, 3)], [(2, 2), (1, 1)],
+    /// 8 wedges — a chunky 5-cell slice per direction (dish excluded).
+    private static let wedges: [[(Int, Int)]] = [
+        [(3, 2), (3, 1), (3, 0), (2, 1), (4, 1)],          // N
+        [(4, 2), (5, 1), (4, 1), (5, 2), (6, 0)],          // NE
+        [(4, 3), (5, 3), (6, 3), (5, 2), (5, 4)],          // E
+        [(4, 4), (5, 5), (5, 4), (4, 5), (6, 6)],          // SE
+        [(3, 4), (3, 5), (3, 6), (2, 5), (4, 5)],          // S
+        [(2, 4), (1, 5), (2, 5), (1, 4), (0, 6)],          // SW
+        [(2, 3), (1, 3), (0, 3), (1, 2), (1, 4)],          // W
+        [(2, 2), (1, 1), (2, 1), (1, 2), (0, 0)],          // NW
     ]
-    /// The scope's boundary wall: the 7×7 perimeter.
-    private static let wall: [(Int, Int)] = {
-        var out: [(Int, Int)] = []
-        for i in 0..<7 { out += [(i, 0), (i, 6), (0, i), (6, i)] }
-        return out
-    }()
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.11)) { ctx in
@@ -226,13 +226,14 @@ struct PixelRingSpinner: View {
                                        width: px, height: px)),
                            with: .color(color.opacity(alpha)))
                 }
-                for (x, y) in Self.wall { put(x, y, active ? 0.22 : 0.12) }
-                put(3, 3, active ? 1.0 : 0.4)                       // dish
+                put(3, 3, active ? 1.0 : 0.4) // dish
                 if active && !reduceMotion {
                     let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.11) % 8
-                    for (x, y) in Self.beams[i] { put(x, y, 0.95) }
-                    for (x, y) in Self.beams[(i + 7) % 8] { put(x, y, 0.35) }
-                    for (x, y) in Self.beams[(i + 6) % 8] { put(x, y, 0.15) }
+                    for (x, y) in Self.wedges[i] { put(x, y, 0.95) }
+                    for (x, y) in Self.wedges[(i + 7) % 8] { put(x, y, 0.4) }
+                    for (x, y) in Self.wedges[(i + 6) % 8] { put(x, y, 0.16) }
+                } else {
+                    for (x, y) in [(3, 1), (5, 3), (3, 5), (1, 3)] { put(x, y, 0.2) }
                 }
             }
             .frame(width: 7 * px, height: 7 * px)
