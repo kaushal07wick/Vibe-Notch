@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let tunnels = SSHTunnelManager()
     private let privacy = PrivacyGuard()
     private let away = AwayTracker()
+    let vox = VoxFlow()
     private let dashboard = DashboardServer()
     private var lockSpace: LockScreenSpace?
 
@@ -25,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         notch = NotchPanelController(store: store, usage: usage)
         notch.show()
-        shortcuts = ShortcutMonitor(store: store)
+        shortcuts = ShortcutMonitor(store: store, voxToggle: { [weak self] in self?.vox.toggle() })
         startServer()
         tunnels.start()
         observeBadge()
@@ -41,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyLockScreenSetting()
         away.onReturn = { [weak self] since in self?.store.showDigest(since: since) }
         away.start()
+        vox.onFinal = { [weak self] text in
+            guard let self, let session = self.store.activeSession else { return }
+            if TerminalControl.send(text, to: session) { SoundManager.shared.play(.done) }
+        }
     }
 
     private func applyDashboardSetting() {
@@ -255,6 +260,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(rulesItem)
         }
 
+        let dictate = NSMenuItem(title: vox.listening ? "Stop dictation (⌃D)" : "Dictate to agent (⌃D)",
+                                 action: #selector(toggleDictation), keyEquivalent: "")
+        dictate.target = self
+        dictate.state = vox.listening ? .on : .off
+        menu.addItem(dictate)
+
         let theme = NSMenuItem(title: "Sound theme", action: nil, keyEquivalent: "")
         let themeMenu = NSMenu()
         for name in ["chime", "arcade", "minimal"] {
@@ -334,6 +345,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func toggleDictation() { vox.toggle() }
 
     @objc private func pickTheme(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }

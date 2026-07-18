@@ -8,10 +8,13 @@ import AppKit
 final class ShortcutMonitor {
     private var monitors: [Any] = []
 
-    init(store: EventStore) {
+    init(store: EventStore, voxToggle: @escaping () -> Void = {}) {
         let handle: (NSEvent) -> Bool = { [weak store] event in
             guard let store, event.modifierFlags.contains(.control) else { return false }
             switch event.charactersIgnoringModifiers {
+            case "d":
+                voxToggle()
+                return true
             case "a":
                 guard let first = store.pending.first else { return false }
                 store.resolve(first, .allow)

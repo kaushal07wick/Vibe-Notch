@@ -9,7 +9,11 @@ final class VoxFlow: ObservableObject {
     @Published private(set) var transcript = ""
     var onFinal: ((String) -> Void)?
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    /// Live input level 0…1 — drives the notch waveform while dictating.
+    @Published private(set) var level: Float = 0
+
+    private let recognizer = SFSpeechRecognizer(locale: Locale.current)
+        ?? SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let engine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
@@ -31,12 +35,22 @@ final class VoxFlow: ObservableObject {
         transcript = ""
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
-        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
         request = req
 
+        // On-device only: no audio ever leaves the Mac.
+        if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
+
         let input = engine.inputNode
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { [weak self] buffer, _ in
             req.append(buffer)
+            // RMS → level for the waveform
+            if let data = buffer.floatChannelData?[0] {
+                let n = Int(buffer.frameLength)
+                var sum: Float = 0
+                for i in 0..<n { sum += data[i] * data[i] }
+                let rms = n > 0 ? sqrtf(sum / Float(n)) : 0
+                Task { @MainActor in self?.level = min(1, rms * 12) }
+            }
         }
         engine.prepare()
         do { try engine.start() } catch { NSLog("VoxFlow: engine failed: \(error)"); cleanup(); return }
@@ -58,6 +72,7 @@ final class VoxFlow: ObservableObject {
     func stop(send: Bool) {
         guard listening else { return }
         listening = false
+        level = 0
         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         request?.endAudio()
         cleanup()

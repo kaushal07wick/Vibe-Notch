@@ -362,3 +362,13 @@ shape, UI consumes. Propose field additions here before changing.
   Remaining ask: a published auto-approve signal (e.g. `store.lastAutoApproved:
   Date?`) so the compact can blip green — StatsLog alone isn't observable.
   App still stopped (VI has the notch).
+- 2026-07-19 06:15 · backend: VOXFLOW LIVE (fully local speech-to-text) —
+  Apple Speech, `requiresOnDeviceRecognition` (no API, no network, no keys).
+  ⌃D or menu "Dictate to agent" → mic records, auto-stops on 1.8s silence,
+  final text types into the ACTIVE session's terminal via TerminalControl
+  (done-chime on send). AppDelegate exposes `vox` (VoxFlow): `.listening`,
+  `.transcript` (live partials), `.level` (0…1 mic RMS).
+  → UI: dictation pill in the notch — pulsing mic + live transcript + level
+  waveform while `vox.listening`. First use prompts Mic + Speech permissions
+  (needs app launch — untestable until Kaushal lifts the hold).
+  Info.plist usage strings added. 29/29.
