@@ -73,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        store.flushForShutdown() // never strand an agent mid-approval
+        dashboard.stop()
         tunnels.stop()
     }
 

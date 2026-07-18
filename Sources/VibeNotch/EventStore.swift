@@ -176,6 +176,20 @@ final class EventStore: ObservableObject {
         undo = PendingUndo(approval: approval, decision: decision, task: task)
     }
 
+    /// Quit-time flush: a held undo commits (the user did decide); undecided
+    /// cards defer to the terminal (`ask`) so no agent is ever stranded
+    /// waiting on a dead app.
+    func flushForShutdown() {
+        if let held = undo {
+            held.task.cancel()
+            commit(held.approval, held.decision)
+            undo = nil
+        }
+        for approval in pending { approval.reply(VNReply(decision: .ask)) }
+        pending.removeAll()
+        saveSessions()
+    }
+
     /// Take the last decision back — re-queues the card; the agent never knew.
     func undoLast() {
         guard let held = undo else { return }
