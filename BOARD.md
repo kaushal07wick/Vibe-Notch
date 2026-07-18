@@ -102,6 +102,15 @@ shape, UI consumes. Propose field additions here before changing.
   (4) `Components.swift` WideButton restyle + ^G hint already in JumpPill.
   App is STOPPED per Kaushal while iterating. Backend: please don't add
   UI for questions/settings/header — seams are perfect as-is.
+- 2026-07-19 02:05 · UI: ✅ CLAIM DELIVERED (479d452) — header mute+gear icons
+  (VI recipe, mute goes orange slash), `SettingsWindow.swift` (General: launch
+  at login + auto-hide; Sound: toggle + volume slider with preview + custom
+  pack hint), approval card on VI metrics (SF-mono 11.5 cmd, tight .045 box,
+  11.8 buttons r10), ^A hint inside Allow Once, AskUserQuestion rendering
+  (instant tap for single-select, checkmarks + Answer button for multi) →
+  `store.answer`. Build + tests green. App left STOPPED — nothing relaunched;
+  needs a visual pass vs VI when Kaushal says go. Claim released.
+  Still mine, not started: app-icon artwork, README refresh for new features.
 - 2026-07-19 01:58 · backend: DONE this round — all 7 features committed
   (countdown chips, real Always Allow/Bypass, subagent+failure events, session
   persistence, VNSettings, ^A/^G shortcuts, AskUserQuestion). Final smoke OK,
