@@ -70,6 +70,7 @@ final class EventStore: ObservableObject {
         if !escalated && Date().timeIntervalSince(oldest.createdAt) > Double(threshold) {
             escalated = true
             SoundManager.shared.play(.permission) // one repeat chime, not a loop
+            pushEscalation(oldest)
         }
     }
 
@@ -155,6 +156,19 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
+
+        // The session made progress while an approval card was still up →
+        // the user answered in the terminal. The card is stale: drop it so the
+        // panel collapses, and don't wait on the (possibly dead) hook socket.
+        if ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure",
+            "UserPromptSubmit"].contains(i.event) {
+            for stale in pending where stale.inbound.sessionId == sid {
+                stale.reply(VNReply(decision: .ask)) // no-output defer if the hook still lives
+            }
+            pending.removeAll { $0.inbound.sessionId == sid }
+            if pending.isEmpty { escalated = false }
+        }
+
         if i.event == "SessionEnd" {
             if let s = sessions.removeValue(forKey: sid) { archive(s) }
             bypassedSessions.remove(sid)
@@ -221,6 +235,18 @@ final class EventStore: ObservableObject {
                                     folder: s.folder, task: s.task, host: s.host,
                                     startedAt: s.startedAt, endedAt: Date(),
                                     tokensIn: s.tokensIn, tokensOut: s.tokensOut))
+    }
+
+    /// Optional phone ping via ntfy.sh — only when the user configured a topic.
+    private func pushEscalation(_ approval: PendingApproval) {
+        let topic = VNSettings.ntfyTopic
+        guard !topic.isEmpty, let url = URL(string: "https://ntfy.sh/\(topic)") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        let folder = (approval.inbound.cwd as NSString?)?.lastPathComponent ?? "agent"
+        request.httpBody = Data("\(folder): \(approval.inbound.tool ?? "permission") awaiting approval".utf8)
+        request.setValue("Vibe Notch", forHTTPHeaderField: "Title")
+        URLSession.shared.dataTask(with: request).resume()
     }
 
     private func pruneStale() {

@@ -27,9 +27,10 @@ final class NotchPanelController {
         )
         // Springy morph — a little bounce on open/convert, a calm close.
         notch.transitionConfiguration = .init(
-            openingAnimation: .spring(response: 0.42, dampingFraction: 0.70),
+            // fast open — an approval must be actionable the instant it arrives
+            openingAnimation: .spring(response: 0.30, dampingFraction: 0.72),
             closingAnimation: .spring(response: 0.34, dampingFraction: 0.90),
-            conversionAnimation: .spring(response: 0.42, dampingFraction: 0.72)
+            conversionAnimation: .spring(response: 0.38, dampingFraction: 0.74)
         )
         cancellables.append(store.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
