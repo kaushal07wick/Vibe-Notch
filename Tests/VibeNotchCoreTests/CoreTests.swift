@@ -243,7 +243,7 @@ extension CoreTests {
                                       meta: ["TMUX": "/tmp/tmux-501/default,1,0", "TMUX_PANE": "%2"],
                                       text: "continue with option 2")
         XCTAssertEqual(tmux.commands.count, 2)
-        XCTAssertEqual(tmux.commands[0].suffix(3), ["-l", "continue with option 2"].suffix(3))
+        XCTAssertEqual(Array(tmux.commands[0].suffix(2)), ["-l", "continue with option 2"])
         XCTAssertEqual(tmux.commands[1].last, "Enter")
         // iTerm: AppleScript write text with quotes escaped
         let iterm = InjectionPlan.make(terminal: "iTerm", tty: "ttys002", meta: [:], text: #"say "hi""#)

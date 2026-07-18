@@ -29,11 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Menu-bar icon shows the pending-approval count ("✦ 2") so a waiting
     /// agent is visible even when the notch is hidden or on another display.
-    private var badgeObserver: AnyCancellable?
+    private var badgeObservers: [AnyCancellable] = []
     private func observeBadge() {
-        badgeObserver = store.$pending.sink { [weak self] pending in
-            self?.statusItem.button?.title = pending.isEmpty ? "" : " \(pending.count)"
-        }
+        store.$pending.combineLatest(store.$escalated)
+            .sink { [weak self] pending, escalated in
+                let count = pending.isEmpty ? "" : " \(pending.count)"
+                self?.statusItem.button?.title = escalated ? " ⚠\(count)" : count
+            }
+            .store(in: &badgeObservers)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

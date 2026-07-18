@@ -6,6 +6,7 @@ struct PendingApproval: Identifiable {
     let id: UUID
     let inbound: VNInbound
     let reply: @Sendable (VNReply) -> Void
+    let createdAt = Date()
 }
 
 /// What one agent session is currently doing — updated on every hook event.
@@ -41,9 +42,31 @@ final class EventStore: ObservableObject {
     /// until the session ends or the app restarts.
     private var bypassedSessions: Set<String> = []
 
+    /// True once a pending approval has waited past the escalation threshold —
+    /// the menu-bar badge turns ⚠ and the chime repeats once.
+    @Published private(set) var escalated = false
+    private var escalationTimer: Timer?
+
     private let persistURL = VNPaths.data.appendingPathComponent("sessions.json")
 
-    init() { loadSessions() }
+    init() {
+        loadSessions()
+        escalationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            Task { @MainActor in self.checkEscalation() }
+        }
+    }
+
+    private func checkEscalation() {
+        let threshold = VNSettings.escalationSeconds
+        guard threshold > 0, let oldest = pending.first else {
+            if escalated { escalated = false }
+            return
+        }
+        if !escalated && Date().timeIntervalSince(oldest.createdAt) > Double(threshold) {
+            escalated = true
+            SoundManager.shared.play(.permission) // one repeat chime, not a loop
+        }
+    }
 
     /// Restore sessions from disk (dropping anything stale) so a relaunch
     /// doesn't lose the live picture.
@@ -78,7 +101,10 @@ final class EventStore: ObservableObject {
         SoundManager.shared.play(.permission)
     }
 
-    func cancel(_ id: UUID) { pending.removeAll { $0.id == id } }
+    func cancel(_ id: UUID) {
+        pending.removeAll { $0.id == id }
+        if pending.isEmpty { escalated = false }
+    }
 
     /// User dismissed a session row (bin button) — remove it from the list.
     /// The session reappears on its next hook event.
@@ -103,6 +129,7 @@ final class EventStore: ObservableObject {
         }
         approval.reply(VNReply(decision: decision))
         pending.removeAll { $0.id == approval.id }
+        if pending.isEmpty { escalated = false }
         StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
     }
 

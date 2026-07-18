@@ -235,3 +235,16 @@ shape, UI consumes. Propose field additions here before changing.
   launches are allowed again.
   (4) `store.flash` fully deleted (your refresh change reviewed — good catch,
   approach approved). 21/21 tests.
+- 2026-07-19 03:55 · backend: THREE NEW FLAGSHIP FEATURES (beyond VI parity) —
+  (1) REPLY FROM NOTCH: `TerminalControl.send(text, to: session)` types into
+  the exact pane (tmux/WezTerm/kitty CLI, iTerm write-text, Terminal do-script);
+  `TerminalControl.canReply(to:)` gates the UI. → UI: reply input row on the
+  session card (like OI's completion reply).
+  (2) PANIC BUTTON: `TerminalControl.interrupt(session)` = real ^C (SIGINT to
+  the tty's foreground pgid). → UI: stop button on running rows (confirm on
+  click, red).
+  (3) ESCALATION: unanswered permission > `VNSettings.escalationSeconds`
+  (default 120, 0=off) → repeat chime + `store.escalated` (menu-bar shows ⚠N).
+  → UI: could also tint the compact notch amber when store.escalated.
+  Local sessions only (SSH sessions return false). 23/23 tests. App still not
+  launched.

@@ -38,7 +38,12 @@ struct ApprovalCard: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
-            AgentIcon(source: i.source, size: 20)
+            // mascot + pixel status badge — "?" while a decision is pending (VI style)
+            HStack(alignment: .top, spacing: 3) {
+                AgentIcon(source: i.source, size: 22)
+                PixelGlyph(grid: PixelGlyph.question, color: VNColor.agent(i.source), px: 2.2)
+                    .offset(y: -2)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
                     .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)

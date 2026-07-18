@@ -22,6 +22,13 @@ enum VNSettings {
 
     // MARK: Behavior
 
+    /// Seconds before an unanswered permission escalates (repeat chime +
+    /// ⚠ menu-bar badge). 0 disables.
+    static var escalationSeconds: Int {
+        get { d.object(forKey: "escalationSeconds") as? Int ?? 120 }
+        set { d.set(newValue, forKey: "escalationSeconds") }
+    }
+
     /// Hide the compact notch entirely when no sessions are active.
     static var autoHideWhenIdle: Bool {
         get { d.bool(forKey: "autoHideWhenIdle") }
