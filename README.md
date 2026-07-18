@@ -4,30 +4,57 @@
 
 # Vibe Notch
 
-**Your AI coding agents, living in the Mac notch.**
+### Mission control for your AI coding agents — right in the notch.
 
-Approve permissions, watch sessions, reply, panic-stop, and resume old runs —
-without leaving whatever you're doing.
+Stop babysitting terminals. Approve, steer, and watch every agent
+from the one place your eyes already go.
 
 [![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](Package.swift)
-[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](#requirements)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](#build-from-source)
+[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-333333?logo=apple&logoColor=white)](#build-from-source)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![No Electron](https://img.shields.io/badge/Electron-0%20KB-2ea44f)](#privacy--security)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6FB982.svg)](#contributing)
 
-<img src="docs/assets/sessions.png" width="640" alt="Vibe Notch expanded panel showing two live Claude sessions">
+<img src="docs/assets/expand.gif" width="640" alt="The notch expanding on hover">
 
 </div>
 
 ---
 
-Claude Code asks *"can I run this command?"* — and the prompt is buried in a
-terminal tab behind six other windows. Vibe Notch puts that moment where your
-eyes already are: the notch. Glance, approve, keep working.
+## The problem
 
-Native Swift + SwiftUI. **No Electron. No network. No accounts.** Everything
-runs on your Mac.
+You kick off Claude Code, switch to your browser, and three minutes later the
+agent has been sitting on *"Can I run `pnpm install`?"* — waiting, in a buried
+terminal tab, while you thought it was working.
 
-## Highlights
+**Vibe Notch puts that moment in the notch.** The permission card appears where
+you're already looking; one click (or `^A`) and the agent is moving again.
+
+## What you get
+
+| | |
+|---|---|
+| **Zero babysitting** | Cards pop the instant an agent needs you — and *only* when you're not already looking at its terminal. |
+| **Zero misclicks** | Dangerous commands (`rm -rf`, `sudo`, `curl \| sh`) demand **hold-to-approve**. Safe reads auto-approve silently. |
+| **Zero context loss** | Jump to the exact terminal tab, reply into the agent's pane, or `^C` a runaway command — from the notch. |
+| **Zero cloud** | Native Swift. Local socket. No accounts, no telemetry, no Electron. |
+
+## See it
+
+<div align="center">
+
+**A permission, one glance away** — full command, risk-aware buttons, batch approve:
+
+<img src="docs/assets/approval.png" width="640" alt="Approval card with Deny / Allow Once / Bypass">
+
+**Every session, live** — task, your last message, current tool, per-agent pixel marks:
+
+<img src="docs/assets/sessions.png" width="640" alt="Session list with two live Claude sessions">
+
+</div>
+
+## Everything else in the box
 
 🔔 **Approve from the notch** — permission cards with the full command, its
 diff (for file edits), and Deny / Allow / Bypass. Dangerous commands
