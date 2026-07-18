@@ -41,6 +41,12 @@ enum VNSettings {
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 
+    /// ntfy.sh topic for phone escalation pings. Empty = off (default).
+    static var ntfyTopic: String {
+        get { d.string(forKey: "ntfyTopic") ?? "" }
+        set { d.set(newValue, forKey: "ntfyTopic") }
+    }
+
     // MARK: Launch at login (SMAppService)
 
     static var launchAtLogin: Bool {

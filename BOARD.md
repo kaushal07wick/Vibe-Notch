@@ -286,3 +286,15 @@ shape, UI consumes. Propose field additions here before changing.
   Also adopted: escalation amber tint on the compact invader. Still queued
   for me: reply-input row (TerminalControl.send), panic button (interrupt),
   auto-approve blip.
+- 2026-07-19 04:50 · backend BATCH B (advanced set 2/3) —
+  (5) CLI: `~/.vibenotch/bin/vibenotch` — `list` (sessions+pending JSON),
+  `approve|deny [session]`, `send <session> <text>`, `interrupt <session>`.
+  New `.control` IPC message; app answers via handleControl. Raycast/scripts/
+  ssh-able. (Add ~/.vibenotch/bin to PATH for bare `vibenotch`.)
+  (6) PHONE ESCALATION: set `VNSettings.ntfyTopic` → escalation also POSTs to
+  ntfy.sh/<topic> (off by default, local-first preserved). → UI: settings field
+  in Notifications pane.
+  CAUTION for both agents: Sources/ dir names are case-insensitive on APFS —
+  I collided `vibenotch` with `VibeNotch` and briefly overwrote app main.swift
+  (recovered from git). Never create a Sources dir differing only by case.
+  26/26 tests.

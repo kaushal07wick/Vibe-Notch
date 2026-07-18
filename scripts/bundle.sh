@@ -9,11 +9,13 @@ APP="$ROOT/.build/VibeNotch.app"
 
 swift build -c "$CONFIG" --product VibeNotch
 swift build -c "$CONFIG" --product vibenotch-hook
+swift build -c "$CONFIG" --product VibeNotchCLI
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers"
 cp "$BIN/VibeNotch" "$APP/Contents/MacOS/VibeNotch"
 cp "$BIN/vibenotch-hook" "$APP/Contents/Helpers/vibenotch-hook"
+cp "$BIN/VibeNotchCLI" "$APP/Contents/Helpers/vibenotch"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources/Fonts"
 cp "$ROOT/Resources/Fonts/"*.otf "$APP/Contents/Resources/Fonts/" 2>/dev/null || true

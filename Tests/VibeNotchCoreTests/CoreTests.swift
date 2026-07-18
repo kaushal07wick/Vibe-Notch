@@ -282,3 +282,21 @@ extension CoreTests {
         XCTAssertEqual(PermissionRules.rule(tool: "Bash", detail: "git push origin main"), "Bash(git:*)")
     }
 }
+
+extension CoreTests {
+    func testControlChannelRoundTrip() throws {
+        let sock = NSTemporaryDirectory() + "vn-ctl-\(UUID().uuidString).sock"
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { _ in },
+                               onRequest: { _, _, complete in complete(VNReply(decision: .deny)) },
+                               onControl: { cmd, reply in
+                                   XCTAssertEqual(cmd.event, "list")
+                                   reply(#"{"ok":true,"sessions":[]}"#)
+                               })
+        try server.start()
+        defer { server.stop() }
+        let reply = IPCClient.sendControl(
+            VNInbound(type: .control, source: "cli", event: "list"), socketPath: sock, timeout: 5)
+        XCTAssertEqual(reply, #"{"ok":true,"sessions":[]}"#)
+    }
+}

@@ -29,6 +29,12 @@ let package = Package(
             dependencies: ["VibeNotchCore"]
         ),
 
+        // Scriptable control: vibenotch list|approve|deny|send|interrupt
+        .executableTarget(
+            name: "VibeNotchCLI",
+            dependencies: ["VibeNotchCore"]
+        ),
+
         .testTarget(
             name: "VibeNotchCoreTests",
             dependencies: ["VibeNotchCore"]

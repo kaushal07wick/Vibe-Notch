@@ -9,22 +9,26 @@ public final class IPCServer: @unchecked Sendable {
     public typealias NotifyHandler = @Sendable (VNInbound) -> Void
     public typealias RequestHandler = @Sendable (UUID, VNInbound, @escaping @Sendable (VNReply) -> Void) -> Void
     public typealias CancelHandler = @Sendable (UUID) -> Void
+    public typealias ControlHandler = @Sendable (VNInbound, @escaping @Sendable (String) -> Void) -> Void
 
     private let socketPath: String
     private var listenFD: Int32 = -1
     private let onNotify: NotifyHandler
     private let onRequest: RequestHandler
     private let onCancel: CancelHandler
+    private let onControl: ControlHandler
     private let queue = DispatchQueue(label: "vibenotch.ipc", attributes: .concurrent)
 
     public init(socketPath: String = VNPaths.socket.path,
                 onNotify: @escaping NotifyHandler,
                 onRequest: @escaping RequestHandler,
-                onCancel: @escaping CancelHandler = { _ in }) {
+                onCancel: @escaping CancelHandler = { _ in },
+                onControl: @escaping ControlHandler = { _, reply in reply(#"{"ok":false,"error":"unsupported"}"#) }) {
         self.socketPath = socketPath
         self.onNotify = onNotify
         self.onRequest = onRequest
         self.onCancel = onCancel
+        self.onControl = onControl
     }
 
     public func start() throws {
@@ -67,6 +71,14 @@ public final class IPCServer: @unchecked Sendable {
         switch msg.type {
         case .notify:
             onNotify(msg)
+        case .control:
+            let sem = DispatchSemaphore(value: 0)
+            let box = ReplyText()
+            onControl(msg) { box.set($0); sem.signal() }
+            _ = sem.wait(timeout: .now() + 30)
+            var out = Data(box.get().utf8)
+            out.append(0x0A)
+            _ = out.withUnsafeBytes { write(fd, $0.baseAddress, out.count) }
         case .request:
             let id = UUID()
             let sem = DispatchSemaphore(value: 0)
@@ -99,6 +111,13 @@ public final class IPCServer: @unchecked Sendable {
     }
 
     /// Thread-safe: whichever of decide()/cancel() wins first sticks.
+    private final class ReplyText: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = #"{"ok":false,"error":"timeout"}"#
+        func set(_ s: String) { lock.lock(); value = s; lock.unlock() }
+        func get() -> String { lock.lock(); defer { lock.unlock() }; return value }
+    }
+
     private final class DecisionBox: @unchecked Sendable {
         private let lock = NSLock()
         private var _reply: VNReply?

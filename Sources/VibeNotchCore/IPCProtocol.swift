@@ -6,6 +6,7 @@ import Foundation
 public enum VNMessageType: String, Codable, Sendable {
     case notify   // fire-and-forget; server acks by closing
     case request  // needs a decision; connection stays open until the app replies
+    case control  // CLI/dashboard command; server replies one JSON line
 }
 
 /// A message from the hook client to the app.
