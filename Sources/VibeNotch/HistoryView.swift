@@ -5,7 +5,7 @@ import SwiftUI
 // ~/.claude/projects/<dir>/<sessionId>.jsonl. Click one → a terminal opens at
 // its cwd running `claude --resume <id>`. No hunting for the command.
 
-struct HistoryEntry: Identifiable {
+struct ResumeEntry: Identifiable {
     let id: String       // session UUID (filename)
     let cwd: String
     let task: String     // first real user message
@@ -16,7 +16,7 @@ struct HistoryEntry: Identifiable {
 enum SessionHistory {
     /// Newest-first past sessions across all Claude projects. Reads only the
     /// head of each transcript, so a big history stays cheap.
-    static func load(limit: Int = 15) -> [HistoryEntry] {
+    static func load(limit: Int = 15) -> [ResumeEntry] {
         let root = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects")
         guard let dirs = try? FileManager.default.contentsOfDirectory(
@@ -34,7 +34,7 @@ enum SessionHistory {
         }
         files.sort { $0.date > $1.date }
 
-        var out: [HistoryEntry] = []
+        var out: [ResumeEntry] = []
         for (url, date) in files.prefix(limit * 2) { // slack for empty transcripts
             guard let entry = parse(url, date: date) else { continue }
             out.append(entry)
@@ -44,7 +44,7 @@ enum SessionHistory {
     }
 
     /// cwd + first user message from the head of a transcript.
-    private static func parse(_ url: URL, date: Date) -> HistoryEntry? {
+    private static func parse(_ url: URL, date: Date) -> ResumeEntry? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         let head = handle.readData(ofLength: 32_768)
@@ -67,7 +67,7 @@ enum SessionHistory {
             if cwd != nil && task != nil { break }
         }
         guard let cwd, let task else { return nil }
-        return HistoryEntry(id: url.deletingPathExtension().lastPathComponent,
+        return ResumeEntry(id: url.deletingPathExtension().lastPathComponent,
                             cwd: cwd, task: task, date: date)
     }
 
@@ -75,7 +75,7 @@ enum SessionHistory {
     /// ponytail: Terminal.app via AppleScript — works everywhere; routing to the
     /// user's preferred terminal (Ghostty/iTerm) via TerminalControl is backend's
     /// promotion path.
-    static func resume(_ entry: HistoryEntry) {
+    static func resume(_ entry: ResumeEntry) {
         let cmd = "cd \(shellQuote(entry.cwd)) && claude --resume \(entry.id)"
         let script = """
         tell application "Terminal"
@@ -98,7 +98,7 @@ enum SessionHistory {
 
 /// The history panel — replaces the card area while open.
 struct HistoryList: View {
-    let entries: [HistoryEntry]
+    let entries: [ResumeEntry]
     let close: () -> Void
 
     var body: some View {
@@ -141,7 +141,7 @@ struct HistoryList: View {
 }
 
 private struct HistoryRow: View {
-    let entry: HistoryEntry
+    let entry: ResumeEntry
     let close: () -> Void
     @State private var hovering = false
 

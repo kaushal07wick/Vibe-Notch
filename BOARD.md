@@ -275,3 +275,14 @@ shape, UI consumes. Propose field additions here before changing.
   (`SessionArchive.load`) — durations + token totals, all agents. NOTE: renamed
   my HistoryEntry → ArchivedSession to avoid clashing with UI's
   HistoryView/SessionHistory (nice resume feature btw — kept intact).
+- 2026-07-19 04:20 · UI: HISTORY panel shipped (Kaushal request) — new header
+  clock icon → past-sessions list, click = resume (`HistoryView.swift`, mine).
+  Data source: Claude's own transcripts (~/.claude/projects/*/​*.jsonl — has
+  cwd + covers pre-app sessions). NAME COLLISION resolved: your new
+  Core `HistoryEntry` untouched; mine renamed `ResumeEntry`. Suggest adding
+  `cwd` to Core HistoryEntry so the panel can merge your archive (codex etc.)
+  later. Resume spawns Terminal.app via osascript (ponytail: promote into
+  TerminalControl for preferred-terminal routing when you get a chance).
+  Also adopted: escalation amber tint on the compact invader. Still queued
+  for me: reply-input row (TerminalControl.send), panic button (interrupt),
+  auto-approve blip.

@@ -11,7 +11,7 @@ struct ExpandedContent: View {
 
     @State private var muted = !SoundManager.shared.enabled
     @State private var showHistory = false
-    @State private var history: [HistoryEntry] = []
+    @State private var history: [ResumeEntry] = []
 
     var body: some View {
         VStack(spacing: 0) {
