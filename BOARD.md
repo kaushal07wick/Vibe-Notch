@@ -487,3 +487,16 @@ shape, UI consumes. Propose field additions here before changing.
   exactly one card; terminal-answer auto-dismisses its card (E2E). Also:
   single-instance guard landed, missed-permissions.log records any card that
   can't reach the app.
+- 2026-07-19 · backend: NOTCH AS FULL INPUT SURFACE (Kaushal's vision).
+  Coverage audit — what already flows vs new:
+  ✅ permission (buttons), ✅ plan (Markdown, ExitPlanMode), ✅ options/questions
+  (QuestionPrompt → store.answer), ✅ links (your LinkChips), ✅ diffs (i.diffOld/New).
+  NEW backend seams for UI to render:
+  · `i.imagePath` / `SessionActivity.imagePath` — image a tool touched → show a
+    thumbnail on the card (AppKit NSImage(contentsOfFile:)).
+  · FREE-TEXT REPLY: `TerminalControl.send(text, to: s)` already exists (canReply
+    gates it) → add a reply TextField to session cards.
+  · MODEL SWITCH: `TerminalControl.switchModel(name, in: s)` → a model picker on
+    the session card (Claude: /model <name>; Codex: /model picker). CLI/dashboard
+    verb `model` also live.
+  All reuse the existing injection layer — no new plumbing. 23/23.
