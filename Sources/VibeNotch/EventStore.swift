@@ -41,7 +41,10 @@ final class EventStore: ObservableObject {
 
     var activeSession: SessionActivity? { activeSessions.first }
 
-    func enqueue(_ approval: PendingApproval) { pending.append(approval) }
+    func enqueue(_ approval: PendingApproval) {
+        pending.append(approval)
+        SoundManager.shared.play(.permission)
+    }
 
     func cancel(_ id: UUID) { pending.removeAll { $0.id == id } }
 
@@ -55,6 +58,7 @@ final class EventStore: ObservableObject {
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
         if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); return }
+        let wasWaiting = sessions[sid]?.event == "Notification"
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source
         if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }
@@ -66,6 +70,7 @@ final class EventStore: ObservableObject {
         s.terminal = i.terminal ?? s.terminal
         s.updatedAt = Date()
         sessions[sid] = s
+        if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }
         pruneStale()
     }
 

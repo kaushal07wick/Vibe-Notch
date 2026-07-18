@@ -61,6 +61,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(toggleClaude)
 
         menu.addItem(.separator())
+        let sound = NSMenuItem(title: "Sound alerts", action: #selector(toggleSound), keyEquivalent: "")
+        sound.target = self
+        sound.state = SoundManager.shared.enabled ? .on : .off
+        menu.addItem(sound)
+
         let toggle = NSMenuItem(title: "Toggle Panel", action: #selector(togglePanel), keyEquivalent: "t")
         toggle.target = self
         menu.addItem(toggle)
@@ -70,6 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePanel() { notch.toggle() }
+
+    @objc private func toggleSound() {
+        SoundManager.shared.enabled.toggle()
+        if SoundManager.shared.enabled { SoundManager.shared.play(.done) }
+    }
 
     @objc private func toggleClaudeConnection() {
         do {
