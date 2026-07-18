@@ -94,17 +94,40 @@ struct CompactTrailing: View {
 private struct StatusPanel: View {
     @ObservedObject var store: EventStore
     var body: some View {
-        HStack(spacing: 10) {
-            PixelCaret(color: VNColor.claude)
-            Text("Vibe Notch").font(.system(size: 12.5, weight: .semibold))
-            Spacer(minLength: 8)
-            HStack(spacing: 6) {
-                Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
-                Text(ClaudeInstaller.isConnected ? "Claude connected" : "Not connected")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
+        HStack(spacing: 12) {
+            AsciiCreature()
+            VStack(alignment: .leading, spacing: 2) {
+                Text("VIBE NOTCH").font(VNFont.mono(12)).tracking(0.5)
+                HStack(spacing: 6) {
+                    Circle().fill(ClaudeInstaller.isConnected ? VNColor.go : VNColor.faint).frame(width: 6, height: 6)
+                    Text(ClaudeInstaller.isConnected ? "claude connected" : "not connected")
+                        .font(VNFont.mono(10.5)).foregroundStyle(VNColor.muted)
+                }
             }
+            Spacer(minLength: 8)
         }
         .padding(.horizontal, 16).padding(.vertical, 11)
+    }
+}
+
+/// A blinking ASCII cat in DepartureMono. First-pass mascot — frames cycle on a timeline.
+struct AsciiCreature: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let frames = [
+        " /\\_/\\\n( o.o )\n > ^ <",
+        " /\\_/\\\n( -.- )\n > ^ <",
+        " /\\_/\\\n( o.o )\n > ^ <",
+        " /\\_/\\\n( o.O )\n > ^ <",
+    ]
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { ctx in
+            let i = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.5) % frames.count
+            Text(frames[i])
+                .font(VNFont.mono(9))
+                .lineSpacing(1)
+                .foregroundStyle(VNColor.claude)
+                .fixedSize()
+        }
     }
 }
 
@@ -120,14 +143,14 @@ private struct ApprovalCard: View {
             HStack(spacing: 8) {
                 Circle().fill(hue).frame(width: 8, height: 8)
                 Text(approval.inbound.tool ?? approval.inbound.event)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(VNFont.mono(13))
                 Spacer(minLength: 8)
                 Text(approval.inbound.source.uppercased())
-                    .font(.system(size: 9.5, weight: .bold))
+                    .font(VNFont.mono(9.5))
                     .tracking(1.2).foregroundStyle(VNColor.muted)
             }
             Text(approval.inbound.detail ?? "—")
-                .font(.system(size: 11.5, design: .monospaced))
+                .font(VNFont.mono(12))
                 .lineLimit(2).truncationMode(.middle)
                 .foregroundStyle(Color(hex: 0xDFE0DD))
                 .padding(.horizontal, 10).padding(.vertical, 8)
@@ -137,7 +160,7 @@ private struct ApprovalCard: View {
             HStack(spacing: 8) {
                 if let cwd = approval.inbound.cwd {
                     Text(abbreviate(cwd))
-                        .font(.system(size: 10.5, design: .monospaced))
+                        .font(VNFont.mono(10.5))
                         .foregroundStyle(VNColor.muted)
                         .lineLimit(1).truncationMode(.head)
                         .padding(.horizontal, 7).padding(.vertical, 2)
@@ -168,7 +191,7 @@ private struct NotificationRow: View {
         HStack(spacing: 9) {
             Circle().fill(VNColor.agent(inbound.source)).frame(width: 8, height: 8)
             Text(inbound.detail ?? label)
-                .font(.system(size: 12.5)).lineLimit(1).truncationMode(.tail)
+                .font(VNFont.mono(12)).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 8)
             if inbound.source == "codex" {
                 Text("Jump ↵").font(.system(size: 11)).foregroundStyle(VNColor.text)
@@ -244,7 +267,7 @@ private struct NotchButton: ButtonStyle {
     let kind: Kind
     func makeBody(configuration: Configuration) -> some View {
         let label = configuration.label
-            .font(.system(size: 12, weight: .semibold))
+            .font(VNFont.mono(12))
             .padding(.horizontal, 15).padding(.vertical, 6)
         switch kind {
         case .deny:

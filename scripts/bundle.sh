@@ -15,6 +15,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers"
 cp "$BIN/VibeNotch" "$APP/Contents/MacOS/VibeNotch"
 cp "$BIN/vibenotch-hook" "$APP/Contents/Helpers/vibenotch-hook"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Resources/Fonts"
+cp "$ROOT/Resources/Fonts/"*.otf "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
 
 # Ad-hoc sign so Gatekeeper/TCC treats it as a stable, signed app.
 codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || echo "warning: codesign failed (unsigned build)"

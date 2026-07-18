@@ -1,0 +1,2 @@
+Departure Mono by Helena Zhang — https://departuremono.com
+Licensed under the MIT License. Bundled here for the app's pixel typography.

@@ -19,6 +19,12 @@ enum VNColor {
     static func agent(_ source: String) -> Color { source == "codex" ? codex : claude }
 }
 
+/// DepartureMono — the pixel/terminal face that carries the retro character.
+/// Bundled in Resources/Fonts and registered via Info.plist ATSApplicationFontsPath.
+enum VNFont {
+    static func mono(_ size: CGFloat) -> Font { .custom("Departure Mono", size: size) }
+}
+
 extension Color {
     init(hex: UInt32) {
         self.init(.sRGB,
