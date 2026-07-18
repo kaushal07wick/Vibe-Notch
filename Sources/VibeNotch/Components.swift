@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import VibeNotchCore
 
@@ -50,6 +51,47 @@ struct JumpPill: View {
     }
 }
 
+/// The real icon of the user's terminal app, straight from the system —
+/// always correct, no bundled artwork. Falls back to a text badge.
+struct TerminalIcon: View {
+    let terminal: String
+
+    private static var cache: [String: NSImage] = [:]
+    private static let bundles: [String: [String]] = [
+        "Ghostty":  ["com.mitchellh.ghostty"],
+        "iTerm":    ["com.googlecode.iterm2"],
+        "Terminal": ["com.apple.Terminal"],
+        "Warp":     ["dev.warp.Warp-Stable", "dev.warp.Warp"],
+        "kitty":    ["net.kovidgoyal.kitty"],
+        "Alacritty":["org.alacritty"],
+        "WezTerm":  ["com.github.wez.wezterm"],
+        "VS Code":  ["com.microsoft.VSCode"],
+    ]
+
+    private static func icon(for terminal: String) -> NSImage? {
+        if let hit = cache[terminal] { return hit }
+        for id in bundles[terminal] ?? [] {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+                let img = NSWorkspace.shared.icon(forFile: url.path)
+                cache[terminal] = img
+                return img
+            }
+        }
+        return nil
+    }
+
+    var body: some View {
+        if let img = Self.icon(for: terminal) {
+            Image(nsImage: img)
+                .resizable().interpolation(.high)
+                .frame(width: 16, height: 16)
+                .help(terminal)
+        } else {
+            SideBadge(text: terminal)
+        }
+    }
+}
+
 /// The full pill cluster shown top-right of cards and rows.
 struct PillCluster: View {
     let source: String
@@ -61,7 +103,7 @@ struct PillCluster: View {
     var body: some View {
         HStack(spacing: 5) {
             AgentPill(source: source)
-            if let terminal { SideBadge(text: terminal) }
+            if let terminal { TerminalIcon(terminal: terminal) }
             if showJump { JumpPill(terminal: terminal, tty: tty) }
             if let age {
                 Text(ageString(age)).font(VNFont.sysMono(10.5, .medium))

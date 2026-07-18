@@ -48,9 +48,21 @@ enum VNFont {
     }
 }
 
-/// Lowercase badge name for an agent source (matches the reference style).
+/// Brand-correct agent display name, cased the way each company writes it.
 func agentName(_ source: String) -> String {
-    Agents.byID(source) != nil || source == "claude" ? source : "claude"
+    switch source {
+    case "claude":    "Claude"
+    case "codex":     "Codex"
+    case "cursor":    "Cursor"
+    case "gemini":    "Gemini"
+    case "qwen":      "Qwen"
+    case "kimi":      "Kimi"
+    case "opencode":  "opencode"   // SST styles it lowercase
+    case "qoder":     "Qoder"
+    case "droid":     "Droid"
+    case "codebuddy": "CodeBuddy"
+    default:          source.prefix(1).uppercased() + source.dropFirst()
+    }
 }
 
 extension Color {
