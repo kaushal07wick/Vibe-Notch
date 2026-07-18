@@ -6,12 +6,29 @@ import VibeNotchCore
 final class UsageModel: ObservableObject {
     @Published private(set) var providers: [ProviderUsage] = []
     private var timer: Timer?
+    private var watcher: DispatchSourceFileSystemObject?
 
     func start() {
         refresh()
+        // Instant updates when Claude's status line writes the cache…
+        watchCacheDirectory()
+        // …with a slow timer as the Codex-rollout / missed-event fallback.
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
             Task { @MainActor in self.refresh() }
         }
+    }
+
+    /// Watch ~/.vibenotch/cache for writes (covers file creation too — a
+    /// direct file watch would miss the first write).
+    private func watchCacheDirectory() {
+        let fd = open(VNPaths.cache.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write], queue: .main)
+        source.setEventHandler { [weak self] in self?.refresh() }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        watcher = source
     }
 
     func refresh() {
