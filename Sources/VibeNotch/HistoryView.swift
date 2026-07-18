@@ -177,8 +177,8 @@ private struct HistoryRow: View {
             close()
         } label: {
             HStack(alignment: .center, spacing: 10) {
-                PixelGlyph(grid: PixelGlyph.folder, color: VNColor.paper.opacity(0.4), px: 2)
-                VStack(alignment: .leading, spacing: 1.5) {
+                FolderGlyph(tint: FolderGlyph.tint(entry.folder))
+                VStack(alignment: .leading, spacing: 2) {
                     Text(entry.task)
                         .font(.system(size: 12))
                         .foregroundStyle(VNColor.text.opacity(0.92))
@@ -186,9 +186,8 @@ private struct HistoryRow: View {
                     HStack(spacing: 5) {
                         Text(entry.folder)
                             .font(VNFont.sysMono(10, .semibold))
-                            .foregroundStyle(VNColor.paper.opacity(0.55))
-                        Text("·").foregroundStyle(VNColor.faint)
-                        Text(ageString(entry.date))
+                            .foregroundStyle(FolderGlyph.tint(entry.folder).opacity(0.9))
+                        Text("· \(ageString(entry.date))")
                             .font(VNFont.sysMono(10, .medium))
                             .foregroundStyle(VNColor.faint)
                     }
@@ -200,17 +199,70 @@ private struct HistoryRow: View {
                             .font(.system(size: 9, weight: .semibold))
                         Text("resume").font(VNFont.sysMono(9.5, .semibold))
                     }
-                    .foregroundStyle(VNColor.go)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(VNColor.go.opacity(0.12), in: Capsule())
+                    .foregroundStyle(Color(hex: 0xF0B43C))
+                    .padding(.horizontal, 8).padding(.vertical, 3.5)
+                    .background(Color(hex: 0xF0B43C).opacity(0.13), in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color(hex: 0xF0B43C).opacity(0.3)))
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(VNColor.paper.opacity(0.18))
                 }
             }
-            .padding(EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8))
+            .padding(EdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 10))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 9))
+        .background(Color.white.opacity(hovering ? 0.055 : 0.028), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(Color.white.opacity(hovering ? 0.1 : 0.04)))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
         .help("\(entry.cwd)\nclaude --resume \(entry.id)")
+    }
+}
+
+/// Filled two-tone pixel folder, tinted per project from a muted, paper-friendly
+/// palette — enough color to group projects at a glance, never loud.
+struct FolderGlyph: View {
+    let tint: Color
+
+    private static let palette: [Color] = [
+        Color(hex: 0xC77E52),  // clay
+        Color(hex: 0x7FA36B),  // sage
+        Color(hex: 0x7189B8),  // slate blue
+        Color(hex: 0xBFA05A),  // sand
+        Color(hex: 0x9B7FA8),  // mauve
+        Color(hex: 0x5F958D),  // teal
+    ]
+
+    static func tint(_ name: String) -> Color {
+        var h: UInt32 = 5381
+        for b in name.utf8 { h = (h << 5) &+ h &+ UInt32(b) }
+        return palette[Int(h % UInt32(palette.count))]
+    }
+
+    private static let grid = [
+        "dddd.....",
+        "ddddddddd",
+        "ooooooooo",
+        "ooooooooo",
+        "ooooooooo",
+        "ooooooooo",
+    ]
+
+    var body: some View {
+        Canvas { c, _ in
+            let px: CGFloat = 2
+            for (y, row) in Self.grid.enumerated() {
+                for (x, ch) in row.enumerated() {
+                    let color: Color? = ch == "o" ? tint : ch == "d" ? tint.opacity(0.65) : nil
+                    if let color {
+                        c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                           width: px, height: px)), with: .color(color))
+                    }
+                }
+            }
+        }
+        .frame(width: 18, height: 12)
     }
 }
