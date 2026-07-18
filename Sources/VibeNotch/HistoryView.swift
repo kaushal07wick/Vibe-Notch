@@ -176,8 +176,8 @@ private struct HistoryRow: View {
             SessionHistory.resume(entry)
             close()
         } label: {
-            HStack(alignment: .center, spacing: 10) {
-                FolderGlyph(tint: FolderGlyph.tint(entry.folder))
+            HStack(alignment: .center, spacing: 11) {
+                SessionGlyph(tint: SessionGlyph.tint(entry.folder))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.task)
                         .font(.system(size: 12))
@@ -186,30 +186,16 @@ private struct HistoryRow: View {
                     HStack(spacing: 5) {
                         Text(entry.folder)
                             .font(VNFont.sysMono(10, .semibold))
-                            .foregroundStyle(FolderGlyph.tint(entry.folder).opacity(0.9))
+                            .foregroundStyle(SessionGlyph.tint(entry.folder).opacity(0.9))
                         Text("· \(ageString(entry.date))")
                             .font(VNFont.sysMono(10, .medium))
                             .foregroundStyle(VNColor.faint)
                     }
                 }
                 Spacer(minLength: 8)
-                if hovering {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.uturn.forward")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text("resume").font(VNFont.sysMono(9.5, .semibold))
-                    }
-                    .foregroundStyle(Color(hex: 0xF0B43C))
-                    .padding(.horizontal, 8).padding(.vertical, 3.5)
-                    .background(Color(hex: 0xF0B43C).opacity(0.13), in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color(hex: 0xF0B43C).opacity(0.3)))
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(VNColor.paper.opacity(0.18))
-                }
+                ResumeAffordance(active: hovering)
             }
-            .padding(EdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 10))
+            .padding(EdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -221,18 +207,36 @@ private struct HistoryRow: View {
     }
 }
 
-/// Filled two-tone pixel folder, tinted per project from a muted, paper-friendly
-/// palette — enough color to group projects at a glance, never loud.
-struct FolderGlyph: View {
+/// The resume control: a quiet play glyph at rest, a full "Resume" pill on hover.
+private struct ResumeAffordance: View {
+    let active: Bool
+    private static let amber = Color(hex: 0xF0B43C)
+
+    var body: some View {
+        if active {
+            HStack(spacing: 5) {
+                Image(systemName: "play.fill").font(.system(size: 9))
+                Text("Resume").font(.system(size: 10.5, weight: .semibold))
+            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(Self.amber, in: Capsule())
+        } else {
+            Image(systemName: "play.circle")
+                .font(.system(size: 14))
+                .foregroundStyle(VNColor.paper.opacity(0.28))
+        }
+    }
+}
+
+/// A pixel chat bubble — one saved conversation with an agent. Tinted per
+/// project from a muted, paper-friendly palette so repeats group at a glance.
+struct SessionGlyph: View {
     let tint: Color
 
     private static let palette: [Color] = [
-        Color(hex: 0xC77E52),  // clay
-        Color(hex: 0x7FA36B),  // sage
-        Color(hex: 0x7189B8),  // slate blue
-        Color(hex: 0xBFA05A),  // sand
-        Color(hex: 0x9B7FA8),  // mauve
-        Color(hex: 0x5F958D),  // teal
+        Color(hex: 0xC77E52), Color(hex: 0x7FA36B), Color(hex: 0x7189B8),
+        Color(hex: 0xBFA05A), Color(hex: 0x9B7FA8), Color(hex: 0x5F958D),
     ]
 
     static func tint(_ name: String) -> Color {
@@ -241,13 +245,15 @@ struct FolderGlyph: View {
         return palette[Int(h % UInt32(palette.count))]
     }
 
+    // rounded speech bubble, two message lines, tail bottom-left
     private static let grid = [
-        "dddd.....",
-        "ddddddddd",
+        ".ooooooo.",
         "ooooooooo",
+        "o.lll.llo",
+        "o.lllll.o",
         "ooooooooo",
-        "ooooooooo",
-        "ooooooooo",
+        ".oo......",
+        "o........",
     ]
 
     var body: some View {
@@ -255,7 +261,8 @@ struct FolderGlyph: View {
             let px: CGFloat = 2
             for (y, row) in Self.grid.enumerated() {
                 for (x, ch) in row.enumerated() {
-                    let color: Color? = ch == "o" ? tint : ch == "d" ? tint.opacity(0.65) : nil
+                    let color: Color? = ch == "o" ? tint
+                        : ch == "l" ? tint.opacity(0.45) : nil
                     if let color {
                         c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
                                            width: px, height: px)), with: .color(color))
@@ -263,6 +270,6 @@ struct FolderGlyph: View {
                 }
             }
         }
-        .frame(width: 18, height: 12)
+        .frame(width: 18, height: 14)
     }
 }
