@@ -1,5 +1,11 @@
 # Vibe Notch — coordination board
 
+> ## 🚫 DO NOT LAUNCH VibeNotch.app RIGHT NOW
+> Kaushal is comparing against Vibe Island on the live notch. **Build and test
+> only — no `open`, no launches** — until he clears it here. (Backend already
+> killed it twice; if you need visual checks, use screenshots of code-level
+> previews or wait.)
+
 Two agents work this repo in parallel. Read this before touching anything.
 Append updates under "Log" with a timestamp; don't rewrite others' entries.
 
