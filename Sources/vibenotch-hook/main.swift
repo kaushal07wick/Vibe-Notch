@@ -47,6 +47,23 @@ private func extractText(_ content: Any?) -> String? {
     return nil
 }
 
+/// First (task) or last user message in a transcript, skipping tool-result/system noise.
+func userText(_ path: String?, first: Bool) -> String? {
+    guard let path, let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+    let lines = content.split(separator: "\n")
+    for line in (first ? Array(lines) : lines.reversed()) {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+        let msg = (obj["message"] as? [String: Any]) ?? obj
+        let role = (msg["role"] as? String) ?? (obj["type"] as? String)
+        guard role == "user", let text = extractText(msg["content"]) ?? extractText(obj["content"]) else { continue }
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty || clean.hasPrefix("<") { continue } // skip system-reminder / tool blocks
+        return clean
+    }
+    return nil
+}
+
 /// Display name of the terminal the agent runs in, from inherited env.
 func terminalName() -> String? {
     let env = ProcessInfo.processInfo.environment
@@ -89,8 +106,12 @@ let cwd = obj["cwd"] as? String
 let sessionId = obj["session_id"] as? String
 
 if event == "PermissionRequest" {
+    let transcript = obj["transcript_path"] as? String
+    let task = userText(transcript, first: true).map { String($0.prefix(140)) }
     let msg = VNInbound(type: .request, source: "claude", event: event,
-                        tool: tool, detail: summarize(toolInput),
+                        title: task, tool: tool, detail: summarize(toolInput),
+                        commandDescription: toolInput?["description"] as? String,
+                        userMessage: userText(transcript, first: false),
                         cwd: cwd, terminal: terminal, sessionId: sessionId)
     switch IPCClient.send(msg) {
     case .allow:

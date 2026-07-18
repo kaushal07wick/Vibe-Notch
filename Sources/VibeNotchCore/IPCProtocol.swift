@@ -14,14 +14,17 @@ public struct VNInbound: Codable, Sendable {
     public var source: String     // "claude" | "codex"
     public var event: String      // hook event name, e.g. "PermissionRequest", "Stop"
     public var title: String?     // brief label, e.g. "Claude finished", "waiting for input"
-    public var tool: String?      // tool name, for approvals
-    public var detail: String?    // full text — command, or the agent's last message
+    public var tool: String?               // tool name, for approvals
+    public var detail: String?             // full text — command, or the agent's last message
+    public var commandDescription: String? // the agent's one-line explanation of the command
+    public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
-    public var terminal: String?  // display name of the terminal, e.g. "Ghostty"
+    public var terminal: String?           // display name of the terminal, e.g. "Ghostty"
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
+                commandDescription: String? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
@@ -29,6 +32,8 @@ public struct VNInbound: Codable, Sendable {
         self.title = title
         self.tool = tool
         self.detail = detail
+        self.commandDescription = commandDescription
+        self.userMessage = userMessage
         self.cwd = cwd
         self.terminal = terminal
         self.sessionId = sessionId

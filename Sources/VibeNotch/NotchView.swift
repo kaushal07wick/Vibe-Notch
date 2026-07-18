@@ -85,42 +85,63 @@ private struct ApprovalCard: View {
     let approval: PendingApproval
     @ObservedObject var store: EventStore
     let queued: Int
+    private var i: VNInbound { approval.inbound }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 7) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 PixelInvader(color: VNColor.invader, px: 2)
-                Text(folder).font(.system(size: 14, weight: .semibold)).lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(titleText).font(.system(size: 13.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                    if let user = i.userMessage {
+                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                            .lineLimit(1).truncationMode(.tail)
+                    }
+                }
                 Spacer(minLength: 8)
-                AgentPill(source: approval.inbound.source)
-                if let term = approval.inbound.terminal { TermPill(name: term) }
+                HStack(spacing: 5) {
+                    AgentPill(source: i.source)
+                    if let term = i.terminal { TermPill(name: term) }
+                    JumpPill()
+                }
             }
             HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 10)).foregroundStyle(VNColor.amber)
-                Text(approval.inbound.tool ?? "Tool")
-                    .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.amber)
-                Text(approval.inbound.detail ?? "")
-                    .font(VNFont.mono(11.5)).foregroundStyle(Color(hex: 0xE7E8E4))
-                    .lineLimit(1).truncationMode(.middle)
+                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(VNColor.amber)
+                Text(i.tool ?? "Tool").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.amber)
                 Spacer(minLength: 0)
             }
+            VStack(alignment: .leading, spacing: 5) {
+                (Text("$ ").foregroundStyle(VNColor.amber) + Text(i.detail ?? "").foregroundStyle(Color(hex: 0xE7E8E4)))
+                    .font(VNFont.mono(11.5)).lineLimit(3).truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                if let desc = i.commandDescription {
+                    Text(desc).font(.system(size: 11)).foregroundStyle(VNColor.muted).lineLimit(1)
+                }
+            }
+            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
             HStack(spacing: 8) {
                 WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
                 WideButton(title: "Allow Once", kind: .primary) { store.resolve(approval, .allow) }
+                WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .allow) }
                 WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .allow) }
             }
             if queued > 0 {
-                Text("Show all \(queued + 1) requests")
+                Text("Show all \(queued + 1) sessions")
                     .font(.system(size: 11)).foregroundStyle(VNColor.faint)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
             }
         }
         .padding(EdgeInsets(top: 6, leading: 15, bottom: 10, trailing: 15))
-        .frame(width: 540)
+        .frame(width: 560)
     }
 
-    private var folder: String { (approval.inbound.cwd as NSString?)?.lastPathComponent ?? "session" }
+    private var titleText: String {
+        let folder = (i.cwd as NSString?)?.lastPathComponent ?? "session"
+        if let task = i.title, !task.isEmpty { return "\(folder) · \(task)" }
+        return folder
+    }
 }
 
 private struct NotificationCard: View {
@@ -216,7 +237,7 @@ private struct TermPill: View {
 }
 
 private struct WideButton: View {
-    enum Kind { case deny, primary, danger }
+    enum Kind { case deny, primary, always, danger }
     let title: String
     let kind: Kind
     let action: () -> Void
@@ -229,8 +250,27 @@ private struct WideButton: View {
         .background(bg, in: RoundedRectangle(cornerRadius: 9))
         .foregroundStyle(fg)
     }
-    private var bg: Color { switch kind { case .deny: VNColor.ink2; case .primary: .white; case .danger: Color(hex: 0xB0413F) } }
-    private var fg: Color { switch kind { case .deny: VNColor.text; case .primary: .black; case .danger: .white } }
+    private var bg: Color {
+        switch kind {
+        case .deny: VNColor.ink2
+        case .primary: .white
+        case .always: VNColor.invader
+        case .danger: Color(hex: 0xB0413F)
+        }
+    }
+    private var fg: Color { switch kind { case .primary: .black; default: .white } }
+}
+
+private struct JumpPill: View {
+    var body: some View {
+        HStack(spacing: 3) {
+            Text("^G").font(VNFont.mono(9.5))
+            Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
+        }
+        .foregroundStyle(Color(hex: 0x6FD3E0))
+        .padding(.horizontal, 6).padding(.vertical, 2.5)
+        .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
+    }
 }
 
 // MARK: - Seam
