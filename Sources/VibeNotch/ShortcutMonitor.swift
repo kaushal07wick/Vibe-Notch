@@ -8,8 +8,10 @@ import AppKit
 final class ShortcutMonitor {
     private var monitors: [Any] = []
 
-    init(store: EventStore, voxToggle: @escaping () -> Void = {}) {
+    init(store: EventStore, voxToggle: @escaping () -> Void = {},
+         collapse: @escaping () -> Void = {}) {
         let handle: (NSEvent) -> Bool = { [weak store] event in
+            if event.keyCode == 53 { collapse(); return true } // ESC
             guard let store, event.modifierFlags.contains(.control) else { return false }
             switch event.charactersIgnoringModifiers {
             case "d":

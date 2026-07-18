@@ -228,7 +228,7 @@ final class EventStore: ObservableObject {
         if waiting > 0 { parts.append("\(waiting) waiting for you") }
         digest = "While you were away: " + parts.joined(separator: " · ")
         Task {
-            try? await Task.sleep(for: .seconds(8))
+            try? await Task.sleep(for: .seconds(5))
             digest = nil
         }
     }

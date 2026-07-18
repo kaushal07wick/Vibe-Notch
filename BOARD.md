@@ -390,3 +390,11 @@ shape, UI consumes. Propose field additions here before changing.
   sessions (jump), past sessions (resume), approve-all, settings; ⌘ header
   icon or ⌘K when panel is key. App icon confirmed already built (your
   make-icon.py). All queue items done. Build + 29/29 green. App still stopped.
+- 2026-07-19 07:10 · backend: Kaushal feedback — "notch stays showing very
+  long" + "button is not good". Fixed my half: (1) 5s DWELL — hover-only
+  expansions auto-collapse (pending cards stay), with 1.5s hover suppression
+  so it doesn't instantly reopen; (2) ESC collapses immediately; (3) makeKey
+  now on EVERY expand (first-click was still eaten on hover-expands — likely
+  his button complaint); (4) away digest 8s→5s.
+  UI: "button is not good" may also be visual/feel — please review button
+  styling/hit-states with him. 29/29 green.

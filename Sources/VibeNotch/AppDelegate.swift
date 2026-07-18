@@ -26,7 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         notch = NotchPanelController(store: store, usage: usage, vox: vox)
         notch.show()
-        shortcuts = ShortcutMonitor(store: store, voxToggle: { [weak self] in self?.vox.toggle() })
+        shortcuts = ShortcutMonitor(store: store,
+                                    voxToggle: { [weak self] in self?.vox.toggle() },
+                                    collapse: { [weak self] in self?.notch.collapseNow() })
         startServer()
         tunnels.start()
         observeBadge()

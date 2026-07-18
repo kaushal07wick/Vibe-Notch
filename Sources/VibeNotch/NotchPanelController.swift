@@ -15,6 +15,8 @@ final class NotchPanelController {
     /// After a decision the cursor is still over the panel — ignore hover
     /// briefly so the collapse isn't immediately re-expanded.
     private var suppressHoverUntil = Date.distantPast
+    /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
+    private var dwellTask: Task<Void, Never>?
 
     init(store: EventStore, usage: UsageModel, vox: VoxFlow) {
         self.store = store
@@ -85,16 +87,38 @@ final class NotchPanelController {
             return
         }
 
-        guard want != expanded else { return } // avoid re-triggering the morph
+        guard want != expanded else { scheduleDwell(hasPending: hasPending, want: want); return }
         expanded = want
         Task {
             if want {
                 await notch.expand()
                 // First click must land on a button, not just focus the panel.
-                if hasPending { notch.windowController?.window?.makeKey() }
+                notch.windowController?.window?.makeKey()
             } else {
                 await notch.compact()
             }
         }
+        scheduleDwell(hasPending: hasPending, want: want)
+    }
+
+    /// Auto-collapse hover-only expansions so the notch never squats open.
+    private func scheduleDwell(hasPending: Bool, want: Bool) {
+        dwellTask?.cancel()
+        guard want, !hasPending else { return }
+        dwellTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled, let self, self.store.pending.isEmpty else { return }
+            self.suppressHoverUntil = Date().addingTimeInterval(1.5)
+            self.expanded = false
+            await self.notch.compact()
+        }
+    }
+
+    /// ESC — collapse immediately.
+    func collapseNow() {
+        dwellTask?.cancel()
+        suppressHoverUntil = Date().addingTimeInterval(1.5)
+        expanded = false
+        Task { await notch.compact() }
     }
 }
