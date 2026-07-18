@@ -49,14 +49,23 @@ private enum Pane: String, CaseIterable {
 }
 
 private struct SettingsRoot: View {
+    @State private var selected: Pane = .general
+
     var body: some View {
-        // native macOS settings: toolbar-style tabs + grouped forms
-        TabView {
-            ForEach(Pane.allCases, id: \.self) { p in
-                Form { pane(p) }
-                    .formStyle(.grouped)
-                    .tabItem { Label(p.rawValue, systemImage: p.icon) }
+        // native macOS look: segmented tabs over a grouped form — no toolbar
+        // dependency, so the tabs can never collapse into an overflow chevron
+        VStack(spacing: 0) {
+            Picker("", selection: $selected) {
+                ForEach(Pane.allCases, id: \.self) { p in
+                    Text(p.rawValue).tag(p)
+                }
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16).padding(.top, 10)
+
+            Form { pane(selected) }
+                .formStyle(.grouped)
         }
         .frame(width: 520, height: 420)
     }
