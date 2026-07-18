@@ -41,6 +41,18 @@ enum VNSettings {
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 
+    /// Undo window after a decision, seconds (0 = decisions are instant).
+    static var undoSeconds: Int {
+        get { d.object(forKey: "undoSeconds") as? Int ?? 3 }
+        set { d.set(newValue, forKey: "undoSeconds") }
+    }
+
+    /// YOLO mode: auto-approve everything until this epoch timestamp.
+    static var yoloUntil: Double {
+        get { d.double(forKey: "yoloUntil") }
+        set { d.set(newValue, forKey: "yoloUntil") }
+    }
+
     /// Hold approval cards while the screen is being shared.
     static var screenShareGuard: Bool {
         get { d.object(forKey: "screenShareGuard") as? Bool ?? true }

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcuts: ShortcutMonitor!
     private let tunnels = SSHTunnelManager()
     private let privacy = PrivacyGuard()
+    private let away = AwayTracker()
     private let dashboard = DashboardServer()
     private var lockSpace: LockScreenSpace?
 
@@ -35,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         applyDashboardSetting()
         applyLockScreenSetting()
+        away.onReturn = { [weak self] since in self?.store.showDigest(since: since) }
+        away.start()
     }
 
     private func applyDashboardSetting() {
@@ -135,6 +138,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let out = try? JSONSerialization.data(withJSONObject: obj),
                   let text = String(data: out, encoding: .utf8) else { return fail("encoding") }
             return text
+        case "approve_all":
+            store.approveAll(sessionId: cmd.sessionId)
+            return #"{"ok":true}"#
+        case "undo":
+            store.undoLast()
+            return #"{"ok":true}"#
         case "approve", "deny":
             let match = cmd.sessionId == nil
                 ? store.pending.first
@@ -248,6 +257,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dash.state = VNSettings.dashboardPort > 0 ? .on : .off
         menu.addItem(dash)
 
+        let yoloActive = Date().timeIntervalSince1970 < VNSettings.yoloUntil
+        let yoloTitle = yoloActive
+            ? "YOLO mode (\(max(1, Int((VNSettings.yoloUntil - Date().timeIntervalSince1970) / 60)))m left)"
+            : "YOLO mode (30 min)"
+        let yolo = NSMenuItem(title: yoloTitle, action: #selector(toggleYolo), keyEquivalent: "")
+        yolo.target = self
+        yolo.state = yoloActive ? .on : .off
+        menu.addItem(yolo)
+
         let lock = NSMenuItem(title: "Labs: notch over lock screen", action: #selector(toggleLockScreen), keyEquivalent: "")
         lock.target = self
         lock.state = VNSettings.lockScreenNotch ? .on : .off
@@ -301,6 +319,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleSafeList() { VNSettings.safeListEnabled.toggle() }
+
+    @objc private func toggleYolo() {
+        let active = Date().timeIntervalSince1970 < VNSettings.yoloUntil
+        VNSettings.yoloUntil = active ? 0 : Date().timeIntervalSince1970 + 1800
+    }
 
     @objc private func toggleDashboard() {
         VNSettings.dashboardPort = VNSettings.dashboardPort > 0 ? 0 : 4141

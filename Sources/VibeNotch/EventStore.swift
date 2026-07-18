@@ -47,6 +47,20 @@ final class EventStore: ObservableObject {
     /// until the session ends or the app restarts.
     private var bypassedSessions: Set<String> = []
 
+    /// A decision held for the undo window — the agent hasn't been told yet.
+    struct PendingUndo {
+        let approval: PendingApproval
+        let decision: VNDecision
+        let task: Task<Void, Never>
+    }
+    @Published var undo: PendingUndo?
+
+    /// "While you were away" summary; auto-clears.
+    @Published var digest: String?
+
+    /// Increments on tool activity — drives ambient animations cheaply.
+    @Published var activityTick = 0
+
     /// Screen-share privacy hold: cards queue silently while true.
     @Published var privacyHold = false {
         didSet {
@@ -79,6 +93,8 @@ final class EventStore: ObservableObject {
             escalated = true
             SoundManager.shared.play(.permission) // one repeat chime, not a loop
             pushEscalation(oldest)
+            UserHooks.fire("escalation", ["tool": oldest.inbound.tool ?? "",
+                                          "session": oldest.inbound.sessionId ?? ""])
         }
     }
 
@@ -111,6 +127,12 @@ final class EventStore: ObservableObject {
             approval.reply(VNReply(decision: .allow))
             return
         }
+        // Timeboxed YOLO mode: everything auto-approves until it expires.
+        if Date().timeIntervalSince1970 < VNSettings.yoloUntil {
+            approval.reply(VNReply(decision: .allow))
+            StatsLog.bump("yolo")
+            return
+        }
         // Safe-listed simple command → silent auto-approve (flow, not noise).
         let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         if VNSettings.safeListEnabled, policy.safeList, approval.inbound.tool == "Bash",
@@ -137,6 +159,42 @@ final class EventStore: ObservableObject {
     }
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
+        pending.removeAll { $0.id == approval.id }
+        if pending.isEmpty { escalated = false }
+
+        let hold = VNSettings.undoSeconds
+        guard hold > 0 else { commit(approval, decision); return }
+        // Hold the reply so the click can be undone; the agent just waits.
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(hold))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.commit(approval, decision)
+                self?.undo = nil
+            }
+        }
+        undo = PendingUndo(approval: approval, decision: decision, task: task)
+    }
+
+    /// Take the last decision back — re-queues the card; the agent never knew.
+    func undoLast() {
+        guard let held = undo else { return }
+        held.task.cancel()
+        undo = nil
+        pending.insert(held.approval, at: 0)
+    }
+
+    /// Approve every pending card (optionally one session's). No undo window —
+    /// batch is an explicit, deliberate act.
+    func approveAll(sessionId: String? = nil) {
+        let matches = pending.filter { sessionId == nil || $0.inbound.sessionId == sessionId }
+        for approval in matches { commit(approval, .allow) }
+        pending.removeAll { m in matches.contains { $0.id == m.id } }
+        if pending.isEmpty { escalated = false }
+    }
+
+    /// Apply side effects and actually answer the agent.
+    private func commit(_ approval: PendingApproval, _ decision: VNDecision) {
         let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         switch decision {
         case .alwaysAllow where approval.inbound.host != nil || !policy.alwaysAllow:
@@ -144,7 +202,6 @@ final class EventStore: ObservableObject {
         case .bypass where !policy.bypass:
             break // strict project — this click is allow-once only
         case .alwaysAllow:
-            // Persist a permission rule so the agent stops asking for this.
             PermissionRules.addAllowRule(source: approval.inbound.source,
                                          tool: approval.inbound.tool ?? "Bash",
                                          detail: approval.inbound.detail)
@@ -154,9 +211,26 @@ final class EventStore: ObservableObject {
             break
         }
         approval.reply(VNReply(decision: decision))
-        pending.removeAll { $0.id == approval.id }
-        if pending.isEmpty { escalated = false }
         StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
+        UserHooks.fire("approval", ["decision": decision.rawValue,
+                                    "tool": approval.inbound.tool ?? "",
+                                    "detail": approval.inbound.detail ?? "",
+                                    "session": approval.inbound.sessionId ?? ""])
+    }
+
+    /// Build the while-you-were-away digest.
+    func showDigest(since: Date) {
+        let finished = sessions.values.filter { $0.updatedAt > since && ($0.event == "Stop" || $0.event == "StopFailure") }.count
+        let waiting = pending.count
+        guard finished > 0 || waiting > 0 else { return }
+        var parts: [String] = []
+        if finished > 0 { parts.append("\(finished) finished") }
+        if waiting > 0 { parts.append("\(waiting) waiting for you") }
+        digest = "While you were away: " + parts.joined(separator: " · ")
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            digest = nil
+        }
     }
 
     /// Answer an AskUserQuestion card: one selected option label per question.
@@ -219,7 +293,12 @@ final class EventStore: ObservableObject {
         appendConsole(&s, from: i)
         s.updatedAt = Date()
         sessions[sid] = s
-        if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }
+        if i.event == "PreToolUse" || i.event == "PostToolUse" { activityTick += 1 }
+        if i.event == "Stop" { UserHooks.fire("stop", ["session": sid, "folder": s.folder ?? ""]) }
+        if i.event == "Notification" && !wasWaiting {
+            SoundManager.shared.play(.waiting)
+            UserHooks.fire("waiting", ["session": sid, "folder": s.folder ?? ""])
+        }
         pruneStale()
         saveSessions()
     }
