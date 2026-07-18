@@ -156,30 +156,43 @@ struct AgentIcon: View {
     }
 }
 
-/// A rotating pixel spinner — a bright head with a fading trail orbiting a
-/// square ring. Same pixel-art language as the invader, nothing music-y.
+/// A rotating pixel spinner — a bright head with a long comet trail orbiting
+/// a 5×5 pixel ring. Smooth (16 steps), unmistakably "working".
 struct PixelRingSpinner: View {
     var color: Color
-    var px: CGFloat = 3.5
+    var px: CGFloat = 2.2
+    var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 8 ring cells of a 3×3 grid (center empty), clockwise from top-left.
+    /// The 16 perimeter cells of a 5×5 grid, clockwise from top-left.
     private static let ring: [(Int, Int)] = [
-        (0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (1, 2), (0, 2), (0, 1),
+        (0, 0), (1, 0), (2, 0), (3, 0), (4, 0),
+        (4, 1), (4, 2), (4, 3), (4, 4),
+        (3, 4), (2, 4), (1, 4), (0, 4),
+        (0, 3), (0, 2), (0, 1),
     ]
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { ctx in
-            let head = reduceMotion ? 0 : Int(ctx.date.timeIntervalSinceReferenceDate / 0.1) % 8
+        TimelineView(.periodic(from: .now, by: 0.07)) { ctx in
             Canvas { c, _ in
-                for offset in 0..<4 { // head + 3 fading trail cells
-                    let cell = Self.ring[(head - offset + 8) % 8]
-                    let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
-                                      width: px, height: px)
-                    c.fill(Path(rect), with: .color(color.opacity(1.0 - Double(offset) * 0.28)))
+                if active && !reduceMotion {
+                    let head = Int(ctx.date.timeIntervalSinceReferenceDate / 0.07) % 16
+                    for offset in 0..<7 { // head + 6-cell comet trail
+                        let cell = Self.ring[(head - offset + 16) % 16]
+                        let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
+                                          width: px, height: px)
+                        c.fill(Path(rect), with: .color(color.opacity(1.0 - Double(offset) * 0.145)))
+                    }
+                } else {
+                    // idle: four dim cardinal points — a resting compass
+                    for cell in [(2, 0), (4, 2), (2, 4), (0, 2)] {
+                        let rect = CGRect(x: CGFloat(cell.0) * px, y: CGFloat(cell.1) * px,
+                                          width: px, height: px)
+                        c.fill(Path(rect), with: .color(color.opacity(0.35)))
+                    }
                 }
             }
-            .frame(width: 3 * px, height: 3 * px)
+            .frame(width: 5 * px, height: 5 * px)
         }
     }
 }

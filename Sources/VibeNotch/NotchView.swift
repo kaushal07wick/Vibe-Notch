@@ -113,15 +113,10 @@ struct CompactLeading: View {
     @ObservedObject var store: EventStore
     var body: some View {
         HStack(spacing: 4) {
-            // stable mascot of the most recent agent (amber when escalated)…
-            if store.escalated {
-                PixelInvader(color: VNColor.amber, px: 1.1)
-            } else if let src = activeAgents.first {
-                AgentSpriteView(source: src, size: 13, animated: false)
-            } else {
-                PixelInvader(color: VNColor.invader, px: 1.1)
-            }
-            // …and a pixel spinner that dances while any session works
+            // OUR mascot — the Watcher — regardless of which brands are running
+            // (per-agent marks live in the expanded rows)
+            WatcherMark(px: 1.3, escalated: store.escalated)
+            // …and the orbit spinner while any session works
             PixelSpinner(active: anyRunning)
         }
         // mirror-width flanks keep the shape centred on the physical notch

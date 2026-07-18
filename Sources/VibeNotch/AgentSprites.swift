@@ -1030,6 +1030,47 @@ struct PixelSpinner: View {
     var color: Color = Color(hex: 0x6FB982)
 
     var body: some View {
-        PixelRingSpinner(color: color.opacity(active ? 1.0 : 0.35), px: 2.5)
+        PixelRingSpinner(color: color, px: 2, active: active)
+    }
+}
+
+/// The Watcher — Vibe Notch's own mascot (same critter as the app icon).
+/// Shown in the compact notch: neutral brand identity no matter which
+/// agents are running. Amber when a permission is escalated.
+struct WatcherMark: View {
+    var px: CGFloat = 1.3
+    var escalated = false
+
+    private static let grid = [
+        ".o......o.",
+        "..o....o..",
+        ".oooooooo.",
+        "oooooooooo",
+        "oo.WWWW.oo",
+        "oo.WkkW.oo",
+        "oooooooooo",
+        ".oooooooo.",
+        "..o.oo.o..",
+    ]
+
+    var body: some View {
+        let body_ = escalated ? Color(hex: 0xE7A762) : Color(hex: 0x5EC891)
+        Canvas { c, _ in
+            for (y, row) in Self.grid.enumerated() {
+                for (x, ch) in row.enumerated() {
+                    let color: Color? = switch ch {
+                    case "o": body_
+                    case "W": Color(hex: 0xF4F6EE)
+                    case "k": Color(hex: 0x4F7DF0)
+                    default: nil
+                    }
+                    if let color {
+                        c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                           width: px, height: px)), with: .color(color))
+                    }
+                }
+            }
+        }
+        .frame(width: 10 * px, height: 9 * px)
     }
 }
