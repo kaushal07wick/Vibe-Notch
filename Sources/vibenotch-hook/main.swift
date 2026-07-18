@@ -239,22 +239,52 @@ let toolInput = obj["tool_input"] as? [String: Any]
 let cwd = obj["cwd"] as? String
 let sessionId = obj["session_id"] as? String
 
+/// AskUserQuestion's multiple-choice payload, if present.
+func parseQuestions(_ input: [String: Any]?) -> [VNQuestion]? {
+    guard let raw = input?["questions"] as? [[String: Any]], !raw.isEmpty else { return nil }
+    let questions = raw.compactMap { q -> VNQuestion? in
+        guard let text = q["question"] as? String else { return nil }
+        let options = (q["options"] as? [[String: Any]] ?? []).compactMap { o -> VNQuestion.Option? in
+            guard let label = o["label"] as? String else { return nil }
+            return .init(label: label, description: o["description"] as? String)
+        }
+        return VNQuestion(question: text, header: q["header"] as? String,
+                          multiSelect: q["multiSelect"] as? Bool ?? false, options: options)
+    }
+    return questions.isEmpty ? nil : questions
+}
+
+/// Emit the PermissionRequest decision. Answers (AskUserQuestion) ride along
+/// as updatedInput so the agent receives the chosen options.
+func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String: Any]?) {
+    var decision: [String: Any] = ["behavior": behavior]
+    if let answers, var input = originalInput {
+        input["answers"] = answers.map { [$0] } // one selected label per question
+        decision["updatedInput"] = input
+    }
+    let payload: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest",
+                                                         "decision": decision]]
+    if let data = try? JSONSerialization.data(withJSONObject: payload),
+       let text = String(data: data, encoding: .utf8) {
+        print(text)
+    }
+}
+
 if event == "PermissionRequest" {
     let transcript = obj["transcript_path"] as? String
     let msg = VNInbound(type: .request, source: source, event: event,
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
                         plan: toolInput?["plan"] as? String,
+                        questions: parseQuestions(toolInput),
                         userMessage: oneLine(userText(transcript, first: false)),
                         cwd: cwd, terminal: terminal, tty: ttyName(),
                         model: lastAssistantModel(transcript), sessionId: sessionId)
-    switch IPCClient.send(msg)?.agentBehavior {
-    case .allow:
-        print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#)
-    case .deny:
-        print(#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny"}}}"#)
-    default:
-        break // no output → defer to the agent's own permission flow (fail-open)
+    let reply = IPCClient.send(msg)
+    switch reply?.decision.agentBehavior {
+    case .allow: emitDecision("allow", answers: reply?.answers, originalInput: toolInput)
+    case .deny: emitDecision("deny", answers: nil, originalInput: nil)
+    default: break // no output → defer to the agent's own permission flow (fail-open)
     }
     exit(0)
 }

@@ -7,7 +7,7 @@ public enum VNError: Error { case socket(String) }
 /// until the app supplies a decision via the handler's completion.
 public final class IPCServer: @unchecked Sendable {
     public typealias NotifyHandler = @Sendable (VNInbound) -> Void
-    public typealias RequestHandler = @Sendable (UUID, VNInbound, @escaping @Sendable (VNDecision) -> Void) -> Void
+    public typealias RequestHandler = @Sendable (UUID, VNInbound, @escaping @Sendable (VNReply) -> Void) -> Void
     public typealias CancelHandler = @Sendable (UUID) -> Void
 
     private let socketPath: String
@@ -71,7 +71,7 @@ public final class IPCServer: @unchecked Sendable {
             let id = UUID()
             let sem = DispatchSemaphore(value: 0)
             let box = DecisionBox()
-            onRequest(id, msg) { decision in box.decide(decision); sem.signal() }
+            onRequest(id, msg) { reply in box.decide(reply); sem.signal() }
             // Watch the connection: if the hook dies/times out before a decision,
             // read() returns EOF/error → cancel so the card doesn't linger.
             queue.async {
@@ -80,7 +80,7 @@ public final class IPCServer: @unchecked Sendable {
             }
             sem.wait()
             if box.isCancelled { onCancel(id); return }
-            guard var out = try? JSONEncoder().encode(VNReply(decision: box.decision)) else { return }
+            guard var out = try? JSONEncoder().encode(box.reply) else { return }
             out.append(0x0A)
             _ = out.withUnsafeBytes { write(fd, $0.baseAddress, out.count) }
         }
@@ -101,11 +101,11 @@ public final class IPCServer: @unchecked Sendable {
     /// Thread-safe: whichever of decide()/cancel() wins first sticks.
     private final class DecisionBox: @unchecked Sendable {
         private let lock = NSLock()
-        private var _decision: VNDecision?
+        private var _reply: VNReply?
         private var _cancelled = false
-        func decide(_ d: VNDecision) { lock.lock(); if _decision == nil && !_cancelled { _decision = d }; lock.unlock() }
-        func cancel() { lock.lock(); if _decision == nil { _cancelled = true }; lock.unlock() }
+        func decide(_ r: VNReply) { lock.lock(); if _reply == nil && !_cancelled { _reply = r }; lock.unlock() }
+        func cancel() { lock.lock(); if _reply == nil { _cancelled = true }; lock.unlock() }
         var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return _cancelled }
-        var decision: VNDecision { lock.lock(); defer { lock.unlock() }; return _decision ?? .ask }
+        var reply: VNReply { lock.lock(); defer { lock.unlock() }; return _reply ?? VNReply(decision: .ask) }
     }
 }

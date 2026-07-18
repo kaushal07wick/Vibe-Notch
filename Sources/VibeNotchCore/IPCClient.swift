@@ -3,11 +3,11 @@ import Foundation
 /// Connects to the app's Unix socket and sends one line-delimited JSON message.
 /// Fail-open by contract: any failure returns nil so the hook never blocks the agent.
 public enum IPCClient {
-    /// Send `msg`. For `.request`, block for the reply and return the decision.
+    /// Send `msg`. For `.request`, block for the reply and return it.
     /// Returns nil for notify, or on any failure.
     public static func send(_ msg: VNInbound,
                             socketPath: String = VNPaths.socket.path,
-                            timeout: TimeInterval = 86_400) -> VNDecision? {
+                            timeout: TimeInterval = 86_400) -> VNReply? {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
@@ -36,7 +36,6 @@ public enum IPCClient {
             buf.append(byte)
             if buf.count > 4096 { break }
         }
-        guard let reply = try? JSONDecoder().decode(VNReply.self, from: Data(buf)) else { return nil }
-        return reply.decision
+        return try? JSONDecoder().decode(VNReply.self, from: Data(buf))
     }
 }

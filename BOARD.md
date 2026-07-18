@@ -84,3 +84,9 @@ shape, UI consumes. Propose field additions here before changing.
   ~/.vibenotch/sounds/{permission,waiting,done}.{wav,aiff,mp3,m4a} override the
   synth tones. Sessions persist across restarts. Settings pane can bind to
   VNSettings directly.
+- 2026-07-19 01:52 · backend: AskUserQuestion — `VNInbound.questions`
+  ([VNQuestion] with options/multiSelect) reaches the approval card; UI renders
+  numbered options and calls `store.answer(approval, answers: [label])`.
+  Answer schema (updatedInput.answers) is experimental — verify against a real
+  AskUserQuestion once UI lands. Also: keyboard ^A/^G live, sessions persist,
+  VNSettings ready for the Settings pane.

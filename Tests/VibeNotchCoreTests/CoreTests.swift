@@ -80,13 +80,13 @@ final class CoreTests: XCTestCase {
         let server = IPCServer(
             socketPath: sock,
             onNotify: { _ in },
-            onRequest: { _, _, complete in complete(.deny) } // auto-deny
+            onRequest: { _, _, complete in complete(VNReply(decision: .deny)) } // auto-deny
         )
         try server.start()
         defer { server.stop() }
 
         let req = VNInbound(type: .request, source: "claude", event: "PermissionRequest", tool: "Bash")
-        XCTAssertEqual(IPCClient.send(req, socketPath: sock, timeout: 5), .deny)
+        XCTAssertEqual(IPCClient.send(req, socketPath: sock, timeout: 5)?.decision, .deny)
 
         let note = VNInbound(type: .notify, source: "claude", event: "Stop")
         XCTAssertNil(IPCClient.send(note, socketPath: sock, timeout: 5))

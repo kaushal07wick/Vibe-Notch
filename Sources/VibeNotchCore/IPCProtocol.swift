@@ -18,6 +18,7 @@ public struct VNInbound: Codable, Sendable {
     public var detail: String?             // full text — command, or the agent's last message
     public var commandDescription: String? // the agent's one-line explanation of the command
     public var plan: String?               // Markdown plan text (ExitPlanMode approvals)
+    public var questions: [VNQuestion]?    // AskUserQuestion multiple-choice payload
     public var userMessage: String?        // the last user message ("You: …")
     public var cwd: String?
     public var terminal: String?           // display name of the terminal, e.g. "Ghostty"
@@ -27,7 +28,8 @@ public struct VNInbound: Codable, Sendable {
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
-                commandDescription: String? = nil, plan: String? = nil, userMessage: String? = nil,
+                commandDescription: String? = nil, plan: String? = nil,
+                questions: [VNQuestion]? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
                 model: String? = nil, sessionId: String? = nil) {
         self.type = type
@@ -38,6 +40,7 @@ public struct VNInbound: Codable, Sendable {
         self.detail = detail
         self.commandDescription = commandDescription
         self.plan = plan
+        self.questions = questions
         self.userMessage = userMessage
         self.cwd = cwd
         self.terminal = terminal
@@ -56,8 +59,36 @@ public enum VNDecision: String, Codable, Sendable {
     public var agentBehavior: VNDecision { self == .deny || self == .ask ? self : .allow }
 }
 
+/// A multiple-choice question from AskUserQuestion, passed through for the
+/// notch to render.
+public struct VNQuestion: Codable, Sendable {
+    public struct Option: Codable, Sendable {
+        public var label: String
+        public var description: String?
+        public init(label: String, description: String? = nil) {
+            self.label = label
+            self.description = description
+        }
+    }
+    public var question: String
+    public var header: String?
+    public var multiSelect: Bool
+    public var options: [Option]
+    public init(question: String, header: String? = nil, multiSelect: Bool = false, options: [Option]) {
+        self.question = question
+        self.header = header
+        self.multiSelect = multiSelect
+        self.options = options
+    }
+}
+
 /// The app's reply to a `request`.
 public struct VNReply: Codable, Sendable {
     public var decision: VNDecision
-    public init(decision: VNDecision) { self.decision = decision }
+    /// Selected option label per question (AskUserQuestion), in question order.
+    public var answers: [String]?
+    public init(decision: VNDecision, answers: [String]? = nil) {
+        self.decision = decision
+        self.answers = answers
+    }
 }

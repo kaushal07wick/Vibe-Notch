@@ -5,7 +5,7 @@ import VibeNotchCore
 struct PendingApproval: Identifiable {
     let id: UUID
     let inbound: VNInbound
-    let reply: @Sendable (VNDecision) -> Void
+    let reply: @Sendable (VNReply) -> Void
 }
 
 /// What one agent session is currently doing — updated on every hook event.
@@ -70,7 +70,7 @@ final class EventStore: ObservableObject {
     func enqueue(_ approval: PendingApproval) {
         // Bypassed session → auto-approve silently, no card.
         if let sid = approval.inbound.sessionId, bypassedSessions.contains(sid) {
-            approval.reply(.allow)
+            approval.reply(VNReply(decision: .allow))
             return
         }
         pending.append(approval)
@@ -98,9 +98,16 @@ final class EventStore: ObservableObject {
         default:
             break
         }
-        approval.reply(decision)
+        approval.reply(VNReply(decision: decision))
         pending.removeAll { $0.id == approval.id }
         showFlash(decision.agentBehavior)
+    }
+
+    /// Answer an AskUserQuestion card: one selected option label per question.
+    func answer(_ approval: PendingApproval, answers: [String]) {
+        approval.reply(VNReply(decision: .allow, answers: answers))
+        pending.removeAll { $0.id == approval.id }
+        showFlash(.allow)
     }
 
     /// Fold a hook event into the session's current activity.
