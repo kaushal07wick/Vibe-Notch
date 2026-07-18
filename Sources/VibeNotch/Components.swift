@@ -198,42 +198,44 @@ struct AgentIcon: View {
     }
 }
 
-/// Radar sweep — a beam rotating from the center of a 5×5 pixel grid with a
-/// ghost trail. The owl watches; the radar scans. Amber, like the owl's eyes.
+/// Radar sweep — a beam rotating inside a walled 7×7 scope. Dim boundary
+/// ring, bright dish, amber beam with ghost trail. Owl-eye amber.
 struct PixelRingSpinner: View {
     var color: Color
-    var px: CGFloat = 2.2
+    var px: CGFloat = 1.7
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 12 beam directions: the two cells the beam lights beyond the center.
+    /// 8 beam directions — two cells from the dish toward the wall.
     private static let beams: [[(Int, Int)]] = [
-        [(2, 0), (2, 1)], [(3, 0), (3, 1)], [(4, 1), (3, 2)], [(4, 2), (3, 2)],
-        [(4, 3), (3, 2)], [(3, 4), (3, 3)], [(2, 4), (2, 3)], [(1, 4), (1, 3)],
-        [(0, 3), (1, 2)], [(0, 2), (1, 2)], [(0, 1), (1, 2)], [(1, 0), (1, 1)],
+        [(3, 2), (3, 1)], [(4, 2), (5, 1)], [(4, 3), (5, 3)], [(4, 4), (5, 5)],
+        [(3, 4), (3, 5)], [(2, 4), (1, 5)], [(2, 3), (1, 3)], [(2, 2), (1, 1)],
     ]
+    /// The scope's boundary wall: the 7×7 perimeter.
+    private static let wall: [(Int, Int)] = {
+        var out: [(Int, Int)] = []
+        for i in 0..<7 { out += [(i, 0), (i, 6), (0, i), (6, i)] }
+        return out
+    }()
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.085)) { ctx in
+        TimelineView(.periodic(from: .now, by: 0.11)) { ctx in
             Canvas { c, _ in
                 func put(_ x: Int, _ y: Int, _ alpha: Double) {
                     c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
                                        width: px, height: px)),
                            with: .color(color.opacity(alpha)))
                 }
+                for (x, y) in Self.wall { put(x, y, active ? 0.22 : 0.12) }
+                put(3, 3, active ? 1.0 : 0.4)                       // dish
                 if active && !reduceMotion {
-                    let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.085) % 12
-                    put(2, 2, 1.0)                                   // dish
-                    for (x, y) in Self.beams[i] { put(x, y, 0.95) }  // beam
-                    for (x, y) in Self.beams[(i + 11) % 12] { put(x, y, 0.35) } // ghost
-                    for (x, y) in Self.beams[(i + 10) % 12] { put(x, y, 0.15) } // fainter ghost
-                } else {
-                    // idle: dim center + cardinal points — a resting scope
-                    put(2, 2, 0.45)
-                    for (x, y) in [(2, 0), (4, 2), (2, 4), (0, 2)] { put(x, y, 0.2) }
+                    let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.11) % 8
+                    for (x, y) in Self.beams[i] { put(x, y, 0.95) }
+                    for (x, y) in Self.beams[(i + 7) % 8] { put(x, y, 0.35) }
+                    for (x, y) in Self.beams[(i + 6) % 8] { put(x, y, 0.15) }
                 }
             }
-            .frame(width: 5 * px, height: 5 * px)
+            .frame(width: 7 * px, height: 7 * px)
         }
     }
 }
