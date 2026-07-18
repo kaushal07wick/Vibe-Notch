@@ -32,8 +32,8 @@ struct ApprovalCard: View {
                     .frame(maxWidth: .infinity, alignment: .center).padding(.top, 1)
             }
         }
-        .padding(EdgeInsets(top: 5, leading: 13, bottom: 9, trailing: 13))
-        .frame(width: 600)
+        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
+        .frame(width: 620)
     }
 
     private var header: some View {

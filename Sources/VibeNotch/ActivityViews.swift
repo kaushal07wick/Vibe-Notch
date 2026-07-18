@@ -30,7 +30,7 @@ struct ActivityCard: View {
             }
             Spacer(minLength: 12)
         }
-        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
+        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
         .frame(width: 260)
     }
 
@@ -53,8 +53,8 @@ struct ActivityCard: View {
             }
             SessionStatusLine(s: s, full: full)
         }
-        .padding(EdgeInsets(top: 5, leading: 13, bottom: 8, trailing: 13))
-        .frame(width: 600, alignment: .leading)
+        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
+        .frame(width: 620, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -63,13 +63,19 @@ struct ActivityCard: View {
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             sessionsHeader
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
+            // height follows content, capped so long lists scroll instead of
+            // taking over the screen (VI behavior)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
+                }
             }
+            .frame(maxHeight: 340)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 6)
         }
-        .padding(EdgeInsets(top: 6, leading: 14, bottom: 8, trailing: 14))
-        .frame(width: 600, alignment: .leading)
+        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
+        .frame(width: 620, alignment: .leading)
     }
 
     private var sessionsHeader: some View {

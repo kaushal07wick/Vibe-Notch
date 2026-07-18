@@ -9,34 +9,35 @@ struct AgentSprite {
     let colors: [Character: Color]
 }
 
-private let CLAUDE_ORANGE = Color(hex: 0xD97742)
+private let CLAUDE_ORANGE = Color(hex: 0xDD775B) // exact fill from Anthropic's mascot clips
 private let INK = Color(hex: 0x141414)
 private let PAPER = Color(hex: 0xF1EAD9)
 
 let agentSprites: [String: AgentSprite] = [
-    // Claude — the blocky orange mascot: body, eyes, little legs.
+    // Claude — Anthropic's mascot as in the animation clips: wide orange slab
+    // body, two dark eyes, FOUR legs that alternate (walk cycle).
     "claude": AgentSprite(
         frameA: [
-            "..oooooo..",
-            ".oooooooo.",
-            "oooooooooo",
-            "oWkooooWko",
-            "oooooooooo",
-            "oooooooooo",
-            ".oooooooo.",
-            "..oo..oo..",
+            "oooooooooooo",
+            "oooooooooooo",
+            "oo.kk..kk.oo",
+            "oooooooooooo",
+            "oooooooooooo",
+            "oooooooooooo",
+            ".o..o..o..o.",
+            ".o..o..o..o.",
         ],
         frameB: [
-            "..oooooo..",
-            ".oooooooo.",
-            "oooooooooo",
-            "oWkooooWko",
-            "oooooooooo",
-            "oooooooooo",
-            ".oooooooo.",
-            ".oo....oo.",
+            "oooooooooooo",
+            "oooooooooooo",
+            "oo.kk..kk.oo",
+            "oooooooooooo",
+            "oooooooooooo",
+            "oooooooooooo",
+            "o..o....o..o",
+            "o..o....o..o",
         ],
-        colors: ["o": CLAUDE_ORANGE, "W": PAPER, "k": INK]
+        colors: ["o": CLAUDE_ORANGE, "k": INK]
     ),
     // OpenAI (Codex) — hexagonal knot ring.
     "codex": AgentSprite(
