@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Render the app icon — the Claude mascot under a menu-bar notch, on a warm
-paper squircle — and build Resources/AppIcon.icns via iconutil."""
+"""Render the app icon — concept C: the watching eye inside the notch pill,
+green approval check beneath, on warm paper. All artwork original.
+Builds Resources/AppIcon.icns via iconutil."""
 import subprocess
 import sys
 import tempfile
@@ -10,34 +11,55 @@ from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# the real mascot proportions (body / eyes / hands / legs)
-MASCOT = [
-    ".oooooooo.",
-    ".okooooko.",
-    "oooooooooo",
-    "oooooooooo",
-    ".oooooooo.",
-    ".oooooooo.",
-    ".o.o..o.o.",
-    ".o.o..o.o.",
-]
-CLAY = (221, 119, 91, 255)          # mascot clip orange #DD775B
-INK = (13, 13, 15, 255)             # notch ink
+INK = (13, 13, 15, 255)
 PAPER_TOP = (247, 241, 227, 255)
 PAPER_BOTTOM = (232, 224, 205, 255)
-SPIN = (111, 185, 130, 255)         # activity green
+GREEN = (111, 185, 130, 255)
+BLUE = (79, 125, 240, 255)
+WHITE = (244, 246, 238, 255)
+GREY = (60, 64, 70, 255)
+
+EYE = [
+    "..oooo..",
+    ".oooooo.",
+    "ooWWkkoo",
+    "ooWWkkoo",
+    ".oooooo.",
+    "..oooo..",
+]
+CHECK = [
+    "......o",
+    ".....oo",
+    "o...oo.",
+    "oo.oo..",
+    ".ooo...",
+    "..o....",
+]
+
+
+def _grid(d, size, rows, scale, cy_frac, colors):
+    cols = len(rows[0])
+    n = len(rows)
+    cell = (size * scale) / cols
+    x0 = (size - cell * cols) / 2
+    y0 = size * cy_frac - (cell * n) / 2
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            c = colors.get(ch)
+            if c:
+                d.rectangle((x0 + x * cell, y0 + y * cell,
+                             x0 + (x + 1) * cell, y0 + (y + 1) * cell), fill=c)
 
 
 def render(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    m = size * 0.09                        # Apple-ish icon grid margin
-    r = size * 0.185                       # squircle radius
+    m = size * 0.09
+    r = size * 0.185
 
-    # paper squircle with a soft vertical gradient
+    # warm paper squircle with a soft vertical gradient
     grad = Image.new("L", (1, 256))
     for y in range(256):
-        grad.putpixel((0, y), 255 - int(y * 0.10))
+        grad.putpixel((0, y), 255 - y)
     grad = grad.resize((size, size))
     paper = Image.composite(
         Image.new("RGBA", (size, size), PAPER_TOP),
@@ -47,51 +69,24 @@ def render(size: int) -> Image.Image:
     img.paste(paper, (0, 0), mask)
     d = ImageDraw.Draw(img)
 
-    # menu-bar band across the top, hugging the squircle corners
-    band_h = size * 0.16
-    band = Image.new("L", (size, size), 0)
-    bd = ImageDraw.Draw(band)
-    bd.rounded_rectangle((m, m, size - m, size - m), radius=r, fill=255)
-    bd.rectangle((0, m + band_h, size, size), fill=0)
-    img.paste(Image.new("RGBA", (size, size), INK), (0, 0), band)
-    d = ImageDraw.Draw(img)
-
-    # the notch pill bulging below the band
-    pw, ph = size * 0.34, size * 0.075
-    px0 = (size - pw) / 2
-    d.rounded_rectangle((px0, m + band_h - ph, px0 + pw, m + band_h + ph),
-                        radius=ph, fill=INK)
-
-    # mascot — big, centered in the paper area, soft drop shadow
-    cols, rows = len(MASCOT[0]), len(MASCOT)
-    cell = (size * 0.52) / cols
-    ix0 = (size - cell * cols) / 2
-    iy0 = m + band_h + (size - m - band_h - m - cell * rows) / 2 + size * 0.02
-
+    # the notch pill, floating near the top, soft shadow
+    pw, ph = size * 0.62, size * 0.30
+    px0, py0 = (size - pw) / 2, size * 0.14
     shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow)
-    sd.rounded_rectangle((ix0 + cell, iy0 + cell * (rows - 0.6),
-                          ix0 + cell * (cols - 1), iy0 + cell * (rows + 0.6)),
-                         radius=cell, fill=(20, 15, 8, 70))
+    ImageDraw.Draw(shadow).rounded_rectangle(
+        (px0, py0 + size * 0.015, px0 + pw, py0 + ph + size * 0.015),
+        radius=ph * 0.35, fill=(20, 15, 8, 80))
     shadow = shadow.filter(ImageFilter.GaussianBlur(size * 0.015))
     img.alpha_composite(shadow)
     d = ImageDraw.Draw(img)
+    d.rounded_rectangle((px0, py0, px0 + pw, py0 + ph), radius=ph * 0.35, fill=INK)
 
-    for y, row in enumerate(MASCOT):
-        for x, ch in enumerate(row):
-            if ch == "o":
-                d.rectangle((ix0 + x * cell, iy0 + y * cell,
-                             ix0 + (x + 1) * cell, iy0 + (y + 1) * cell), fill=CLAY)
-            elif ch == "k":
-                d.rectangle((ix0 + x * cell, iy0 + y * cell,
-                             ix0 + (x + 1) * cell, iy0 + (y + 1) * cell), fill=INK)
+    # the watching eye inside the pill
+    _grid(d, size, EYE, 0.30, py0 / size + (ph / size) / 2,
+          {"o": GREY, "W": WHITE, "k": BLUE})
 
-    # activity bars — the compact spinner, bottom right of the mascot
-    bx = ix0 + cell * cols + cell * 0.5
-    for i, h in enumerate((2.0, 3.2, 2.6)):
-        d.rectangle((bx + i * cell * 0.55, iy0 + cell * (rows - h),
-                     bx + i * cell * 0.55 + cell * 0.32, iy0 + cell * rows),
-                    fill=SPIN)
+    # green approval check on the paper below
+    _grid(d, size, CHECK, 0.34, 0.68, {"o": GREEN})
     return img
 
 
