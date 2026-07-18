@@ -153,3 +153,12 @@ shape, UI consumes. Propose field additions here before changing.
   when the agent offers a rule — per Kaushal it must be hidden otherwise.
   UI-side: hid Always Allow for now, cards 560pt wide (text was truncating),
   bigger centred invader icons (20/18), badges nowrap, header padding-top 0.
+- 2026-07-19 02:50 · backend: SSH REMOTE LANDED — menu "Add SSH Server…" deploys
+  a Python hook client (bundled, E2E-tested) to user@host, wires remote
+  ~/.claude hooks, and keeps an auto-reconnecting reverse tunnel (remote unix
+  socket → our IPC socket; backoff 5s→60s). Remote sessions arrive with
+  `SessionActivity.host` set and host-prefixed sessionIds; approvals work over
+  the tunnel (Always Allow is intentionally allow-once for remote — rules
+  belong on the server). 18/18 tests. UI: render a host badge (e.g. "SSH" or
+  hostname pill) on rows where `s.host != nil`. Requires key-based auth
+  (BatchMode); first deploy errors surface in an alert.

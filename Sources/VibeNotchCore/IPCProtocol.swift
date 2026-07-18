@@ -24,6 +24,7 @@ public struct VNInbound: Codable, Sendable {
     public var terminal: String?           // display name of the terminal, e.g. "Ghostty"
     public var tty: String?                // session tty, e.g. "ttys014" — for exact-tab jump
     public var model: String?              // friendly model name, e.g. "Opus 4.8"
+    public var host: String?               // remote hostname when tunneled over SSH
     public var sessionId: String?
 
     public init(type: VNMessageType, source: String, event: String,
@@ -31,7 +32,7 @@ public struct VNInbound: Codable, Sendable {
                 commandDescription: String? = nil, plan: String? = nil,
                 questions: [VNQuestion]? = nil, userMessage: String? = nil,
                 cwd: String? = nil, terminal: String? = nil, tty: String? = nil,
-                model: String? = nil, sessionId: String? = nil) {
+                model: String? = nil, host: String? = nil, sessionId: String? = nil) {
         self.type = type
         self.source = source
         self.event = event
@@ -46,6 +47,7 @@ public struct VNInbound: Codable, Sendable {
         self.terminal = terminal
         self.tty = tty
         self.model = model
+        self.host = host
         self.sessionId = sessionId
     }
 }

@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notch: NotchPanelController!
     private var server: IPCServer!
     private var shortcuts: ShortcutMonitor!
+    private let tunnels = SSHTunnelManager()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         try? VNPaths.ensure()
@@ -21,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notch.show()
         shortcuts = ShortcutMonitor(store: store)
         startServer()
+        tunnels.start()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        tunnels.stop()
     }
 
     /// Zero-config: wire every detected agent on launch; refresh already-connected
@@ -90,6 +96,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         menu.addItem(.separator())
+        let sshHeader = NSMenuItem(title: "SSH Remote", action: nil, keyEquivalent: "")
+        sshHeader.isEnabled = false
+        menu.addItem(sshHeader)
+        for server in SSHRemote.load() {
+            let item = NSMenuItem(title: server.host, action: #selector(removeSSHServer(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = server.host
+            item.state = server.enabled ? .on : .off
+            item.toolTip = "Click to remove this server"
+            menu.addItem(item)
+        }
+        let addSSH = NSMenuItem(title: "Add SSH Server…", action: #selector(addSSHServer), keyEquivalent: "")
+        addSSH.target = self
+        menu.addItem(addSSH)
+
+        menu.addItem(.separator())
         let sound = NSMenuItem(title: "Sound alerts", action: #selector(toggleSound), keyEquivalent: "")
         sound.target = self
         sound.state = SoundManager.shared.enabled ? .on : .off
@@ -121,6 +143,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() { VNSettings.launchAtLogin.toggle() }
+
+    @objc private func addSSHServer() {
+        let alert = NSAlert()
+        alert.messageText = "Add SSH Server"
+        alert.informativeText = "user@host (key-based auth). Vibe Notch deploys its hook client and opens a reverse tunnel."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.placeholderString = "deploy@my-server"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Deploy & Connect")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let host = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty else { return }
+        Task { @MainActor in
+            if let error = await tunnels.addServer(host: host) {
+                let fail = NSAlert()
+                fail.messageText = "SSH deploy failed"
+                fail.informativeText = error
+                fail.runModal()
+            }
+        }
+    }
+
+    @objc private func removeSSHServer(_ sender: NSMenuItem) {
+        guard let host = sender.representedObject as? String else { return }
+        tunnels.removeServer(host: host)
+    }
 
     @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 

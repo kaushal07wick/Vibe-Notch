@@ -120,3 +120,41 @@ extension HookE2ETests {
         return String(data: out, encoding: .utf8) ?? ""
     }
 }
+
+extension HookE2ETests {
+    /// The remote Python client speaks the same protocol — run it for real.
+    func testRemotePythonClientPermissionFlow() throws {
+        let client = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/vibenotch-remote-hook.py")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: client.path))
+
+        let sock = NSTemporaryDirectory() + "e2e-py-\(UUID().uuidString.prefix(8)).sock"
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { _ in },
+                               onRequest: { _, inbound, complete in
+                                   XCTAssertNotNil(inbound.host, "remote events must carry a host")
+                                   XCTAssertTrue(inbound.sessionId?.contains(":") == true,
+                                                 "session ids are host-prefixed")
+                                   complete(VNReply(decision: .deny))
+                               })
+        try server.start()
+        defer { server.stop() }
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        p.arguments = [client.path, "--source", "claude"]
+        p.environment = ProcessInfo.processInfo.environment
+            .merging(["VIBENOTCH_SOCKET": sock]) { _, new in new }
+        let inPipe = Pipe(), outPipe = Pipe()
+        p.standardInput = inPipe
+        p.standardOutput = outPipe
+        p.standardError = FileHandle.nullDevice
+        try p.run()
+        inPipe.fileHandleForWriting.write(Data(#"{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf /"},"session_id":"r1"}"#.utf8))
+        inPipe.fileHandleForWriting.closeFile()
+        let out = String(data: outPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        p.waitUntilExit()
+        XCTAssertTrue(out.contains(#""behavior": "deny""#) || out.contains(#""behavior":"deny""#), "got: \(out)")
+    }
+}

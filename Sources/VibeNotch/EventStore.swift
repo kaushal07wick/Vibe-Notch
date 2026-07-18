@@ -21,6 +21,7 @@ struct SessionActivity: Identifiable, Codable {
     var terminal: String?
     var tty: String?
     var model: String?
+    var host: String?        // remote hostname (SSH sessions)
     var subagents: Int = 0   // live subagent count (SubagentStart/Stop)
     var startedAt: Date
     var updatedAt: Date
@@ -88,6 +89,8 @@ final class EventStore: ObservableObject {
 
     func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
         switch decision {
+        case .alwaysAllow where approval.inbound.host != nil:
+            break // remote session — the rule belongs on the server, not here
         case .alwaysAllow:
             // Persist a permission rule so the agent stops asking for this.
             PermissionRules.addAllowRule(source: approval.inbound.source,
@@ -136,6 +139,7 @@ final class EventStore: ObservableObject {
         s.terminal = i.terminal ?? s.terminal
         s.tty = i.tty ?? s.tty
         s.model = i.model ?? s.model
+        s.host = i.host ?? s.host
         s.updatedAt = Date()
         sessions[sid] = s
         if i.event == "Notification" && !wasWaiting { SoundManager.shared.play(.waiting) }

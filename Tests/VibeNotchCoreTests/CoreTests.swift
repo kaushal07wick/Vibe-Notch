@@ -186,3 +186,18 @@ extension CoreTests {
         XCTAssertFalse(d.contains("notify")); XCTAssertTrue(d.contains("model"))
     }
 }
+
+extension CoreTests {
+    func testSSHTunnelArgumentsAndStore() {
+        let server = SSHServer(host: "deploy@box", remoteHome: "/home/deploy")
+        let args = SSHRemote.tunnelArguments(for: server, localSocket: "/tmp/local.sock")
+        XCTAssertTrue(args.contains("-N"))
+        XCTAssertTrue(args.contains("/home/deploy/.vibenotch/vibenotch.sock:/tmp/local.sock"))
+        XCTAssertEqual(args.last, "deploy@box")
+        XCTAssertTrue(args.contains("ExitOnForwardFailure=yes"))
+
+        let steps = SSHRemote.deploySteps(host: "deploy@box", clientSource: URL(fileURLWithPath: "/x/client.py"))
+        XCTAssertEqual(steps.count, 3)
+        XCTAssertTrue(steps[1].1.contains("deploy@box:.vibenotch/vibenotch-hook.py"))
+    }
+}
