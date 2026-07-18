@@ -108,9 +108,22 @@ final class EventStore: ObservableObject {
         sessions = saved.filter { $0.value.updatedAt > cutoff }
     }
 
+    private var saveScheduled = false
+
+    /// Debounced: many events per second must not mean many disk writes.
     private func saveSessions() {
-        guard let data = try? JSONEncoder().encode(sessions) else { return }
-        try? data.write(to: persistURL, options: .atomic)
+        guard !saveScheduled else { return }
+        saveScheduled = true
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self else { return }
+            self.saveScheduled = false
+            let snapshot = self.sessions
+            Task.detached(priority: .utility) {
+                guard let data = try? JSONEncoder().encode(snapshot) else { return }
+                try? data.write(to: VNPaths.data.appendingPathComponent("sessions.json"), options: .atomic)
+            }
+        }
     }
 
     /// Sessions active in the last 30 minutes, newest first.
@@ -187,7 +200,9 @@ final class EventStore: ObservableObject {
         }
         for approval in pending { approval.reply(VNReply(decision: .ask)) }
         pending.removeAll()
-        saveSessions()
+        if let data = try? JSONEncoder().encode(sessions) {
+            try? data.write(to: persistURL, options: .atomic) // synchronous — we're quitting
+        }
     }
 
     /// Take the last decision back — re-queues the card; the agent never knew.

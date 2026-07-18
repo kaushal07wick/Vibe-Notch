@@ -4,16 +4,17 @@ import Foundation
 /// a pattern only matches a SIMPLE command (no `&&`, `;`, `|`, backticks,
 /// subshells or redirects — compound commands can smuggle anything).
 public enum SafeList {
-    public static var url: URL { VNPaths.data.appendingPathComponent("safelist.json") }
+    public static let url: URL = VNPaths.data.appendingPathComponent("safelist.json")
 
     /// Read-only starters. Users add their own via the JSON file.
     public static let defaults = ["git status", "git diff", "git log", "ls", "pwd", "which"]
 
+    private static let cache = ConfigCache<[String]?>(url: url, fallback: nil) {
+        try? JSONDecoder().decode([String].self, from: $0)
+    }
+
     public static func patterns() -> [String] {
-        if let data = try? Data(contentsOf: url),
-           let list = try? JSONDecoder().decode([String].self, from: data) {
-            return list
-        }
+        if let list = cache.get() { return list }
         save(defaults) // seed on first use so the file is there to edit
         return defaults
     }
@@ -22,6 +23,7 @@ public enum SafeList {
         if let data = try? JSONEncoder().encode(patterns) {
             try? data.write(to: url, options: .atomic)
         }
+        cache.invalidate()
     }
 
     /// Pure matcher. `command` must be a simple invocation starting with a

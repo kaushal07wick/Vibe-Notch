@@ -17,13 +17,13 @@ public struct Policy: Codable, Sendable, Equatable {
 }
 
 public enum Policies {
-    public static var url: URL { VNPaths.data.appendingPathComponent("policies.json") }
+    public static let url: URL = VNPaths.data.appendingPathComponent("policies.json")
 
-    public static func load() -> [Policy] {
-        guard let data = try? Data(contentsOf: url),
-              let list = try? JSONDecoder().decode([Policy].self, from: data) else { return [] }
-        return list
+    private static let cache = ConfigCache<[Policy]>(url: url, fallback: []) {
+        try? JSONDecoder().decode([Policy].self, from: $0)
     }
+
+    public static func load() -> [Policy] { cache.get() }
 
     /// Longest-prefix match wins; no match = permissive default.
     public static func policy(for cwd: String?, in policies: [Policy]) -> Policy {
