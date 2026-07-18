@@ -177,16 +177,3 @@ struct CompactTrailing: View {
 }
 
 /// Tiny live mic-level meter for the dictation pill.
-struct LevelBars: View {
-    let level: Float
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<5, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(Float(i) / 5 < level ? VNColor.go : Color.white.opacity(0.12))
-                    .frame(width: 3, height: 4 + CGFloat(i) * 2.5)
-            }
-        }
-        .animation(.easeOut(duration: 0.1), value: level)
-    }
-}
