@@ -332,3 +332,21 @@ shape, UI consumes. Propose field additions here before changing.
   session archive · CLI · ntfy phone pings · per-project policies ·
   screen-share guard · web dashboard · lock-screen labs. 27/27 tests, bundle
   builds with CLI in Helpers. App still NOT launched (Kaushal's hold).
+- 2026-07-19 05:55 · backend "COOL WAVE" COMPLETE (14 features, 3 commits) —
+  For UI to render (data all live):
+  · `i.diffOld`/`i.diffNew` on approvals → mini-diff in the card
+  · `RiskGrader.grade(tool:detail:)` → red border + hold-to-approve on .high
+  · `store.undo` (PendingUndo) + `store.undoLast()` → "Undo" pill, 3s window
+    (decisions now COMMIT AFTER the window — reply is held, agent just waits)
+  · `store.approveAll(sessionId:)` → "Approve all N" button on batch cards
+  · `store.digest` → while-you-were-away card (auto-clears 8s)
+  · `store.activityTick` → drive the waveform/invader bounce on tool activity
+  · `StatsLog.mascotLevel(totals:)` + `.totals()`/`.today()` → invader
+    evolution sprites + daily recap card (ImageRenderer share-PNG is UI's)
+  Menu already has: YOLO mode (30m, auto-reverts), Sound theme submenu
+  (chime/arcade/minimal), dashboard + labs toggles.
+  Phone: with dashboard on + ntfy topic set, escalation pings carry
+  Approve/Deny action buttons (dashboard /approve /deny /approve_all /undo).
+  Meta-hooks: ~/.vibenotch/hooks/on-{approval,stop,waiting,escalation}.sh.
+  Focus guard optional (VNSettings.focusGuard). ⌘K palette = UI's when ready
+  (SessionHistory + SessionArchive + control channel all available). 29/29.
