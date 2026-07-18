@@ -15,6 +15,7 @@ final class NotchPanelController {
     /// After any auto-collapse, hover may not re-expand until the pointer has
     /// actually left the notch — otherwise a parked cursor loops expand/collapse.
     private var needsHoverExit = false
+    private var recheckTask: Task<Void, Never>?
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
@@ -82,9 +83,20 @@ final class NotchPanelController {
         let hovering = notch.isHovering && !needsHoverExit
         // smart suppression: if you're already looking at the agent's terminal,
         // the prompt is right in front of you — no popup (badge + hover still work)
-        let suppressed = VNSettings.smartSuppression && !hovering
-            && store.pending.allSatisfy { terminalIsFrontmost($0.inbound.terminal) }
+        let suppressed = VNSettings.smartSuppression && !hovering && frontmostIsTerminal()
         let want = (hasPending && !suppressed) || hovering
+
+        // Heartbeat while cards are pending: app-switch notifications can be
+        // missed (Stage Manager, fast cmd-tab) — re-evaluate every second so
+        // suppression engages/releases reliably.
+        recheckTask?.cancel()
+        if hasPending {
+            recheckTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                self?.refresh()
+            }
+        }
 
         // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
         if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {
@@ -138,19 +150,18 @@ final class NotchPanelController {
     }
 }
 
-/// Is the app that hosts this session's terminal currently frontmost?
+/// Is the frontmost app a terminal? If you're looking at ANY terminal, the
+/// agent's prompt is on your screen — no popup. Bundle-prefix matching is
+/// robust across localized names and app variants.
 @MainActor
-private func terminalIsFrontmost(_ terminal: String?) -> Bool {
-    guard let terminal else { return false }
+private func frontmostIsTerminal() -> Bool {
     let front = NSWorkspace.shared.frontmostApplication
-    let name = front?.localizedName ?? ""
-    let bundle = front?.bundleIdentifier ?? ""
-    switch terminal {
-    case "Ghostty":  return bundle == "com.mitchellh.ghostty" || name == "Ghostty"
-    case "iTerm":    return bundle == "com.googlecode.iterm2" || name.hasPrefix("iTerm")
-    case "Terminal": return bundle == "com.apple.Terminal"
-    case "Warp":     return bundle.hasPrefix("dev.warp") || name == "Warp"
-    case "VS Code":  return bundle == "com.microsoft.VSCode" || name.contains("Code")
-    default:         return name == terminal
-    }
+    let bundle = (front?.bundleIdentifier ?? "").lowercased()
+    let name = (front?.localizedName ?? "").lowercased()
+    let bundles = ["com.mitchellh.ghostty", "com.googlecode.iterm2",
+                   "com.apple.terminal", "dev.warp", "net.kovidgoyal.kitty",
+                   "org.alacritty", "com.github.wez.wezterm", "co.zeit.hyper"]
+    if bundles.contains(where: { bundle.hasPrefix($0) }) { return true }
+    let names = ["ghostty", "iterm", "terminal", "warp", "kitty", "alacritty", "wezterm"]
+    return names.contains(where: { name == $0 || name.hasPrefix($0) })
 }

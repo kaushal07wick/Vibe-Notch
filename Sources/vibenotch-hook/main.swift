@@ -83,6 +83,59 @@ if source == "cursor" {
     exit(0)
 }
 
+if source == "codex" {
+    // Codex hook payloads carry everything inline (no Claude-format transcript):
+    // prompt, last_assistant_message, model, terminal_app/tty — and tool_input
+    // may be a raw STRING, not an object.
+    let event = obj["hook_event_name"] as? String ?? "Unknown"
+    let toolInput = obj["tool_input"]
+    let inputDict = toolInput as? [String: Any]
+    let detail = (toolInput as? String) ?? summarize(inputDict)
+    let sessionId = obj["session_id"] as? String
+    let cwd = obj["cwd"] as? String
+    let prompt = oneLine(obj["prompt"] as? String)
+    let model = obj["model"] as? String
+    let term = (obj["terminal_app"] as? String) ?? terminal
+    let codexTTY = (obj["terminal_tty"] as? String)?
+        .replacingOccurrences(of: "/dev/", with: "") ?? ttyName()
+
+    if event == "PermissionRequest" {
+        let msg = VNInbound(type: .request, source: "codex", event: event,
+                            title: prompt, tool: obj["tool_name"] as? String,
+                            detail: detail,
+                            commandDescription: inputDict?["description"] as? String,
+                            userMessage: prompt,
+                            cwd: cwd, terminal: term, tty: codexTTY,
+                            termMeta: termMeta.isEmpty ? nil : termMeta,
+                            model: model, sessionId: sessionId)
+        let reply = IPCClient.send(msg)
+        switch reply?.decision.agentBehavior {
+        case .allow: emitDecision("allow", answers: nil, originalInput: nil)
+        case .deny: emitDecision("deny", answers: nil, originalInput: nil)
+        default: break // fail-open: codex's own prompt decides
+        }
+        exit(0)
+    }
+
+    let activityDetail: String?
+    switch event {
+    case "PreToolUse":  activityDetail = detail
+    case "PostToolUse": activityDetail = toolOutput(obj).map { String($0.prefix(1200)) }
+    case "Stop":        activityDetail = oneLine(obj["last_assistant_message"] as? String)
+    case "SessionStart", "UserPromptSubmit", "SessionEnd", "SubagentStop": activityDetail = nil
+    default: exit(0)
+    }
+    let msg = VNInbound(type: .notify, source: "codex", event: event,
+                        title: prompt,
+                        tool: (event == "PreToolUse" || event == "PostToolUse") ? obj["tool_name"] as? String : nil,
+                        detail: activityDetail, userMessage: prompt,
+                        cwd: cwd, terminal: term, tty: codexTTY,
+                        termMeta: termMeta.isEmpty ? nil : termMeta,
+                        model: model, sessionId: sessionId)
+    _ = IPCClient.send(msg)
+    exit(0)
+}
+
 // Claude-schema family (claude, qwen, qoder, droid, codebuddy): identical payloads.
 let event = obj["hook_event_name"] as? String ?? "Unknown"
 let tool = obj["tool_name"] as? String

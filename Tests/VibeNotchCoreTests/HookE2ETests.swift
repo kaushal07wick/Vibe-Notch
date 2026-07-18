@@ -191,3 +191,45 @@ extension HookE2ETests {
         wait(for: [cancelled], timeout: 5)
     }
 }
+
+extension HookE2ETests {
+    /// Codex sends tool_input as a raw STRING and carries prompt/model inline.
+    func testCodexStringToolInputAndInlineFields() throws {
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
+        let sock = "/tmp/e2e-cxs-\(UUID().uuidString.prefix(8)).sock"
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { _ in },
+                               onRequest: { _, inbound, complete in
+                                   XCTAssertEqual(inbound.detail, "rm -rf build && make",
+                                                  "string tool_input must survive")
+                                   XCTAssertEqual(inbound.model, "gpt-5.6-sol")
+                                   XCTAssertEqual(inbound.userMessage, "ship the release")
+                                   XCTAssertEqual(inbound.tty, "ttys009")
+                                   complete(VNReply(decision: .allow))
+                               })
+        try server.start()
+        defer { server.stop() }
+        let stdin = #"{"hook_event_name":"PermissionRequest","tool_name":"Shell","tool_input":"rm -rf build && make","session_id":"cx2","cwd":"/tmp","model":"gpt-5.6-sol","prompt":"ship the release","terminal_app":"Ghostty","terminal_tty":"/dev/ttys009","permission_mode":"default"}"#
+        let out = try runHookForExtension(source: "codex", stdin: stdin, socketPath: sock)
+        XCTAssertTrue(out.contains(#""continue":true"#) && out.contains(#""behavior":"allow""#), "got: \(out)")
+    }
+
+    func testCodexStopCarriesLastAssistantMessage() throws {
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
+        let sock = "/tmp/e2e-cxn-\(UUID().uuidString.prefix(8)).sock"
+        let got = expectation(description: "stop notify")
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { inbound in
+                                   XCTAssertEqual(inbound.event, "Stop")
+                                   XCTAssertEqual(inbound.detail, "Release shipped, tests green.")
+                                   got.fulfill()
+                               },
+                               onRequest: { _, _, complete in complete(VNReply(decision: .deny)) })
+        try server.start()
+        defer { server.stop() }
+        _ = try runHookForExtension(source: "codex",
+            stdin: #"{"hook_event_name":"Stop","session_id":"cx2","cwd":"/tmp","model":"gpt-5.6-sol","last_assistant_message":"Release shipped, tests green.","permission_mode":"default"}"#,
+            socketPath: sock)
+        wait(for: [got], timeout: 5)
+    }
+}
