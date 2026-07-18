@@ -207,7 +207,8 @@ private struct HistoryRow: View {
     }
 }
 
-/// The resume control: a quiet play glyph at rest, a full "Resume" pill on hover.
+/// The resume control — pixel play triangle + mono label, house style.
+/// Dim glyph at rest, an amber `resume ▶` pill on hover (like the ^G pill).
 private struct ResumeAffordance: View {
     let active: Bool
     private static let amber = Color(hex: 0xF0B43C)
@@ -215,17 +216,43 @@ private struct ResumeAffordance: View {
     var body: some View {
         if active {
             HStack(spacing: 5) {
-                Image(systemName: "play.fill").font(.system(size: 9))
-                Text("Resume").font(.system(size: 10.5, weight: .semibold))
+                Text("resume").font(VNFont.sysMono(9.5, .semibold))
+                PixelPlay(color: Self.amber, px: 1.6)
             }
-            .foregroundStyle(.black)
-            .padding(.horizontal, 9).padding(.vertical, 4)
-            .background(Self.amber, in: Capsule())
+            .foregroundStyle(Self.amber)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Self.amber.opacity(0.13), in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Self.amber.opacity(0.35)))
         } else {
-            Image(systemName: "play.circle")
-                .font(.system(size: 14))
-                .foregroundStyle(VNColor.paper.opacity(0.28))
+            PixelPlay(color: VNColor.paper.opacity(0.28), px: 1.6)
+                .padding(.trailing, 3)
         }
+    }
+}
+
+/// A pixel-art play/resume triangle, drawn to match the notch glyph language.
+struct PixelPlay: View {
+    var color: Color
+    var px: CGFloat = 2
+
+    private static let grid = [
+        "o....",
+        "ooo..",
+        "ooooo",
+        "ooo..",
+        "o....",
+    ]
+
+    var body: some View {
+        Canvas { c, _ in
+            for (y, row) in Self.grid.enumerated() {
+                for (x, ch) in row.enumerated() where ch == "o" {
+                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
+                                       width: px, height: px)), with: .color(color))
+                }
+            }
+        }
+        .frame(width: 5 * px, height: 5 * px)
     }
 }
 
@@ -245,15 +272,15 @@ struct SessionGlyph: View {
         return palette[Int(h % UInt32(palette.count))]
     }
 
-    // rounded speech bubble, two message lines, tail bottom-left
+    // rounded speech bubble, two message lines cut in, tail bottom-left
     private static let grid = [
         ".ooooooo.",
         "ooooooooo",
-        "o.lll.llo",
-        "o.lllll.o",
+        "obbbbbboo",
         "ooooooooo",
-        ".oo......",
-        "o........",
+        "obbbboooo",
+        ".ooo.....",
+        "..o......",
     ]
 
     var body: some View {
@@ -262,7 +289,7 @@ struct SessionGlyph: View {
             for (y, row) in Self.grid.enumerated() {
                 for (x, ch) in row.enumerated() {
                     let color: Color? = ch == "o" ? tint
-                        : ch == "l" ? tint.opacity(0.45) : nil
+                        : ch == "b" ? Color(hex: 0x16161A) : nil
                     if let color {
                         c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
                                            width: px, height: px)), with: .color(color))
