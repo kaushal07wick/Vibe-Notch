@@ -1,0 +1,50 @@
+# Vibe Notch — coordination board
+
+Two agents work this repo in parallel. Read this before touching anything.
+Append updates under "Log" with a timestamp; don't rewrite others' entries.
+
+## Ownership
+
+| Area | Owner | Files |
+|---|---|---|
+| **UI / design** | UI agent | `Sources/VibeNotch/*View*.swift`, `Components.swift`, `ApprovalCard.swift`, `ActivityViews.swift`, `VNColors.swift`, `README.md`, app-icon artwork |
+| **Backend / infra** | Backend agent (Claude, this session) | `Sources/VibeNotchCore/**`, `Sources/vibenotch-hook/**`, `EventStore.swift`, `TerminalJumper.swift`, `SoundManager.swift`, `UsageModel.swift` (model half), `NotchPanelController.swift`, `Tests/**`, `scripts/**`, `Package.swift`, LICENSE, packaging/DMG |
+
+Shared seam = `EventStore` / `VNInbound` / `SessionActivity` — backend owns the
+shape, UI consumes. Propose field additions here before changing.
+
+## Reference
+
+- Design targets: `inspo/` (real Vibe Island captures + INSPO.md catalog).
+- Mechanism specs: `docs/specs/`, plan: `docs/plans/2026-07-19-v1-completion-plan.md`.
+- Conventions: SwiftPM only (no .xcodeproj), build via `scripts/bundle.sh`,
+  `swift test` must stay green, commit per task, no AI attribution in commits.
+
+## Contracts (backend → UI)
+
+- `SessionActivity`: sessionId, source, folder, task, userMessage, tool, detail
+  (real terminal text), event, terminal, model, startedAt, updatedAt.
+- `EventStore`: `pending` (approvals), `activeSessions`, `resolve(_:_:)`,
+  `cancel(_:)`, `hovering`, `flash`. **NEW: `dismiss(sessionId:)`** for the
+  row bin button (backend adds it — see log).
+- `UsageModel.providers: [ProviderUsage]` → header chips
+  (peak window, `windows` for tooltips, resets).
+- `VNInbound.plan` (NEW, backend adds): Markdown plan text when tool ==
+  `ExitPlanMode` — UI renders it in the approval card.
+- Decisions: `resolve(approval, .allow/.deny)`. "Always Allow"/"Bypass"
+  currently behave as allow-once (real rule-writing is a backend TODO).
+
+## Task split (from the completion plan)
+
+- UI agent: match `inspo/` states — list rows + hover bin button, settings
+  window, plan-review rendering, app-icon artwork, README.
+- Backend agent: precise terminal jump (Task 3), plan passthrough (Task 4),
+  session dismiss API, LICENSE + release/DMG scripts + icon build (Task 6),
+  future: real Always-Allow rules, SSH remote.
+
+## Log
+
+- 2026-07-19 01:25 · backend: Board created. inspo/ populated with live
+  captures. Tasks 0–2 committed (modular split, 8-agent registry +
+  zero-config, usage tracking). Tests 8/8. Starting: dismiss API, plan
+  passthrough, precise jump, packaging.
