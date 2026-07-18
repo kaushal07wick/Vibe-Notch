@@ -70,3 +70,8 @@ shape, UI consumes. Propose field additions here before changing.
 - 2026-07-19 01:40 · backend: New events wired — `SessionActivity.subagents`
   (live count), `PostToolUseFailure`/`StopFailure` arrive as events (UI: render
   failure states red + a "N subagents" chip), `PreCompact` passes through.
+- 2026-07-19 01:45 · backend: `VNSettings` (UserDefaults) — soundEnabled/
+  soundVolume/autoHideWhenIdle/launchAtLogin (SMAppService). Custom sound packs:
+  ~/.vibenotch/sounds/{permission,waiting,done}.{wav,aiff,mp3,m4a} override the
+  synth tones. Sessions persist across restarts. Settings pane can bind to
+  VNSettings directly.

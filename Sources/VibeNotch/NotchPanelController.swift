@@ -46,8 +46,25 @@ final class NotchPanelController {
 
     private func refresh() {
         if store.hovering != notch.isHovering { store.hovering = notch.isHovering } // drives brief→full
-        let want = !store.pending.isEmpty || store.flash != nil || notch.isHovering
-        guard want != expanded else { return } // avoid re-triggering the morph on every change
+        let hasContent = !store.pending.isEmpty || store.flash != nil
+        let want = hasContent || notch.isHovering
+
+        // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
+        if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {
+            guard expanded != nil else { return }
+            expanded = nil
+            Task { await notch.hide() }
+            return
+        }
+
+        // Coming back from hidden (auto-hide) — always re-show.
+        if expanded == nil {
+            expanded = want
+            Task { if want { await notch.expand() } else { await notch.compact() } }
+            return
+        }
+
+        guard want != expanded else { return } // avoid re-triggering the morph
         expanded = want
         Task {
             if want { await notch.expand() } else { await notch.compact() }

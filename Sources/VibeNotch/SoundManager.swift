@@ -1,4 +1,5 @@
 import AppKit
+import VibeNotchCore
 
 /// 8-bit style alert tones, synthesized at runtime (square waves → chiptune feel).
 /// No bundled audio assets, no licensing.
@@ -17,16 +18,32 @@ enum VNSound {
 @MainActor
 final class SoundManager {
     static let shared = SoundManager()
-    var enabled = true
+    var enabled: Bool {
+        get { VNSettings.soundEnabled }
+        set { VNSettings.soundEnabled = newValue }
+    }
     private var cache: [String: NSSound] = [:]
 
     func play(_ sound: VNSound) {
         guard enabled else { return }
         let key = "\(sound)"
-        let ns = cache[key] ?? NSSound(data: Self.wav(for: sound))
+        let ns = cache[key] ?? customSound(for: sound) ?? NSSound(data: Self.wav(for: sound))
         cache[key] = ns
+        ns?.volume = Float(VNSettings.soundVolume)
         ns?.stop()
         ns?.play()
+    }
+
+    /// Custom sound pack: drop `permission.wav` / `waiting.wav` / `done.wav`
+    /// (or .aiff/.mp3/.m4a) into ~/.vibenotch/sounds to override the synth tones.
+    private func customSound(for sound: VNSound) -> NSSound? {
+        let dir = VNPaths.home.appendingPathComponent("sounds")
+        for ext in ["wav", "aiff", "mp3", "m4a"] {
+            let url = dir.appendingPathComponent("\(sound).\(ext)")
+            if FileManager.default.fileExists(atPath: url.path),
+               let ns = NSSound(contentsOf: url, byReference: true) { return ns }
+        }
+        return nil
     }
 
     // MARK: WAV synthesis

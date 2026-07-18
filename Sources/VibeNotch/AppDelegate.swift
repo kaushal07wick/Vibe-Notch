@@ -92,6 +92,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sound.state = SoundManager.shared.enabled ? .on : .off
         menu.addItem(sound)
 
+        let login = NSMenuItem(title: "Launch at login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        login.target = self
+        login.state = VNSettings.launchAtLogin ? .on : .off
+        menu.addItem(login)
+
+        let autoHide = NSMenuItem(title: "Auto-hide when idle", action: #selector(toggleAutoHide), keyEquivalent: "")
+        autoHide.target = self
+        autoHide.state = VNSettings.autoHideWhenIdle ? .on : .off
+        menu.addItem(autoHide)
+
         let toggle = NSMenuItem(title: "Toggle Panel", action: #selector(togglePanel), keyEquivalent: "t")
         toggle.target = self
         menu.addItem(toggle)
@@ -106,6 +116,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SoundManager.shared.enabled.toggle()
         if SoundManager.shared.enabled { SoundManager.shared.play(.done) }
     }
+
+    @objc private func toggleLaunchAtLogin() { VNSettings.launchAtLogin.toggle() }
+
+    @objc private func toggleAutoHide() { VNSettings.autoHideWhenIdle.toggle() }
 
     @objc private func toggleAgent(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String, let spec = Agents.byID(id) else { return }
