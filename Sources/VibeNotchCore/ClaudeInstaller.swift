@@ -21,6 +21,7 @@ public enum ClaudeInstaller {
         ("UserPromptSubmit", nil),
         ("PreToolUse", nil),
         ("PostToolUse", nil),
+        ("SessionEnd", nil),
     ]
 
     public static var settingsURL: URL {

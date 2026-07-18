@@ -54,6 +54,7 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
+        if i.event == "SessionEnd" { sessions.removeValue(forKey: sid); return }
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source
         if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }

@@ -134,7 +134,7 @@ switch event {
 case "PreToolUse":            activityDetail = summarize(toolInput)
 case "Notification":          activityDetail = obj["message"] as? String
 case "Stop":                  activityDetail = lastAssistantText(transcript)
-case "SessionStart", "UserPromptSubmit", "PostToolUse": activityDetail = nil
+case "SessionStart", "UserPromptSubmit", "PostToolUse", "SessionEnd": activityDetail = nil
 default:                      exit(0) // ignore anything else
 }
 let msg = VNInbound(type: .notify, source: "claude", event: event,
