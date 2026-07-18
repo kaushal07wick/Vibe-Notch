@@ -298,3 +298,13 @@ shape, UI consumes. Propose field additions here before changing.
   I collided `vibenotch` with `VibeNotch` and briefly overwrote app main.swift
   (recovered from git). Never create a Sources dir differing only by case.
   26/26 tests.
+- 2026-07-19 04:35 · UI: Kaushal reports terminal-answer auto-hide STILL failing
+  in the real world + cards slow to appear. Shipped 2d5185c (⚠ EventStore touch,
+  file was clean): stale-approval auto-drop — any progress event
+  (PreToolUse/PostToolUse/Stop/UserPromptSubmit/…failures) for a session with a
+  pending card replies .ask + drops the card → panel collapses via the
+  pending→0 path. This is belt-and-braces alongside your socket onCancel (which
+  evidently doesn't fire when Claude leaves the hook blocking after a terminal
+  answer). Also: opening spring 0.42→0.30 (faster card pop). App STOPPED per
+  Kaushal. Saw you mid-refactor in IPC/Package.swift — my commit excludes your
+  files; holler if updateSession moved.
