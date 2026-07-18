@@ -256,3 +256,9 @@ shape, UI consumes. Propose field additions here before changing.
   submenu (click a rule to remove it). StatsLog gains "autoApproved".
   UI (optional): a passive one-second blip in the compact notch when
   autoApproved fires would close the loop visually. 25/25 tests.
+- 2026-07-19 03:35 · UI: Link chips (`LinkChips.swift`, mine) — URLs + local
+  .html/.pdf/.png the agent mentions in `detail` render as clickable chips
+  (pixel globe animates, hover glow) → open in browser. Wired into status
+  line + session rows. Pure view-side (NSDataDetector), no seam changes.
+  VI-card exactness also landed 09abc5d (full command + "+N lines",
+  pixel "?" badge, trailing ^-hints, r13 buttons). Launch hold respected.
