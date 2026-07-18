@@ -162,25 +162,25 @@ func terminalName() -> String? {
 let source = argValue(after: "--source") ?? "claude"
 let terminal = terminalName()
 
-if source == "codex" {
-    // Codex `notify`: the JSON payload is the last CLI argument.
+// Every agent sends hook JSON on stdin — except legacy Codex `notify`,
+// which passes the payload as the last argv instead.
+let stdinData = FileHandle.standardInput.readDataToEndOfFile()
+let obj = (try? JSONSerialization.jsonObject(with: stdinData)) as? [String: Any] ?? [:]
+
+if source == "codex" && obj["hook_event_name"] == nil {
     let payload = CommandLine.arguments.last.flatMap { $0.data(using: .utf8) } ?? Data()
-    let obj = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
+    let legacy = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
     let msg = VNInbound(
         type: .notify, source: "codex",
-        event: (obj?["type"] as? String) ?? "agent-turn-complete",
+        event: (legacy?["type"] as? String) ?? "agent-turn-complete",
         title: "Codex is waiting",
-        detail: obj?["last-assistant-message"] as? String,
-        cwd: obj?["cwd"] as? String, terminal: terminal,
-        sessionId: (obj?["session-id"] as? String) ?? "codex"
+        detail: legacy?["last-assistant-message"] as? String,
+        cwd: legacy?["cwd"] as? String, terminal: terminal,
+        sessionId: (legacy?["session-id"] as? String) ?? "codex"
     )
     _ = IPCClient.send(msg)
     exit(0)
 }
-
-// All other agents send hook JSON on stdin.
-let stdin = FileHandle.standardInput.readDataToEndOfFile()
-let obj = (try? JSONSerialization.jsonObject(with: stdin)) as? [String: Any] ?? [:]
 
 /// First present key, snake_case or camelCase (Cursor uses camelCase).
 let field: ([String]) -> Any? = { keys in
@@ -254,16 +254,18 @@ func parseQuestions(_ input: [String: Any]?) -> [VNQuestion]? {
     return questions.isEmpty ? nil : questions
 }
 
-/// Emit the PermissionRequest decision. Answers (AskUserQuestion) ride along
-/// as updatedInput so the agent receives the chosen options.
+/// Emit the PermissionRequest decision in the agent's dialect. Answers
+/// (AskUserQuestion) ride along as updatedInput for Claude-schema agents.
 func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String: Any]?) {
     var decision: [String: Any] = ["behavior": behavior]
-    if let answers, var input = originalInput {
+    if source != "codex", let answers, var input = originalInput {
         input["answers"] = answers.map { [$0] } // one selected label per question
         decision["updatedInput"] = input
     }
-    let payload: [String: Any] = ["hookSpecificOutput": ["hookEventName": "PermissionRequest",
-                                                         "decision": decision]]
+    let inner: [String: Any] = ["hookEventName": "PermissionRequest", "decision": decision]
+    let payload: [String: Any] = source == "codex"
+        ? ["continue": true, "hookSpecificOutput": inner]  // Codex envelope
+        : ["hookSpecificOutput": inner]                     // Claude schema
     if let data = try? JSONSerialization.data(withJSONObject: payload),
        let text = String(data: data, encoding: .utf8) {
         print(text)

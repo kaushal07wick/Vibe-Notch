@@ -8,8 +8,8 @@ public struct AgentSpec: Sendable, Identifiable {
         case jsonHooks(events: [HookEvent])
         /// Cursor's `hooks.json` — flat `hooks[event] = [{command}]` map.
         case cursorHooks(events: [String])
-        /// Codex's `config.toml` single `notify` program.
-        case codexNotify
+        /// Codex's `hooks.json` (Claude-shaped) + `[features] hooks = true` flag.
+        case codexHooks(events: [HookEvent])
         /// Kimi's `config.toml` `[[hooks]]` array-of-tables (Claude-schema payloads).
         case kimiTOML(events: [HookEvent])
         /// OpenCode's JS plugin, registered in opencode.json's `plugin` array.
@@ -19,9 +19,11 @@ public struct AgentSpec: Sendable, Identifiable {
     public struct HookEvent: Sendable {
         public let name: String
         public let timeout: Int?
-        public init(_ name: String, timeout: Int? = nil) {
+        public let matcher: String
+        public init(_ name: String, timeout: Int? = nil, matcher: String = "*") {
             self.name = name
             self.timeout = timeout
+            self.matcher = matcher
         }
     }
 
@@ -53,6 +55,15 @@ public enum Agents {
         .init("PostToolUseFailure"), .init("StopFailure"), .init("PreCompact"),
     ]
 
+    /// Codex's hook events. PermissionRequest is the blocking approval channel;
+    /// Pre/PostToolUse exist but echo noisily into the terminal, so we skip them.
+    static let codexEvents: [AgentSpec.HookEvent] = [
+        .init("SessionStart", matcher: "startup|resume"),
+        .init("UserPromptSubmit"),
+        .init("PermissionRequest", timeout: 3600),
+        .init("Stop"),
+    ]
+
     /// Gemini CLI's event names (its settings.json uses the same hooks shape).
     static let geminiEvents: [AgentSpec.HookEvent] = [
         .init("SessionStart"), .init("SessionEnd"),
@@ -77,7 +88,7 @@ public enum Agents {
               mechanism: .cursorHooks(events: ["beforeSubmitPrompt", "beforeShellExecution",
                                                "afterFileEdit", "stop"])),
         .init(id: "codex", name: "Codex", configDir: ".codex",
-              configFile: "config.toml", mechanism: .codexNotify),
+              configFile: "hooks.json", mechanism: .codexHooks(events: codexEvents)),
         .init(id: "kimi", name: "Kimi Code", configDir: ".kimi",
               configFile: "config.toml", mechanism: .kimiTOML(events: claudeEvents)),
         .init(id: "opencode", name: "OpenCode", configDir: ".config/opencode",

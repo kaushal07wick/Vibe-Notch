@@ -74,3 +74,49 @@ final class HookE2ETests: XCTestCase {
         XCTAssertTrue(out.contains("Option B"), "answers must ride updatedInput: \(out)")
     }
 }
+
+extension HookE2ETests {
+    func testCodexPermissionRequestUsesCodexEnvelope() throws {
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: hookBinaryPathForExtension))
+        let sock = NSTemporaryDirectory() + "e2e-\(UUID().uuidString.prefix(8)).sock"
+        let server = IPCServer(socketPath: sock,
+                               onNotify: { _ in },
+                               onRequest: { _, inbound, complete in
+                                   XCTAssertEqual(inbound.source, "codex")
+                                   complete(VNReply(decision: .allow))
+                               })
+        try server.start()
+        defer { server.stop() }
+
+        let out = try runHookForExtension(
+            source: "codex",
+            stdin: #"{"hook_event_name":"PermissionRequest","tool_name":"Shell","tool_input":{"command":"ls"},"session_id":"cx"}"#,
+            socketPath: sock)
+        XCTAssertTrue(out.contains(#""continue":true"#), "codex envelope required: \(out)")
+        XCTAssertTrue(out.contains(#""behavior":"allow""#), "got: \(out)")
+    }
+
+    // extension-visible helpers (private members aren't accessible here)
+    var hookBinaryPathForExtension: String {
+        Bundle(for: Self.self).bundleURL.deletingLastPathComponent()
+            .appendingPathComponent("vibenotch-hook").path
+    }
+
+    func runHookForExtension(source: String, stdin: String, socketPath: String) throws -> String {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: hookBinaryPathForExtension)
+        p.arguments = ["--source", source]
+        p.environment = ProcessInfo.processInfo.environment
+            .merging(["VIBENOTCH_SOCKET": socketPath]) { _, new in new }
+        let inPipe = Pipe(), outPipe = Pipe()
+        p.standardInput = inPipe
+        p.standardOutput = outPipe
+        p.standardError = FileHandle.nullDevice
+        try p.run()
+        inPipe.fileHandleForWriting.write(stdin.data(using: .utf8)!)
+        inPipe.fileHandleForWriting.closeFile()
+        let out = outPipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(data: out, encoding: .utf8) ?? ""
+    }
+}

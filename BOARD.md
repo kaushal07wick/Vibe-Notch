@@ -132,3 +132,11 @@ shape, UI consumes. Propose field additions here before changing.
   against an in-test socket server (allow JSON, fail-open, AskUserQuestion
   answers via updatedInput all verified end-to-end; socket overridable via
   VIBENOTCH_SOCKET). scripts/uninstall.sh cleans every agent config. 14/14.
+- 2026-07-19 02:35 · backend: CODEX APPROVE/DENY LANDED — Codex has a real hooks
+  system (hooks.json, Claude-shaped, + `[features] hooks = true` in config.toml).
+  Installer migrated from notify → hooks (legacy notify auto-stripped; argv
+  notify still parsed for old setups). Hook emits Codex's envelope
+  (`{"continue":true, hookSpecificOutput…}`). E2E-tested. 16/16. Next launch,
+  zero-config upgrades the Codex wiring; Codex sessions then get the full
+  approval card. (Reference's app-server JSON-RPC is lifecycle-metadata only —
+  deferred, not needed for approvals.)

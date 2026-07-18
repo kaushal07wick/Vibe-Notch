@@ -167,3 +167,22 @@ extension CoreTests {
         XCTAssertEqual(un["theme"] as? String, "dark")
     }
 }
+
+extension CoreTests {
+    func testCodexFeatureFlagTransform() {
+        // no features section → appended
+        let a = AgentHookInstaller.codexFeatureEnabled(in: "model = \"gpt\"\n")
+        XCTAssertTrue(a.contains("[features]") && a.contains("hooks = true"))
+        // existing section → line inserted
+        let b = AgentHookInstaller.codexFeatureEnabled(in: "[features]\nother = 1\n")
+        XCTAssertTrue(b.contains("hooks = true") && b.contains("other = 1"))
+        // hooks = false → flipped
+        let c = AgentHookInstaller.codexFeatureEnabled(in: "[features]\nhooks = false\n")
+        XCTAssertTrue(c.contains("hooks = true") && !c.contains("hooks = false"))
+        // idempotent
+        XCTAssertEqual(AgentHookInstaller.codexFeatureEnabled(in: c), c)
+        // legacy notify stripped
+        let d = AgentHookInstaller.withoutOurNotify("notify = [\"/x/vibenotch-hook\", \"--source\", \"codex\"]\nmodel = \"gpt\"")
+        XCTAssertFalse(d.contains("notify")); XCTAssertTrue(d.contains("model"))
+    }
+}

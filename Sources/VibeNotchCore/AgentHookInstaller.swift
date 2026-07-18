@@ -29,7 +29,7 @@ public struct AgentHookInstaller: Sendable {
         switch spec.mechanism {
         case .jsonHooks(let events): try connectJSONHooks(events: events)
         case .cursorHooks(let events): try connectCursorHooks(events: events)
-        case .codexNotify: try connectCodexNotify()
+        case .codexHooks(let events): try connectCodexHooks(events: events)
         case .kimiTOML(let events): try connectKimiTOML(events: events)
         case .opencodePlugin: try connectOpenCodePlugin()
         }
@@ -39,7 +39,7 @@ public struct AgentHookInstaller: Sendable {
         switch spec.mechanism {
         case .jsonHooks: try disconnectJSONHooks()
         case .cursorHooks: try disconnectCursorHooks()
-        case .codexNotify: try disconnectCodexNotify()
+        case .codexHooks: try disconnectCodexHooks()
         case .kimiTOML: try disconnectKimiTOML()
         case .opencodePlugin: try disconnectOpenCodePlugin()
         }
@@ -91,7 +91,7 @@ public struct AgentHookInstaller: Sendable {
             if !groups.contains(where: groupIsOurs) {
                 var hook: [String: Any] = ["type": "command", "command": command]
                 if let timeout = event.timeout { hook["timeout"] = timeout }
-                groups.append(["matcher": "*", "hooks": [hook]])
+                groups.append(["matcher": event.matcher, "hooks": [hook]])
             }
             hooks[event.name] = groups
         }
@@ -160,29 +160,57 @@ public struct AgentHookInstaller: Sendable {
         return out
     }
 
-    // MARK: Codex config.toml notify
+    // MARK: Codex hooks.json + feature flag
 
-    private var codexNotifyLine: String {
-        let bin = VNPaths.bin.appendingPathComponent("vibenotch-hook").path
-        return "notify = [\"\(bin)\", \"--source\", \"codex\"]"
-    }
+    private var codexConfigTOMLURL: URL { spec.configDirURL.appendingPathComponent("config.toml") }
 
-    private func connectCodexNotify() throws {
-        let text = (try? String(contentsOf: spec.configFileURL, encoding: .utf8)) ?? ""
-        guard !text.contains(Self.marker) else { return }
+    private func connectCodexHooks(events: [AgentSpec.HookEvent]) throws {
+        // 1. Claude-shaped hooks object into ~/.codex/hooks.json.
+        let hooks = readJSON() ?? [:]
         backupOnce()
-        // TOML forbids duplicate top-level keys — replace any existing notify.
-        var lines = text.components(separatedBy: "\n").filter {
-            !$0.trimmingCharacters(in: .whitespaces).hasPrefix("notify =")
+        try writeJSON(Self.jsonHooksInstalled(into: hooks, events: events, command: hookCommand))
+
+        // 2. Enable the hooks feature + drop our legacy notify line in config.toml.
+        if let toml = try? String(contentsOf: codexConfigTOMLURL, encoding: .utf8) {
+            let updated = Self.codexFeatureEnabled(in: Self.withoutOurNotify(toml))
+            if updated != toml { try updated.write(to: codexConfigTOMLURL, atomically: true, encoding: .utf8) }
         }
-        lines.insert(codexNotifyLine, at: 0)
-        try writeText(lines.joined(separator: "\n"))
     }
 
-    private func disconnectCodexNotify() throws {
-        guard let text = try? String(contentsOf: spec.configFileURL, encoding: .utf8) else { return }
-        try writeText(text.components(separatedBy: "\n").filter { !$0.contains(Self.marker) }
-            .joined(separator: "\n"))
+    private func disconnectCodexHooks() throws {
+        if let hooks = readJSON() {
+            try writeJSON(Self.jsonHooksUninstalled(from: hooks))
+        }
+        if let toml = try? String(contentsOf: codexConfigTOMLURL, encoding: .utf8) {
+            let updated = Self.withoutOurNotify(toml)
+            if updated != toml { try updated.write(to: codexConfigTOMLURL, atomically: true, encoding: .utf8) }
+        }
+    }
+
+    /// Pure transform: ensure `[features]` contains `hooks = true`.
+    static func codexFeatureEnabled(in toml: String) -> String {
+        var lines = toml.components(separatedBy: "\n")
+        var inFeatures = false
+        for (i, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("[") { inFeatures = trimmed == "[features]" }
+            if inFeatures && trimmed.replacingOccurrences(of: " ", with: "").hasPrefix("hooks=") {
+                lines[i] = "hooks = true"
+                return lines.joined(separator: "\n")
+            }
+        }
+        if let idx = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "[features]" }) {
+            lines.insert("hooks = true", at: idx + 1)
+            return lines.joined(separator: "\n")
+        }
+        return toml + "\n[features]\nhooks = true\n"
+    }
+
+    /// Pure transform: remove our old notify wiring (pre-hooks era).
+    static func withoutOurNotify(_ toml: String) -> String {
+        toml.components(separatedBy: "\n")
+            .filter { !($0.contains("notify") && $0.contains(marker)) }
+            .joined(separator: "\n")
     }
 
     // MARK: Kimi config.toml [[hooks]] blocks
