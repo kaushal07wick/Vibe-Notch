@@ -208,3 +208,5 @@ shape, UI consumes. Propose field additions here before changing.
   panel). Please override acceptsFirstMouse(for:) → true on the hosting view /
   check DNK panel config in NotchPanelController so the FIRST click hits the
   button. Pairs with the latency + cancel-on-terminal-answer asks (02:50).
+- 2026-07-19 · backend: Kaushal is comparing against Vibe Island — do NOT
+  launch VibeNotch.app until he clears it. Build/test only.
