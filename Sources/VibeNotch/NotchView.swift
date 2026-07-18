@@ -38,6 +38,17 @@ struct ExpandedContent: View {
                 }
             }
             .padding(.horizontal, 20).padding(.top, 2).padding(.bottom, 2)
+            // screen-share guard: cards are queued silently while sharing
+            if store.privacyHold && !store.pending.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield.fill").font(.system(size: 10))
+                    Text("\(store.pending.count) approval\(store.pending.count == 1 ? "" : "s") held while screen sharing")
+                        .font(.system(size: 10.5, weight: .medium))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(VNColor.amber)
+                .padding(.horizontal, 20).padding(.vertical, 3)
+            }
             ZStack {
                 if showHistory && store.pending.isEmpty {
                     HistoryList(entries: history) { showHistory = false }
@@ -108,7 +119,11 @@ struct CompactTrailing: View {
     @ObservedObject var store: EventStore
     var body: some View {
         Group {
-            if count > 0 {
+            if store.privacyHold && !store.pending.isEmpty {
+                // shared screen: a lock instead of the count — no info leaked
+                Image(systemName: "lock.fill").font(.system(size: 8))
+                    .foregroundStyle(VNColor.amber)
+            } else if count > 0 {
                 Text("\(count)")
                     .font(.system(size: 10.5, weight: .semibold))
                     .monospacedDigit()

@@ -41,8 +41,11 @@ struct ActivityCard: View {
             HStack(alignment: .center, spacing: 10) {
                 AgentIcon(source: s.source, size: 20)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(sessionTitle(folder: s.folder, task: s.task))
-                        .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                    HStack(spacing: 6) {
+                        Text(sessionTitle(folder: s.folder, task: s.task))
+                            .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                        GitChip(branch: s.gitBranch, dirty: s.gitDirty)
+                    }
                     if let user = s.userMessage {
                         Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
                             .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
@@ -50,12 +53,18 @@ struct ActivityCard: View {
                 }
                 Spacer(minLength: 8)
                 PillCluster(source: s.source, terminal: s.terminal, tty: s.tty)
+                if full, isRunning(s) { PanicButton(session: s) }
             }
             SessionStatusLine(s: s, full: full)
+            if full, TerminalControl.canReply(to: s) { ReplyRow(session: s) }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
         .frame(width: 620, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
+    }
+
+    private func isRunning(_ s: SessionActivity) -> Bool {
+        ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains(s.event)
     }
 
     // MARK: Session list
@@ -127,11 +136,19 @@ struct SessionStatusLine: View {
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(VNColor.running.opacity(0.12), in: Capsule())
                 }
+                if full, s.tokensIn + s.tokensOut > 0 {
+                    Text("↓\(kFmt(s.tokensIn)) ↑\(kFmt(s.tokensOut))")
+                        .font(VNFont.sysMono(9.5, .medium))
+                        .foregroundStyle(VNColor.paper.opacity(0.35))
+                }
             }
-            if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
+            // full view shows the rolling console mirror (real commands +
+            // output tails); brief keeps just the latest detail
+            if full, !s.console.isEmpty {
+                TerminalBlock(text: s.console.suffix(14).joined(separator: "\n"), lines: 14)
+                LinkChipRow(text: s.detail)
+            } else if let detail = s.detail, !detail.isEmpty, s.event != "Notification" {
                 TerminalBlock(text: detail, prompt: s.event == "PreToolUse", lines: full ? 8 : 3)
-                // anything the agent linked (dev server, artifact, built file)
-                // opens straight from the notch
                 LinkChipRow(text: detail)
             }
         }
@@ -265,4 +282,100 @@ struct SessionRow: View {
             return Text("Working…").foregroundStyle(VNColor.faint)
         }
     }
+}
+
+// MARK: - Session controls (reply, panic, git)
+
+/// Branch chip: `⎇ main` with an amber dot when the tree is dirty.
+struct GitChip: View {
+    let branch: String?
+    let dirty: Bool
+    var body: some View {
+        if let branch {
+            HStack(spacing: 3) {
+                Text("⎇ \(branch)").font(VNFont.sysMono(9.5, .medium))
+                    .foregroundStyle(VNColor.paper.opacity(0.5))
+                    .lineLimit(1)
+                if dirty { Circle().fill(VNColor.amber).frame(width: 4, height: 4) }
+            }
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(Color.white.opacity(0.05), in: Capsule())
+        }
+    }
+}
+
+/// Red ^C — first click arms, second click sends SIGINT to the session's
+/// foreground process. Disarms itself after 2.5s.
+struct PanicButton: View {
+    let session: SessionActivity
+    @State private var armed = false
+
+    var body: some View {
+        Button {
+            if armed {
+                _ = TerminalControl.interrupt(session)
+                armed = false
+            } else {
+                armed = true
+                Task {
+                    try? await Task.sleep(for: .seconds(2.5))
+                    armed = false
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "octagon.fill").font(.system(size: 9))
+                Text(armed ? "sure?" : "^C").font(VNFont.sysMono(9.5, .semibold))
+            }
+            .foregroundStyle(armed ? .white : VNColor.stop)
+            .padding(.horizontal, 7).padding(.vertical, 3)
+            .background(armed ? Color(hex: 0xB0413F) : VNColor.stop.opacity(0.12), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressFeedback())
+        .help("Interrupt the running command (^C)")
+        .animation(.easeOut(duration: 0.12), value: armed)
+    }
+}
+
+/// Reply straight into the session's terminal pane.
+struct ReplyRow: View {
+    let session: SessionActivity
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "arrowshape.turn.up.left")
+                .font(.system(size: 10)).foregroundStyle(VNColor.faint)
+            TextField("Reply to \(agentName(session.source))…", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11.5))
+                .focused($focused)
+                .onSubmit(send)
+            if !text.isEmpty {
+                Button(action: send) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 14)).foregroundStyle(VNColor.go)
+                }
+                .buttonStyle(PressFeedback())
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(Color.white.opacity(focused ? 0.12 : 0.05)))
+    }
+
+    private func send() {
+        guard TerminalControl.send(text, to: session) else { return }
+        text = ""
+    }
+}
+
+/// Compact token count: 950 → "950", 12_400 → "12k", 1_300_000 → "1.3M".
+func kFmt(_ n: Int) -> String {
+    if n < 1000 { return "\(n)" }
+    if n < 1_000_000 { return "\(n / 1000)k" }
+    return String(format: "%.1fM", Double(n) / 1_000_000)
 }

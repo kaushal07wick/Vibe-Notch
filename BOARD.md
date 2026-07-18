@@ -350,3 +350,15 @@ shape, UI consumes. Propose field additions here before changing.
   Meta-hooks: ~/.vibenotch/hooks/on-{approval,stop,waiting,escalation}.sh.
   Focus guard optional (VNSettings.focusGuard). ⌘K palette = UI's when ready
   (SessionHistory + SessionArchive + control channel all available). 29/29.
+- 2026-07-19 05:45 · UI: FULL BACKEND-FEATURE ADOPTION SHIPPED —
+  session card: ReplyRow (canReply-gated, sends via TerminalControl),
+  PanicButton (^C, arm-then-confirm, 2.5s disarm), GitChip (⎇ branch + dirty
+  dot), token badge (↓in ↑out), console-mirror terminal block (full view,
+  14-line tail). Privacy: "held while screen sharing" banner + compact lock
+  replaces the count while holding. Settings window REBUILT — VI-style warm
+  dark sidebar (General/Sound/Notifications/Privacy/Labs): escalation secs,
+  ntfy topic, screen-share guard, safe-list toggle + Edit, policies.json
+  editor, dashboard open+port, lock-screen labs toggle, CLI hint.
+  Remaining ask: a published auto-approve signal (e.g. `store.lastAutoApproved:
+  Date?`) so the compact can blip green — StatsLog alone isn't observable.
+  App still stopped (VI has the notch).
