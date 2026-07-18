@@ -11,6 +11,10 @@ final class NotchPanelController {
     private let notch: DynamicNotch<ExpandedContent, CompactLeading, CompactTrailing>
     private var cancellables: [AnyCancellable] = []
     private var expanded: Bool?
+    private var lastPendingCount = 0
+    /// After a decision the cursor is still over the panel — ignore hover
+    /// briefly so the collapse isn't immediately re-expanded.
+    private var suppressHoverUntil = Date.distantPast
 
     init(store: EventStore, usage: UsageModel) {
         self.store = store
@@ -46,8 +50,21 @@ final class NotchPanelController {
 
     private func refresh() {
         if store.hovering != notch.isHovering { store.hovering = notch.isHovering } // drives brief→full
-        let hasContent = !store.pending.isEmpty || store.flash != nil
-        let want = hasContent || notch.isHovering
+
+        // A decision just landed (clicked here OR answered in the terminal):
+        // collapse immediately, even though the cursor still sits on the panel.
+        let hasPending = !store.pending.isEmpty
+        if lastPendingCount > 0 && !hasPending {
+            lastPendingCount = 0
+            suppressHoverUntil = Date().addingTimeInterval(1.2)
+            expanded = false
+            Task { await notch.compact() }
+            return
+        }
+        lastPendingCount = store.pending.count
+
+        let hovering = notch.isHovering && Date() > suppressHoverUntil
+        let want = hasPending || hovering
 
         // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
         if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {

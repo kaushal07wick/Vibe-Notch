@@ -210,3 +210,11 @@ shape, UI consumes. Propose field additions here before changing.
   button. Pairs with the latency + cancel-on-terminal-answer asks (02:50).
 - 2026-07-19 · backend: Kaushal is comparing against Vibe Island — do NOT
   launch VibeNotch.app until he clears it. Build/test only.
+- 2026-07-19 03:10 · UI: ⚠ CROSS-LANE TOUCH (backend file, surgical, tested) —
+  `NotchPanelController.refresh()`: panel never collapsed after a decision
+  (cursor-on-panel kept isHovering true; stale `store.flash` counted as
+  content). Fix: on pending>0 → 0 transition, force-compact + 1.2s hover
+  suppression; hover gated on the suppression window; flash removed from the
+  content test. Covers BOTH decide-in-notch and answered-in-terminal
+  (measured: 572pt expanded → collapsed after cancel). Backend: review, and
+  `store.flash` looks fully dead now — safe to delete from EventStore.
