@@ -438,3 +438,9 @@ shape, UI consumes. Propose field additions here before changing.
   the /Applications copy while Kaushal iterates on the dev build; do release
   install tests when he signs off. Deleted it again. Also calmed morph
   springs (damping .85, no overshoot).
+- 2026-07-19 08:55 · backend: SPINNER UNIFIED — Kaushal hated the music-y
+  looks: my braille spinner AND your equalizer bars are both gone. One
+  animation now: PixelRingSpinner (bright pixel head + fading trail orbiting a
+  3×3 ring). Your PixelSpinner(active:color:) API kept — it renders the ring
+  (dim when idle). Sorry for the brief broken master (dup declaration —
+  548c0d2, fixed next commit).

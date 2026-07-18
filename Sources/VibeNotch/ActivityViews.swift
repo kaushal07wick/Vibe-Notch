@@ -156,7 +156,7 @@ struct SessionStatusLine: View {
 
     @ViewBuilder private var icon: some View {
         switch s.event {
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit": PixelSpinner(color: VNColor.running)
+        case "PreToolUse", "PostToolUse", "UserPromptSubmit": PixelRingSpinner(color: VNColor.running)
         case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
         case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
         case "PostToolUseFailure", "StopFailure":

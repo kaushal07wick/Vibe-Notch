@@ -158,7 +158,7 @@ struct AgentIcon: View {
 
 /// A rotating pixel spinner — a bright head with a fading trail orbiting a
 /// square ring. Same pixel-art language as the invader, nothing music-y.
-struct PixelSpinner: View {
+struct PixelRingSpinner: View {
     var color: Color
     var px: CGFloat = 3.5
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
