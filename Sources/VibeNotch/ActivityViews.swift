@@ -58,8 +58,8 @@ struct ActivityCard: View {
             SessionStatusLine(s: s, full: full)
             if full, TerminalControl.canReply(to: s) { ReplyRow(session: s) }
         }
-        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 620, alignment: .leading)
+        .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+        .frame(width: 600, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -75,16 +75,16 @@ struct ActivityCard: View {
             // height follows content, capped so long lists scroll instead of
             // taking over the screen (VI behavior)
             ScrollView {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 1) {
                     ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
                 }
             }
-            .frame(maxHeight: 340)
+            .frame(maxHeight: 360)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 6)
+            .padding(.top, 4)
         }
-        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 620, alignment: .leading)
+        .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
+        .frame(width: 600, alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -100,8 +100,8 @@ struct ActivityCard: View {
                 }
             }
         }
-        .padding(.bottom, 6)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
+        .padding(.bottom, 5)
+        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1) }
     }
 
     private var metrics: [(label: String, color: Color?)] {
@@ -244,12 +244,11 @@ struct SessionRow: View {
                     if hovering { binButton }
                 }
             }
-            .padding(EdgeInsets(top: 7, leading: 8, bottom: 7, trailing: 8))
+            .padding(EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Color.white.opacity(hovering ? 0.08 : 0)))
+        .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 8))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
 

@@ -42,7 +42,7 @@ struct ExpandedContent: View {
                     SettingsWindow.show()
                 }
             }
-            .padding(.horizontal, 20).padding(.top, -26).padding(.bottom, 4)
+            .padding(.horizontal, 16).padding(.top, -26).padding(.bottom, 3)
             // while-you-were-away digest (backend clears it after a few seconds)
             if let digest = store.digest {
                 HStack(spacing: 7) {
