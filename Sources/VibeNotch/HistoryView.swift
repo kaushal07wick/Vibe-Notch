@@ -66,7 +66,9 @@ enum SessionHistory {
     private static func parse(_ url: URL, date: Date, source: String) -> ResumeEntry? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
-        let head = handle.readData(ofLength: 32_768)
+        // Codex buries the real user prompt after a huge system/agent preamble;
+        // Claude's is near the top. Read enough to reach it either way.
+        let head = handle.readData(ofLength: source == "codex" ? 512_000 : 32_768)
         guard let text = String(data: head, encoding: .utf8) else { return nil }
 
         var cwd: String?
