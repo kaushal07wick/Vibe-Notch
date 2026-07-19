@@ -43,8 +43,10 @@ enum VNSettings {
         set { d.set(newValue, forKey: "smartSuppression") }
     }
 
+    /// Hide the notch entirely when no agent is working/waiting (keeps it off
+    /// fullscreen video). On by default.
     static var autoHideWhenIdle: Bool {
-        get { d.bool(forKey: "autoHideWhenIdle") }
+        get { d.object(forKey: "autoHideWhenIdle") as? Bool ?? true }
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 

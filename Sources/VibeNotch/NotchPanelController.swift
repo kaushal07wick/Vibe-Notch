@@ -90,7 +90,7 @@ final class NotchPanelController {
         // missed (Stage Manager, fast cmd-tab) — re-evaluate every second so
         // suppression engages/releases reliably.
         recheckTask?.cancel()
-        if hasPending {
+        if hasPending || (store.isBusy && VNSettings.autoHideWhenIdle) {
             recheckTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { return }
@@ -98,8 +98,9 @@ final class NotchPanelController {
             }
         }
 
-        // Auto-hide: with nothing active and hover elsewhere, disappear entirely.
-        if VNSettings.autoHideWhenIdle && !want && store.activeSessions.isEmpty {
+        // Auto-hide when idle: a paused/finished agent shouldn't sit over
+        // fullscreen video. Reappears the instant work resumes or a card lands.
+        if VNSettings.autoHideWhenIdle && !store.isBusy && !hovering {
             guard expanded != nil else { return }
             expanded = nil
             Task { await notch.hide() }

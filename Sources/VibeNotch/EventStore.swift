@@ -135,6 +135,20 @@ final class EventStore: ObservableObject {
 
     var activeSession: SessionActivity? { activeSessions.first }
 
+    /// Keep the notch visible only while something actually needs attention:
+    /// a pending card, a session working, or one waiting for you. A paused or
+    /// finished session goes quiet → the notch hides (clears fullscreen video).
+    /// ponytail: 90s quiet-window = "paused"; a long single tool call also
+    /// hides mid-run, which is the desired behavior for the movie case.
+    var isBusy: Bool {
+        if !pending.isEmpty { return true }
+        let live = Date().addingTimeInterval(-90)
+        return sessions.values.contains {
+            $0.updatedAt > live &&
+            ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Notification"].contains($0.event)
+        }
+    }
+
     func enqueue(_ approval: PendingApproval) {
         // Bypassed session → auto-approve silently, no card.
         if let sid = approval.inbound.sessionId, bypassedSessions.contains(sid) {

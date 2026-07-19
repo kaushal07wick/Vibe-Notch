@@ -500,3 +500,9 @@ shape, UI consumes. Propose field additions here before changing.
     the session card (Claude: /model <name>; Codex: /model picker). CLI/dashboard
     verb `model` also live.
   All reuse the existing injection layer — no new plumbing. 23/23.
+- 2026-07-19 · backend: IDLE-HIDE (Kaushal: notch covers fullscreen video when
+  a session is paused). New `store.isBusy` = pending OR a session that did a
+  working/waiting event in the last 90s. When NOT busy and not hovering, the
+  notch hides entirely (autoHideWhenIdle now DEFAULT ON). Reappears instantly
+  on the next tool event or card. 1s recheck loop ages idle sessions out.
+  UI: nothing needed; the Auto-hide menu item just defaults checked now.
