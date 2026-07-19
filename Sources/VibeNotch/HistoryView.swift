@@ -7,7 +7,8 @@ import VibeNotchCore
 // its cwd running `claude --resume <id>`. No hunting for the command.
 
 struct ResumeEntry: Identifiable {
-    let id: String       // session UUID (filename)
+    let id: String       // session UUID
+    let source: String   // "claude" | "codex"
     let cwd: String
     let task: String     // first real user message
     let date: Date
@@ -15,37 +16,53 @@ struct ResumeEntry: Identifiable {
 }
 
 enum SessionHistory {
-    /// Newest-first past sessions across all Claude projects. Reads only the
-    /// head of each transcript, so a big history stays cheap.
+    /// Newest-first past sessions across Claude AND Codex — every session you've
+    /// paused and could resume. Reads only the head of each transcript.
     static func load(limit: Int = 30) -> [ResumeEntry] {
-        let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/projects")
-        guard let dirs = try? FileManager.default.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: nil) else { return [] }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        var files: [(url: URL, date: Date, source: String)] = []
 
-        var files: [(url: URL, date: Date)] = []
-        for dir in dirs {
-            let items = (try? FileManager.default.contentsOfDirectory(
-                at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-            for f in items where f.pathExtension == "jsonl" {
-                let date = (try? f.resourceValues(forKeys: [.contentModificationDateKey]))?
-                    .contentModificationDate ?? .distantPast
-                files.append((f, date))
+        // Claude: ~/.claude/projects/<dir>/<uuid>.jsonl
+        let claudeRoot = home.appendingPathComponent(".claude/projects")
+        for dir in (try? FileManager.default.contentsOfDirectory(at: claudeRoot, includingPropertiesForKeys: nil)) ?? [] {
+            for f in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] where f.pathExtension == "jsonl" {
+                files.append((f, mtime(f), "claude"))
             }
         }
-        files.sort { $0.date > $1.date }
 
+        // Codex: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl (recurse)
+        let codexRoot = home.appendingPathComponent(".codex/sessions")
+        if let en = FileManager.default.enumerator(at: codexRoot, includingPropertiesForKeys: [.contentModificationDateKey]) {
+            for case let f as URL in en where f.lastPathComponent.hasPrefix("rollout-") && f.pathExtension == "jsonl" {
+                files.append((f, mtime(f), "codex"))
+            }
+        }
+
+        files.sort { $0.date > $1.date }
         var out: [ResumeEntry] = []
-        for (url, date) in files.prefix(limit * 2) { // slack for empty transcripts
-            guard let entry = parse(url, date: date) else { continue }
+        for (url, date, source) in files.prefix(limit * 2) {
+            guard let entry = parse(url, date: date, source: source) else { continue }
             out.append(entry)
             if out.count == limit { break }
         }
         return out
     }
 
-    /// cwd + first user message from the head of a transcript.
-    private static func parse(_ url: URL, date: Date) -> ResumeEntry? {
+    private static func mtime(_ url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+    }
+
+    /// Codex embeds the UUID after the timestamp in the filename:
+    /// rollout-2026-03-17T20-27-29-<uuid>.jsonl
+    private static func codexUUID(_ url: URL) -> String {
+        let name = url.deletingPathExtension().lastPathComponent
+        // last 5 dash-groups form the UUID
+        let parts = name.split(separator: "-")
+        return parts.count >= 5 ? parts.suffix(5).joined(separator: "-") : name
+    }
+
+    /// cwd + first user message from the head of a transcript (both schemas).
+    private static func parse(_ url: URL, date: Date, source: String) -> ResumeEntry? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         let head = handle.readData(ofLength: 32_768)
@@ -56,28 +73,32 @@ enum SessionHistory {
         for line in text.split(separator: "\n") {
             guard let data = line.data(using: .utf8),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
-            if cwd == nil { cwd = obj["cwd"] as? String }
+            if cwd == nil { cwd = obj["cwd"] as? String ?? (obj["payload"] as? [String: Any])?["cwd"] as? String }
             if task == nil {
-                let msg = (obj["message"] as? [String: Any]) ?? obj
+                let msg = (obj["message"] as? [String: Any]) ?? (obj["payload"] as? [String: Any]) ?? obj
                 let role = (msg["role"] as? String) ?? (obj["type"] as? String)
-                if role == "user", let content = msg["content"] as? String {
+                // Claude: content is a String; Codex: content can be an array of parts
+                var textContent: String?
+                if let c = msg["content"] as? String { textContent = c }
+                else if let parts = msg["content"] as? [[String: Any]] {
+                    textContent = parts.compactMap { $0["text"] as? String }.joined(separator: " ")
+                }
+                if role == "user", let content = textContent {
                     let clean = content.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !clean.isEmpty && !clean.hasPrefix("<") { task = String(clean.prefix(90)) }
                 }
             }
             if cwd != nil && task != nil { break }
         }
-        guard let cwd, let task else { return nil }
-        return ResumeEntry(id: url.deletingPathExtension().lastPathComponent,
-                            cwd: cwd, task: task, date: date)
+        guard let task else { return nil }
+        let id = source == "codex" ? codexUUID(url) : url.deletingPathExtension().lastPathComponent
+        return ResumeEntry(id: id, source: source, cwd: cwd ?? NSHomeDirectory(), task: task, date: date)
     }
 
-    /// Open a terminal at the session's cwd and resume it.
-    /// ponytail: Terminal.app via AppleScript — works everywhere; routing to the
-    /// user's preferred terminal (Ghostty/iTerm) via TerminalControl is backend's
-    /// promotion path.
+    /// Open a terminal at the session's cwd and resume it in the right agent.
     static func resume(_ entry: ResumeEntry) {
-        let cmd = "cd \(shellQuote(entry.cwd)) && claude --resume \(entry.id)"
+        let resumeCmd = entry.source == "codex" ? "codex resume \(entry.id)" : "claude --resume \(entry.id)"
+        let cmd = "cd \(shellQuote(entry.cwd)) && \(resumeCmd)"
         let script = """
         tell application "Terminal"
             activate
@@ -184,6 +205,7 @@ private struct HistoryRow: View {
                         .foregroundStyle(VNColor.text.opacity(0.92))
                         .lineLimit(1).truncationMode(.tail)
                     HStack(spacing: 5) {
+                        AgentIcon(source: entry.source, size: 11)
                         Text(entry.folder)
                             .font(VNFont.sysMono(10, .semibold))
                             .foregroundStyle(SessionGlyph.tint(entry.folder).opacity(0.9))
@@ -203,7 +225,7 @@ private struct HistoryRow: View {
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
             .strokeBorder(Color.white.opacity(hovering ? 0.1 : 0.04)))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
-        .help("\(entry.cwd)\nclaude --resume \(entry.id)")
+        .help("\(entry.cwd)\n\(entry.source == "codex" ? "codex resume" : "claude --resume") \(entry.id)")
     }
 }
 
