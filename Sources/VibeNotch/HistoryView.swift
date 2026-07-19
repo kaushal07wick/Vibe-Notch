@@ -20,32 +20,33 @@ enum SessionHistory {
     /// paused and could resume. Reads only the head of each transcript.
     static func load(limit: Int = 30) -> [ResumeEntry] {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        var files: [(url: URL, date: Date, source: String)] = []
 
         // Claude: ~/.claude/projects/<dir>/<uuid>.jsonl
+        var claude: [(URL, Date)] = []
         let claudeRoot = home.appendingPathComponent(".claude/projects")
         for dir in (try? FileManager.default.contentsOfDirectory(at: claudeRoot, includingPropertiesForKeys: nil)) ?? [] {
             for f in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] where f.pathExtension == "jsonl" {
-                files.append((f, mtime(f), "claude"))
+                claude.append((f, mtime(f)))
             }
         }
 
         // Codex: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl (recurse)
+        var codex: [(URL, Date)] = []
         let codexRoot = home.appendingPathComponent(".codex/sessions")
         if let en = FileManager.default.enumerator(at: codexRoot, includingPropertiesForKeys: [.contentModificationDateKey]) {
             for case let f as URL in en where f.lastPathComponent.hasPrefix("rollout-") && f.pathExtension == "jsonl" {
-                files.append((f, mtime(f), "codex"))
+                codex.append((f, mtime(f)))
             }
         }
 
-        files.sort { $0.date > $1.date }
-        var out: [ResumeEntry] = []
-        for (url, date, source) in files.prefix(limit * 2) {
-            guard let entry = parse(url, date: date, source: source) else { continue }
-            out.append(entry)
-            if out.count == limit { break }
+        // Parse the most-recent `limit` from EACH source, then merge — otherwise
+        // a flood of Claude sessions buries an older (but wanted) Codex one.
+        func recent(_ files: [(URL, Date)], _ source: String) -> [ResumeEntry] {
+            files.sorted { $0.1 > $1.1 }.prefix(limit)
+                .compactMap { parse($0.0, date: $0.1, source: source) }
         }
-        return out
+        return (recent(claude, "claude") + recent(codex, "codex"))
+            .sorted { $0.date > $1.date }
     }
 
     private static func mtime(_ url: URL) -> Date {
