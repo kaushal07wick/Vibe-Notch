@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Terminal jump, reply-from-notch and model switch drive iTerm/Terminal
+	     over Apple events. The hardened runtime that notarization requires
+	     blocks those outright without this entitlement — the app builds and
+	     signs fine, then every one of those features silently does nothing. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>

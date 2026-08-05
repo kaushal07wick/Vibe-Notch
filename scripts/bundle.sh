@@ -17,6 +17,10 @@ cp "$BIN/VibeNotch" "$APP/Contents/MacOS/VibeNotch"
 cp "$BIN/vibenotch-hook" "$APP/Contents/Helpers/vibenotch-hook"
 cp "$BIN/VibeNotchCLI" "$APP/Contents/Helpers/vibenotch"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+# CFBundleVersion must increase every build — it was hardcoded to 1, so macOS
+# and any updater saw every release as the same build.
+plutil -replace CFBundleVersion -string \
+  "$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null || true
 plutil -replace CFBundleIconFile -string AppIcon "$APP/Contents/Info.plist"

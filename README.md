@@ -36,7 +36,7 @@ you're already looking; one click (or `^A`) and the agent is moving again.
 | | |
 |---|---|
 | **Zero babysitting** | Cards pop the instant an agent needs you — and *only* when you're not already looking at its terminal. |
-| **Zero misclicks** | Dangerous commands (`rm -rf`, `sudo`, `curl \| sh`) demand **hold-to-approve**. Safe reads auto-approve silently. |
+| **Zero misclicks** | Dangerous commands (`rm -rf`, `sudo`, `curl \| sh`) are graded and flagged red before you click. Safe reads auto-approve silently. |
 | **Zero context loss** | Jump to the exact terminal tab, reply into the agent's pane, or `^C` a runaway command — from the notch. |
 | **Zero cloud** | Native Swift. Local socket. No accounts, no telemetry, no Electron. |
 
@@ -58,8 +58,8 @@ you're already looking; one click (or `^A`) and the agent is moving again.
 
 🔔 **Approve from the notch** — permission cards with the full command, its
 diff (for file edits), and Deny / Allow / Bypass. Dangerous commands
-(`rm -rf`, `sudo`, `curl | sh`…) require **hold-to-approve** — no reflexive
-misclicks.
+(`rm -rf`, `sudo`, `curl | sh`…) are graded **high risk** and the card turns
+red — you see what you're waving through.
 
 👀 **Live session board** — every agent session with its task, your last
 message, what it's running right now, a rolling console mirror, git branch,

@@ -18,6 +18,8 @@
 	<string>0.2.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Vibe Notch controls your terminal to jump to an agent's tab, type replies into its pane, and switch its model.</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
