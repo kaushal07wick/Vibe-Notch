@@ -238,6 +238,41 @@ extension CoreTests {
         XCTAssertTrue(ProcessAncestry.walk(from: Int32.max, limit: 8).isEmpty)
     }
 
+    /// Shortcut matching has to survive non-QWERTY layouts, stray modifier bits,
+    /// and keys that type nothing at all.
+    func testKeyBindingMatching() {
+        let ctrl = KeyBindingRules.control
+        // ⌃A recorded on QWERTY (keyCode 0) still fires on a layout where the
+        // physical key at 0 types something else — character wins.
+        XCTAssertTrue(KeyBindingRules.matches(
+            storedCharacters: "a", storedKeyCode: 0, storedModifiers: ctrl,
+            eventCharacters: "A", eventKeyCode: 12, eventModifiers: ctrl))
+        // Same physical key, different letter → not a match.
+        XCTAssertFalse(KeyBindingRules.matches(
+            storedCharacters: "a", storedKeyCode: 0, storedModifiers: ctrl,
+            eventCharacters: "q", eventKeyCode: 0, eventModifiers: ctrl))
+        // Non-printing keys (esc) fall back to the key code.
+        XCTAssertTrue(KeyBindingRules.matches(
+            storedCharacters: "", storedKeyCode: 53, storedModifiers: 0,
+            eventCharacters: "", eventKeyCode: 53, eventModifiers: 0))
+        // Modifiers must match exactly — ⌃⇧A is not ⌃A.
+        XCTAssertFalse(KeyBindingRules.matches(
+            storedCharacters: "a", storedKeyCode: 0, storedModifiers: ctrl,
+            eventCharacters: "a", eventKeyCode: 0, eventModifiers: ctrl | KeyBindingRules.shift))
+        // ...but caps lock / fn / numeric-pad bits outside the mask are ignored,
+        // or every shortcut would break with caps lock on.
+        XCTAssertTrue(KeyBindingRules.matches(
+            storedCharacters: "a", storedKeyCode: 0, storedModifiers: ctrl,
+            eventCharacters: "a", eventKeyCode: 0, eventModifiers: ctrl | (1 << 16)))
+
+        XCTAssertEqual(KeyBindingRules.display(keyCode: 0, characters: "a", modifiers: ctrl), "⌃A")
+        XCTAssertEqual(KeyBindingRules.display(keyCode: 53, characters: "", modifiers: 0), "esc")
+        XCTAssertEqual(
+            KeyBindingRules.display(keyCode: 40, characters: "k",
+                                    modifiers: KeyBindingRules.command | KeyBindingRules.shift),
+            "⇧⌘K")
+    }
+
     func testJumpPlanStrategies() {
         // tmux wins even inside iTerm, and targets the right socket + pane
         let tmux = JumpPlan.make(terminal: "iTerm", tty: "ttys001",

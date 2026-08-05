@@ -1,9 +1,9 @@
 import AppKit
+import VibeNotchCore
 
-/// Keyboard shortcuts: ^A approves the front permission card, ^G jumps to the
-/// active session's terminal. Local monitor always works (panel focused);
-/// the global monitor needs the user to grant Accessibility once.
-/// ponytail: ESC-collapse skipped — the notch already collapses on mouse-leave.
+/// Routes key events to `VNAction`s using the user's bindings (see Shortcuts).
+/// The local monitor always works while the panel is focused; the global one
+/// needs Accessibility granted once.
 @MainActor
 final class ShortcutMonitor {
     private var monitors: [Any] = []
@@ -22,22 +22,29 @@ final class ShortcutMonitor {
 
         let handle: (NSEvent) -> Bool = { [weak store] event in
             guard VNSettings.shortcutsEnabled else { return false } // master switch, mappings kept
-            if event.keyCode == 53 { collapse(); return true } // ESC
-            guard let store, event.modifierFlags.contains(.control) else { return false }
-            switch event.charactersIgnoringModifiers {
-            case "a":
-                guard let first = store.pending.first else { return false }
-                store.resolve(first, .allow)
-                return true
-            case "g":
-                let target = store.pending.first.map { ($0.inbound.terminal, $0.inbound.tty) }
-                    ?? store.activeSession.map { ($0.terminal, $0.tty) }
-                guard let target else { return false }
-                TerminalJumper.jump(terminal: target.0, tty: target.1)
-                return true
-            default:
-                return false
+            guard let action = VNShortcuts.action(for: event) else { return false }
+            if action == .collapse { collapse(); return true }
+            guard let store else { return false }
+
+            let decision: VNDecision?
+            switch action {
+            case .approve: decision = .allow
+            case .deny: decision = .deny
+            case .alwaysAllow: decision = .alwaysAllow
+            case .bypass: decision = .bypass
+            case .jump, .collapse: decision = nil
             }
+            if let decision {
+                guard let first = store.pending.first else { return false }
+                store.resolve(first, decision)
+                return true
+            }
+            // .jump — the card's terminal if one is waiting, else the live session's
+            let target = store.pending.first.map { ($0.inbound.terminal, $0.inbound.tty) }
+                ?? store.activeSession.map { ($0.terminal, $0.tty) }
+            guard let target else { return false }
+            TerminalJumper.jump(terminal: target.0, tty: target.1)
+            return true
         }
         if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { event in
             handle(event) ? nil : event

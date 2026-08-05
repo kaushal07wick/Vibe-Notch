@@ -566,14 +566,7 @@ private struct UsagePane: View {
 // MARK: - Shortcuts
 
 private struct ShortcutsPane: View {
-    /// Rebinding is Stage 2 — until then these are shown as the fixed keys they
-    /// are, rather than as controls that pretend to be editable.
-    private static let keys: [(String, String, String)] = [
-        ("Approve", "⌃A", "Allow the front permission card."),
-        ("Jump to terminal", "⌃G", "Focus the exact tab or pane the agent is in."),
-        ("Command palette", "⌘K", "Search sessions, resume history, approve all."),
-        ("Collapse panel", "esc", "Active only while the panel is expanded."),
-    ]
+    @State private var revision = 0
 
     var body: some View {
         SectionCard(title: "Global") {
@@ -584,16 +577,131 @@ private struct ShortcutsPane: View {
         }
 
         SectionCard(title: "Keys",
-                    footnote: "Fixed for now — rebinding is coming. ⌃G needs Accessibility permission to work outside the panel.") {
-            ForEach(Array(Self.keys.enumerated()), id: \.offset) { index, key in
-                SettingRow(label: key.0, caption: key.2,
-                           divider: index < Self.keys.count - 1) {
-                    Text(key.1)
-                        .font(VNFont.sysMono(11, .semibold))
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+                    footnote: "Click a shortcut to record a new one, ⌫ to clear, esc to cancel. Outside the panel these need Accessibility permission, granted once in System Settings › Privacy & Security.") {
+            ForEach(Array(VNAction.allCases.enumerated()), id: \.element.id) { index, action in
+                SettingRow(label: action.title, caption: action.caption,
+                           divider: index < VNAction.allCases.count - 1) {
+                    ShortcutField(action: action) { revision += 1 }
                 }
             }
+        }
+        .id(revision)
+
+        SectionCard(title: "Panel") {
+            SettingRow(label: "Command palette",
+                       caption: "Search sessions, resume history, approve all. Built into the panel — not rebindable.",
+                       divider: false) {
+                KeyCap(text: "⌘K")
+            }
+        }
+    }
+}
+
+private struct KeyCap: View {
+    let text: String
+    var muted = false
+    var body: some View {
+        Text(text)
+            .font(VNFont.sysMono(11, .semibold))
+            .foregroundStyle(muted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+    }
+}
+
+/// Click to arm, then the next key combination is captured. Refuses a
+/// combination another action already owns — silently shadowing an existing
+/// binding is how you get a shortcut that mysteriously stops working.
+private struct ShortcutField: View {
+    let action: VNAction
+    let changed: () -> Void
+
+    @State private var recording = false
+    @State private var conflict: VNAction?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let conflict {
+                Text("used by \(conflict.title)")
+                    .font(.caption).foregroundStyle(VNColor.stop)
+            }
+            Button {
+                recording.toggle()
+                conflict = nil
+            } label: {
+                if recording {
+                    KeyCap(text: "Recording…", muted: true)
+                } else if let shortcut = VNShortcuts.get(action) {
+                    KeyCap(text: shortcut.display)
+                } else {
+                    KeyCap(text: "unassigned", muted: true)
+                }
+            }
+            .buttonStyle(.plain)
+            .background(KeyRecorder(active: $recording, onKey: capture))
+
+            Button {
+                VNShortcuts.reset(action)
+                changed()
+            } label: {
+                Image(systemName: "arrow.counterclockwise").font(.system(size: 10))
+            }
+            .buttonStyle(.plain).foregroundStyle(.secondary)
+            .help("Reset to \(action.defaultShortcut.display)")
+        }
+    }
+
+    private func capture(_ event: NSEvent) {
+        if event.keyCode == 53 { recording = false; return }        // esc cancels
+        if event.keyCode == 51 {                                     // delete clears
+            VNShortcuts.set(nil, for: action)
+            recording = false
+            changed()
+            return
+        }
+        guard let shortcut = VNShortcut(event: event) else { return } // needs a modifier
+        if let owner = VNShortcuts.conflict(shortcut, excluding: action) {
+            conflict = owner
+            recording = false
+            return
+        }
+        VNShortcuts.set(shortcut, for: action)
+        recording = false
+        changed()
+    }
+}
+
+/// Swallows the next key event while armed. SwiftUI has no key-capture
+/// primitive, so this is an AppKit view that takes first responder on demand.
+private struct KeyRecorder: NSViewRepresentable {
+    @Binding var active: Bool
+    let onKey: (NSEvent) -> Void
+
+    func makeNSView(context: Context) -> CaptureView {
+        let view = CaptureView()
+        view.onKey = onKey
+        return view
+    }
+
+    func updateNSView(_ view: CaptureView, context: Context) {
+        view.onKey = onKey
+        if active, view.window?.firstResponder !== view {
+            view.window?.makeFirstResponder(view)
+        } else if !active, view.window?.firstResponder === view {
+            view.window?.makeFirstResponder(nil)
+        }
+    }
+
+    final class CaptureView: NSView {
+        var onKey: ((NSEvent) -> Void)?
+        override var acceptsFirstResponder: Bool { true }
+        override func keyDown(with event: NSEvent) { onKey?(event) }
+        /// Menu equivalents (⌘Q, ⌘W…) never reach keyDown — intercept them so
+        /// they can be recorded instead of quitting the app mid-capture.
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            guard window?.firstResponder === self else { return false }
+            onKey?(event)
+            return true
         }
     }
 }
