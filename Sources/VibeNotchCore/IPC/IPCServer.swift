@@ -86,9 +86,18 @@ public final class IPCServer: @unchecked Sendable {
             onRequest(id, msg) { reply in box.decide(reply); sem.signal() }
             // Watch the connection: if the hook dies/times out before a decision,
             // read() returns EOF/error → cancel so the card doesn't linger.
+            //
+            // The watcher gets its OWN dup of the connection. Sharing `fd` meant
+            // it could still be parked in read() when the `defer` below closed
+            // that number — the kernel then hands the same number to the next
+            // accept(), and the stale watcher eats a byte of an unrelated hook's
+            // JSON, silently dropping that request. Its own descriptor cannot be
+            // recycled out from under it; the client's close ends both.
+            let watchFD = dup(fd)
             queue.async {
                 var byte: UInt8 = 0
-                if read(fd, &byte, 1) <= 0 { box.cancel(); sem.signal() }
+                if read(watchFD, &byte, 1) <= 0 { box.cancel(); sem.signal() }
+                close(watchFD)
             }
             sem.wait()
             if box.isCancelled { onCancel(id); return }

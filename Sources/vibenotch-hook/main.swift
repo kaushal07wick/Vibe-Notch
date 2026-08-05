@@ -192,6 +192,15 @@ if event == "PermissionRequest" {
         // or no decision — the agent's own prompt takes over either way.
         let line = "\(ISO8601DateFormatter().string(from: Date())) source=\(source) tool=\(tool ?? "?") sid=\(sessionId ?? "?")\n"
         let log = VNPaths.data.appendingPathComponent("missed-permissions.log")
+        // Cap it. With the app not running, EVERY permission request logs a miss:
+        // this file was found at 214KB / 2487 lines on a machine whose app had
+        // been quit for two weeks. It is a diagnostic tail, not an archive.
+        if let size = try? FileManager.default.attributesOfItem(atPath: log.path)[.size] as? Int,
+           size > 256_000,
+           let text = try? String(contentsOf: log, encoding: .utf8) {
+            let kept = text.components(separatedBy: "\n").suffix(500).joined(separator: "\n")
+            try? kept.write(to: log, atomically: true, encoding: .utf8)
+        }
         if let handle = try? FileHandle(forWritingTo: log) {
             _ = try? handle.seekToEnd(); try? handle.write(contentsOf: Data(line.utf8)); try? handle.close()
         } else {

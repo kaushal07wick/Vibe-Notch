@@ -162,9 +162,15 @@ public struct InjectionPlan: Equatable, Sendable {
         }
         guard let tty else { return plan }
         let device = tty.hasPrefix("/dev/") ? tty : "/dev/\(tty)"
+        // AppleScript string literals cannot span lines: an unescaped newline is a
+        // compile error, so multi-line replies silently did nothing. Backslash
+        // first, or it would double-escape the escapes we add after it.
         let escaped = text
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r\n", with: "\\n")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\n")
         switch terminal {
         case "iTerm":
             plan.appleScript = """

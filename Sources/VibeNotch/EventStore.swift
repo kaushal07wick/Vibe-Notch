@@ -247,7 +247,7 @@ final class EventStore: ObservableObject {
     }
 
     /// Apply side effects and actually answer the agent.
-    private func commit(_ approval: PendingApproval, _ decision: VNDecision) {
+    private func commit(_ approval: PendingApproval, _ decision: VNDecision, answers: [String]? = nil) {
         let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         switch decision {
         case .alwaysAllow where approval.inbound.host != nil || !policy.alwaysAllow:
@@ -263,7 +263,7 @@ final class EventStore: ObservableObject {
         default:
             break
         }
-        approval.reply(VNReply(decision: decision))
+        approval.reply(VNReply(decision: decision, answers: answers))
         StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
         UserHooks.fire("approval", ["decision": decision.rawValue,
                                     "tool": approval.inbound.tool ?? "",
@@ -287,9 +287,13 @@ final class EventStore: ObservableObject {
     }
 
     /// Answer an AskUserQuestion card: one selected option label per question.
+    /// Answering is a decision like any other — it went around `commit`, so it
+    /// never counted in the stats, never fired the user's `on-approval` hook,
+    /// and left `escalated` stuck on after clearing the last card.
     func answer(_ approval: PendingApproval, answers: [String]) {
-        approval.reply(VNReply(decision: .allow, answers: answers))
         pending.removeAll { $0.id == approval.id }
+        if pending.isEmpty { escalated = false }
+        commit(approval, .allow, answers: answers)
     }
 
     /// Fold a hook event into the session's current activity.
@@ -299,12 +303,28 @@ final class EventStore: ObservableObject {
         // The session made progress while an approval card was still up →
         // the user answered in the terminal. The card is stale: drop it so the
         // panel collapses, and don't wait on the (possibly dead) hook socket.
-        if ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop", "StopFailure",
-            "UserPromptSubmit", "Notification"].contains(i.event) {
-            for stale in pending where stale.inbound.sessionId == sid {
+        //
+        // Only cards this event actually invalidates. Dropping every card for
+        // the session killed live siblings: Claude runs tools in parallel, so
+        // tool B's PreToolUse would cancel tool A's card while A was still
+        // genuinely waiting on the user.
+        // PreToolUse is deliberately NOT a trigger: it is the one event that
+        // routinely arrives *alongside* a live card rather than after it. The
+        // hook's socket closing (onCancel) is the real terminal-answer signal;
+        // this is only the belt-and-braces path.
+        // ponytail: matched on tool name — the payloads carry no tool_use_id, so
+        // two concurrent calls to the SAME tool still can't be told apart. Match
+        // on the id instead if the agents ever start sending one.
+        let turnMoved = ["Stop", "StopFailure", "UserPromptSubmit", "Notification"].contains(i.event)
+        let ranThisTool = ["PostToolUse", "PostToolUseFailure"].contains(i.event)
+        if turnMoved || ranThisTool {
+            let isStale: (PendingApproval) -> Bool = { card in
+                card.inbound.sessionId == sid && (turnMoved || card.inbound.tool == i.tool)
+            }
+            for stale in pending where isStale(stale) {
                 stale.reply(VNReply(decision: .ask)) // no-output defer if the hook still lives
             }
-            pending.removeAll { $0.inbound.sessionId == sid }
+            pending.removeAll(where: isStale)
             if pending.isEmpty { escalated = false }
         }
 
@@ -391,13 +411,10 @@ final class EventStore: ObservableObject {
         let folder = (approval.inbound.cwd as NSString?)?.lastPathComponent ?? "agent"
         request.httpBody = Data("\(folder): \(approval.inbound.tool ?? "permission") awaiting approval".utf8)
         request.setValue("Vibe Notch", forHTTPHeaderField: "Title")
-        let port = VNSettings.dashboardPort
-        if port > 0 {
-            let host = ProcessInfo.processInfo.hostName
-            request.setValue(
-                "http, Approve, http://\(host):\(port)/approve; http, Deny, http://\(host):\(port)/deny",
-                forHTTPHeaderField: "Actions")
-        }
+        // No Approve/Deny action buttons: they pointed at http://<hostname>:<port>,
+        // but the dashboard binds 127.0.0.1 only, so a phone could never reach
+        // them — every tap failed silently. Approving remotely means exposing the
+        // approve endpoint off-loopback, which local-first deliberately doesn't do.
         URLSession.shared.dataTask(with: request).resume()
     }
 

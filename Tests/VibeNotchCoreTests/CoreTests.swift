@@ -275,6 +275,25 @@ extension CoreTests {
                                          meta: ["WEZTERM_PANE": "4"], text: "ok").commands.first?.contains("send-text") == true)
     }
 
+    /// A newline used to land raw inside an AppleScript string literal, which is
+    /// a compile error — so multi-line replies silently did nothing on
+    /// iTerm/Terminal. Every line break must survive as an escape.
+    func testMultiLineReplyStaysOnOneAppleScriptLine() {
+        for terminal in ["iTerm", "Terminal"] {
+            let plan = InjectionPlan.make(terminal: terminal, tty: "ttys002", meta: [:],
+                                          text: "first line\nsecond\r\nthird\rfourth")
+            let script = try! XCTUnwrap(plan.appleScript)
+            let literal = try! XCTUnwrap(script.components(separatedBy: "\"").dropFirst().first)
+            XCTAssertFalse(literal.contains("\n"), "\(terminal): raw newline in the literal")
+            XCTAssertFalse(literal.contains("\r"), "\(terminal): raw carriage return in the literal")
+            XCTAssertEqual(script.components(separatedBy: "\\n").count - 1, 3)  // \r\n is ONE break
+        }
+        // Backslashes still escape before the newline substitution adds its own.
+        let backslash = InjectionPlan.make(terminal: "iTerm", tty: "ttys002", meta: [:],
+                                           text: #"a\b"#).appleScript
+        XCTAssertTrue(backslash?.contains(#"write text "a\\b""#) == true)
+    }
+
     func testForegroundPGIDParsing() {
         XCTAssertEqual(ProcessGroup.foregroundPGID(fromPS: "  4712\n 4712\n"), 4712)
         XCTAssertNil(ProcessGroup.foregroundPGID(fromPS: "\n0\n"))

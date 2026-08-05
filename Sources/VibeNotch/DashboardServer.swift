@@ -29,6 +29,9 @@ final class DashboardServer {
         }
         listener.start(queue: .main)
         self.listener = listener
+        // The token only exists in this process — log it so `curl` scripting
+        // against /approve is possible without digging it out of memory.
+        NSLog("VibeNotch: dashboard on \(authorizedURL)")
     }
 
     func stop() {
@@ -36,18 +39,43 @@ final class DashboardServer {
         listener = nil
     }
 
+    /// Per-launch secret. Binding to loopback is not access control: any page in
+    /// any browser on this Mac can fire `<img src="http://127.0.0.1:4141/approve">`
+    /// and approve whatever an agent is asking for. State-changing paths need the
+    /// token; the read-only page and /state.json stay open so the dashboard works
+    /// by just typing the address.
+    private let token = UUID().uuidString
+
+    /// The dashboard URL to hand a human — carries the token so its buttons work.
+    var authorizedURL: String { "http://127.0.0.1:\(VNSettings.dashboardPort)/?t=\(token)" }
+
+    private func query(_ path: String, _ key: String) -> String? {
+        guard let q = path.split(separator: "?").dropFirst().first else { return nil }
+        for pair in q.split(separator: "&") where pair.hasPrefix("\(key)=") {
+            return String(pair.dropFirst(key.count + 1))
+        }
+        return nil
+    }
+
     private func respond(_ connection: NWConnection, request: String) {
         let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+        let route = path.split(separator: "?").first.map(String.init) ?? "/"
+        var status = "200 OK"
         let (body, type): (String, String)
-        if path.hasPrefix("/state") {
+        if route.hasPrefix("/state") {
             (body, type) = (stateProvider(), "application/json")
-        } else if ["/approve", "/deny", "/approve_all", "/undo"].contains(where: path.hasPrefix) {
-            (body, type) = (actionHandler(String(path.dropFirst())), "application/json")
+        } else if ["/approve", "/deny", "/approve_all", "/undo"].contains(route) {
+            if query(path, "t") == token {
+                (body, type) = (actionHandler(String(route.dropFirst())), "application/json")
+            } else {
+                status = "403 Forbidden"
+                (body, type) = (#"{"ok":false,"error":"bad or missing token"}"#, "application/json")
+            }
         } else {
             (body, type) = (Self.page, "text/html; charset=utf-8")
         }
         let response = """
-        HTTP/1.1 200 OK\r
+        HTTP/1.1 \(status)\r
         Content-Type: \(type)\r
         Content-Length: \(body.utf8.count)\r
         Connection: close\r
@@ -59,7 +87,8 @@ final class DashboardServer {
         })
     }
 
-    /// One self-contained page; polls /state.json every 2s.
+    /// One self-contained page; polls /state.json every 2s. Read-only — the
+    /// state-changing routes are token-gated and reached from the ntfy actions.
     static let page = """
     <!doctype html><meta charset="utf-8"><title>Vibe Notch</title>
     <style>
