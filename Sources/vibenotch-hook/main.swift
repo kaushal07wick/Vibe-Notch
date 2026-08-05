@@ -170,6 +170,8 @@ func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String
 
 if event == "PermissionRequest" {
     let transcript = Transcript(obj["transcript_path"] as? String)
+    let permGit = gitInfo(cwd)   // one `git status`, not two — this blocks the card
+
     let msg = VNInbound(type: .request, source: source, event: event,
                         title: oneLine(userText(transcript, first: true)), tool: tool, detail: summarize(toolInput),
                         commandDescription: toolInput?["description"] as? String,
@@ -182,7 +184,7 @@ if event == "PermissionRequest" {
                         cwd: cwd, terminal: terminal, tty: ttyName(),
                         termMeta: termMeta.isEmpty ? nil : termMeta,
                         model: lastAssistantModel(transcript),
-                        gitBranch: gitInfo(cwd).branch, gitDirty: gitInfo(cwd).dirty,
+                        gitBranch: permGit.branch, gitDirty: permGit.dirty,
                         sessionId: sessionId)
     let reply = IPCClient.send(msg)
     if reply == nil, ProcessInfo.processInfo.environment["VIBENOTCH_SOCKET"] == nil {

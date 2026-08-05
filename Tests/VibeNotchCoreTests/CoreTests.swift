@@ -218,6 +218,26 @@ extension CoreTests {
         XCTAssertNil(TerminalDetector.nameFromProcessList(["zsh", "login"]))
     }
 
+    /// The kernel walk replaced up to 14 `ps` spawns per hook event. Verified
+    /// against this very process: real pids, a real chain, real paths.
+    func testProcessAncestryWalksRealProcessTree() {
+        let chain = ProcessAncestry.walk(from: getpid(), limit: 8)
+        XCTAssertFalse(chain.isEmpty)
+        XCTAssertEqual(chain[0].pid, getpid())
+        XCTAssertEqual(chain[0].ppid, getppid())
+        // Our own executable path must be a real, readable file.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: chain[0].path), chain[0].path)
+        // Strictly ascending walk: each step is the previous step's parent.
+        for (child, parent) in zip(chain, chain.dropFirst()) {
+            XCTAssertEqual(child.ppid, parent.pid)
+        }
+        // A tty, when present, must look like one (not a raw dev number).
+        for entry in chain { if let tty = entry.tty { XCTAssertTrue(tty.hasPrefix("tty"), tty) } }
+        // Bounds hold, and a pid that cannot exist ends the walk instead of looping.
+        XCTAssertLessThanOrEqual(ProcessAncestry.walk(from: getpid(), limit: 2).count, 2)
+        XCTAssertTrue(ProcessAncestry.walk(from: Int32.max, limit: 8).isEmpty)
+    }
+
     func testJumpPlanStrategies() {
         // tmux wins even inside iTerm, and targets the right socket + pane
         let tmux = JumpPlan.make(terminal: "iTerm", tty: "ttys001",

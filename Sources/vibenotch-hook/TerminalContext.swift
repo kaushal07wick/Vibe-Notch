@@ -3,20 +3,13 @@ import VibeNotchCore
 
 // Which terminal/tty is this agent in?
 
-/// The controlling terminal (e.g. "ttys014") — walk up the process tree until
-/// a process with a tty is found. Enables exact-tab jump.
+/// Our ancestor chain, read once from the kernel. Both the tty lookup and the
+/// terminal-name fallback used to walk it with their own `ps` spawns.
+private let ancestry = ProcessAncestry.walk(from: getppid(), limit: 8)
+
+/// The controlling terminal (e.g. "ttys014") — nearest ancestor that has one.
 func ttyName() -> String? {
-    var pid = getppid()
-    for _ in 0..<6 {
-        guard pid > 1 else { break }
-        let out = shell("/bin/ps", ["-p", "\(pid)", "-o", "tty=,ppid="])
-        guard let out else { break }
-        let parts = out.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
-        guard parts.count >= 2 else { break }
-        if parts[0] != "??" { return parts[0] }
-        pid = Int32(parts[1]) ?? 1
-    }
-    return nil
+    ancestry.prefix(6).compactMap(\.tty).first
 }
 
 func shell(_ path: String, _ args: [String]) -> String? {
@@ -37,14 +30,5 @@ func shell(_ path: String, _ args: [String]) -> String? {
 func detectTerminal() -> (name: String?, meta: [String: String]) {
     let detected = TerminalDetector.detect(env: ProcessInfo.processInfo.environment)
     if detected.name != nil { return detected }
-    var ancestors: [String] = []
-    var pid = getppid()
-    for _ in 0..<8 {
-        guard pid > 1, let out = shell("/bin/ps", ["-p", "\(pid)", "-o", "comm=,ppid="]) else { break }
-        let parts = out.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
-        guard parts.count >= 2 else { break }
-        ancestors.append(parts.dropLast().joined(separator: " "))
-        pid = Int32(parts.last ?? "") ?? 1
-    }
-    return (TerminalDetector.nameFromProcessList(ancestors), detected.meta)
+    return (TerminalDetector.nameFromProcessList(ancestry.map(\.path)), detected.meta)
 }
