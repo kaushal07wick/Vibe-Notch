@@ -10,6 +10,15 @@ public enum StatusLineInstaller {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
     }
 
+    /// True when Claude's status line already routes through our bridge.
+    public static var isInstalled: Bool {
+        guard let data = try? Data(contentsOf: settingsURL),
+              let settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let command = (settings["statusLine"] as? [String: Any])?["command"] as? String
+        else { return false }
+        return command.contains(marker)
+    }
+
     public static func installIfNeeded() {
         guard let data = try? Data(contentsOf: settingsURL),
               var settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]

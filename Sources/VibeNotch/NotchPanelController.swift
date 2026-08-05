@@ -53,13 +53,25 @@ final class NotchPanelController {
     /// The underlying panel (labs lock-screen attach).
     var panelWindow: NSWindow? { notch.windowController?.window }
 
+    /// The screen the notch lives on. DynamicNotchKit defaults every call to
+    /// `NSScreen.screens[0]`, which strands the notch on the built-in display
+    /// for anyone working on an external monitor. Falls back to the main screen
+    /// when the chosen display is unplugged.
+    private var targetScreen: NSScreen {
+        let wanted = VNSettings.notchDisplayID
+        guard !wanted.isEmpty,
+              let match = NSScreen.screens.first(where: { $0.vnDisplayID == wanted })
+        else { return NSScreen.main ?? NSScreen.screens[0] }
+        return match
+    }
+
     func show() {
-        Task { await notch.compact() }
+        Task { await notch.compact(on: targetScreen) }
         expanded = false
     }
 
     func toggle() {
-        Task { await notch.expand() }
+        Task { await notch.expand(on: targetScreen) }
     }
 
     private func refresh() {
@@ -72,7 +84,7 @@ final class NotchPanelController {
             lastPendingCount = 0
             needsHoverExit = true
             expanded = false
-            Task { await notch.compact() }
+            Task { await notch.compact(on: targetScreen) }
             return
         }
         lastPendingCount = store.pending.count
@@ -110,7 +122,7 @@ final class NotchPanelController {
         // Coming back from hidden (auto-hide) — always re-show.
         if expanded == nil {
             expanded = want
-            Task { if want { await notch.expand() } else { await notch.compact() } }
+            Task { if want { await notch.expand(on: targetScreen) } else { await notch.compact(on: targetScreen) } }
             return
         }
 
@@ -118,12 +130,12 @@ final class NotchPanelController {
         expanded = want
         Task {
             if want {
-                await notch.expand()
+                await notch.expand(on: targetScreen)
                 // NOTE: no makeKey — stealing key focus hijacked the user's typing
                 // whenever a card popped. ^A/^G/^D are global monitors and buttons
                 // take the first click without key status.
             } else {
-                await notch.compact()
+                await notch.compact(on: targetScreen)
             }
         }
         scheduleDwell(hasPending: hasPending, want: want)
@@ -134,11 +146,11 @@ final class NotchPanelController {
         dwellTask?.cancel()
         guard want, !hasPending else { return }
         dwellTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(VNSettings.dwellSeconds))
             guard !Task.isCancelled, let self, self.store.pending.isEmpty else { return }
             self.needsHoverExit = true
             self.expanded = false
-            await self.notch.compact()
+            await self.notch.compact(on: self.targetScreen)
         }
     }
 
@@ -147,7 +159,18 @@ final class NotchPanelController {
         dwellTask?.cancel()
         needsHoverExit = true
         expanded = false
-        Task { await notch.compact() }
+        Task { await notch.compact(on: targetScreen) }
+    }
+}
+
+extension NSScreen {
+    /// Stable identity for the Display picker. `localizedName` changes with the
+    /// system language and repeats across identical monitors; the CGDirectDisplayID
+    /// survives both.
+    var vnDisplayID: String {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        guard let number = deviceDescription[key] as? NSNumber else { return localizedName }
+        return number.stringValue
     }
 }
 

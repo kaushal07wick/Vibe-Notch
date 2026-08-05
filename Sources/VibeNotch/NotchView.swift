@@ -10,6 +10,7 @@ struct ExpandedContent: View {
     @ObservedObject var usage: UsageModel
 
     @AppStorage("soundEnabled") private var soundOn = true
+    @AppStorage("showUsageLimits") private var showUsage = true
     @State private var showHistory = false
     @State private var showPalette = false
     @State private var history: [ResumeEntry] = []
@@ -18,7 +19,7 @@ struct ExpandedContent: View {
         VStack(spacing: 0) {
             // stats header — usage left, history + mute + settings right (VI layout)
             HStack(spacing: 12) {
-                if !usage.providers.isEmpty {
+                if showUsage && !usage.providers.isEmpty {
                     UsageChips(providers: usage.providers)
                 }
                 Spacer(minLength: 8)

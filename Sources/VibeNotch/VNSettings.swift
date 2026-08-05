@@ -106,6 +106,45 @@ enum VNSettings {
         set { d.set(newValue, forKey: "lockScreenNotch") }
     }
 
+    // MARK: Integrations
+
+    /// Wire newly detected agents automatically on launch. Off means the app
+    /// never touches an agent config you didn't connect yourself.
+    static var autoConfigureAgents: Bool {
+        get { d.object(forKey: "autoConfigureAgents") as? Bool ?? true }
+        set { d.set(newValue, forKey: "autoConfigureAgents") }
+    }
+
+    // MARK: Display
+
+    /// Which screen owns the notch. Empty = the main display.
+    static var notchDisplayID: String {
+        get { d.string(forKey: "notchDisplayID") ?? "" }
+        set { d.set(newValue, forKey: "notchDisplayID") }
+    }
+
+    /// How long a hover-only expansion stays open before collapsing itself.
+    static var dwellSeconds: Double {
+        get { let v = d.double(forKey: "dwellSeconds"); return v <= 0 ? 5 : v }
+        set { d.set(newValue, forKey: "dwellSeconds") }
+    }
+
+    // MARK: Shortcuts
+
+    /// Master switch for every keyboard shortcut, mappings kept.
+    static var shortcutsEnabled: Bool {
+        get { d.object(forKey: "shortcutsEnabled") as? Bool ?? true }
+        set { d.set(newValue, forKey: "shortcutsEnabled") }
+    }
+
+    // MARK: Usage
+
+    /// Show the provider usage chips in the expanded panel header.
+    static var showUsageLimits: Bool {
+        get { d.object(forKey: "showUsageLimits") as? Bool ?? true }
+        set { d.set(newValue, forKey: "showUsageLimits") }
+    }
+
     // MARK: Launch at login (SMAppService)
 
     static var launchAtLogin: Bool {

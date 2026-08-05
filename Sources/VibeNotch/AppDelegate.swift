@@ -4,6 +4,10 @@ import VibeNotchCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The Settings panes act on live app state (tunnels, dashboard, lock-screen
+    /// space) and SwiftUI has no scene to inherit it from — this is the seam.
+    private(set) static var shared: AppDelegate?
+
     var statusItem: NSStatusItem!
     let store = EventStore()
     let usage = UsageModel()
@@ -17,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var lockSpace: LockScreenSpace?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Self.shared = self
+
         // Single instance across bundle paths (.build dev copy vs /Applications):
         // the newest launch wins — older copies are zombie panels holding no socket.
         let me = NSRunningApplication.current
@@ -102,7 +108,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let installer = AgentHookInstaller(spec)
             if installer.isConnected {
                 installer.reconcile()
-            } else {
+            } else if VNSettings.autoConfigureAgents {
+                // Opt-out: writing into an agent's settings.json without asking
+                // is a surprise on someone else's machine.
                 do { try installer.connect(hookBinarySource: hookBinary) }
                 catch { NSLog("VibeNotch: could not connect \(spec.name): \(error)") }
             }

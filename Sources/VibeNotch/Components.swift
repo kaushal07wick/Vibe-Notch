@@ -200,44 +200,41 @@ struct AgentIcon: View {
 
 /// Radar sweep — a fat rotating wedge on a 7×7 grid. No walls: just a bright
 /// dish and a solid beam slice with fading ghosts. Owl-eye amber.
+/// Dual-ring loader: two rounded arcs counter-rotating at different radii,
+/// with a soft glow. Smooth (60fps), not pixel-stepped.
 struct PixelRingSpinner: View {
     var color: Color
-    var px: CGFloat = 1.7
+    var px: CGFloat = 1.7          // kept for call-site compatibility; scales size
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 8 wedges — a chunky 5-cell slice per direction (dish excluded).
-    private static let wedges: [[(Int, Int)]] = [
-        [(3, 2), (3, 1), (3, 0), (2, 1), (4, 1)],          // N
-        [(4, 2), (5, 1), (4, 1), (5, 2), (6, 0)],          // NE
-        [(4, 3), (5, 3), (6, 3), (5, 2), (5, 4)],          // E
-        [(4, 4), (5, 5), (5, 4), (4, 5), (6, 6)],          // SE
-        [(3, 4), (3, 5), (3, 6), (2, 5), (4, 5)],          // S
-        [(2, 4), (1, 5), (2, 5), (1, 4), (0, 6)],          // SW
-        [(2, 3), (1, 3), (0, 3), (1, 2), (1, 4)],          // W
-        [(2, 2), (1, 1), (2, 1), (1, 2), (0, 0)],          // NW
-    ]
+    private var side: CGFloat { max(15, px * 8) }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.11)) { ctx in
-            Canvas { c, _ in
-                func put(_ x: Int, _ y: Int, _ alpha: Double) {
-                    c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
-                                       width: px, height: px)),
-                           with: .color(color.opacity(alpha)))
-                }
-                put(3, 3, active ? 1.0 : 0.4) // dish
-                if active && !reduceMotion {
-                    let i = Int(ctx.date.timeIntervalSinceReferenceDate / 0.11) % 8
-                    for (x, y) in Self.wedges[i] { put(x, y, 0.95) }
-                    for (x, y) in Self.wedges[(i + 7) % 8] { put(x, y, 0.4) }
-                    for (x, y) in Self.wedges[(i + 6) % 8] { put(x, y, 0.16) }
-                } else {
-                    for (x, y) in [(3, 1), (5, 3), (3, 5), (1, 3)] { put(x, y, 0.2) }
-                }
+        TimelineView(.animation(paused: !active || reduceMotion)) { timeline in
+            Canvas { ctx, size in
+                let s = min(size.width, size.height)
+                let c = CGPoint(x: size.width / 2, y: size.height / 2)
+                let t = active && !reduceMotion ? timeline.date.timeIntervalSinceReferenceDate : 0
+                ctx.addFilter(.shadow(color: color.opacity(0.55), radius: s * 0.09))
+
+                arc(ctx, c, radius: s * 0.34, from: t * 1.79, sweep: 0.62,
+                    width: max(1.6, s * 0.11), color: color.opacity(active ? 1 : 0.4))
+                arc(ctx, c, radius: s * 0.19, from: -t * 2.38, sweep: 0.50,
+                    width: max(1.6, s * 0.11), color: color.opacity(active ? 0.55 : 0.25))
             }
-            .frame(width: 7 * px, height: 7 * px)
+            .frame(width: side, height: side)
         }
+    }
+
+    private func arc(_ ctx: GraphicsContext, _ c: CGPoint, radius: CGFloat,
+                     from start: Double, sweep: Double, width: CGFloat, color: Color) {
+        var path = Path()
+        path.addArc(center: c, radius: radius,
+                    startAngle: .radians(start),
+                    endAngle: .radians(start + .pi * 2 * sweep), clockwise: false)
+        ctx.stroke(path, with: .color(color),
+                   style: StrokeStyle(lineWidth: width, lineCap: .round))
     }
 }
 

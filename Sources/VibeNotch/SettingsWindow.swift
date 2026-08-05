@@ -2,9 +2,12 @@ import AppKit
 import SwiftUI
 import VibeNotchCore
 
-/// The Settings window — VI-style warm dark panel: sidebar + panes, every
-/// backend toggle bound to VNSettings. Presented in a plain titled window
-/// (the app has no SwiftUI App scene); content is pure SwiftUI.
+/// The Settings window. Sidebar + panes, grouped into Setup / Advanced / app,
+/// mirroring where people expect each control to live.
+///
+/// House style, not System Settings': flat tinted tiles with a hairline and a
+/// tight 5pt radius (Apple's are glossy gradient squares), mono section
+/// headers, and our warm-paper-on-ink palette throughout.
 @MainActor
 enum SettingsWindow {
     private static var window: NSWindow?
@@ -16,7 +19,7 @@ enum SettingsWindow {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 440),
+            contentRect: NSRect(x: 0, y: 0, width: 740, height: 580),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
@@ -32,120 +35,212 @@ enum SettingsWindow {
     }
 }
 
-private enum Pane: String, CaseIterable {
+// MARK: - Panes
+
+private enum Pane: String, CaseIterable, Identifiable {
     case general = "General"
-    case sound = "Sound"
+    case integrations = "Integrations"
     case notifications = "Notifications"
-    case privacy = "Privacy"
+    case display = "Display"
+    case sound = "Sound"
+    case usage = "Usage"
+    case shortcuts = "Shortcuts"
+    case ssh = "SSH Remote"
     case labs = "Labs"
+    case about = "About"
+
+    var id: String { rawValue }
+
+    /// Sidebar grouping — matches how often you actually reach for each.
+    static let setup: [Pane] = [.general, .integrations, .notifications, .display, .sound, .usage]
+    static let advanced: [Pane] = [.shortcuts, .ssh, .labs]
+    static let app: [Pane] = [.about]
 
     var icon: String {
         switch self {
         case .general: "gearshape.fill"
+        case .integrations: "puzzlepiece.extension.fill"
+        case .notifications: "bell.fill"
+        case .display: "macbook"
         case .sound: "speaker.wave.2.fill"
-        case .notifications: "bell.badge.fill"
-        case .privacy: "lock.shield.fill"
+        case .usage: "gauge.medium"
+        case .shortcuts: "keyboard.fill"
+        case .ssh: "network"
         case .labs: "flask.fill"
+        case .about: "info.circle.fill"
         }
     }
 
-    var iconColor: Color {
+    /// Our palette, not Apple's system colors.
+    var tint: Color {
         switch self {
-        case .general: Color(hex: 0x8E8E93)        // system gray
-        case .sound: Color(hex: 0xFF2D55)          // system pink/red
-        case .notifications: Color(hex: 0xFF9500)  // system orange
-        case .privacy: Color(hex: 0x007AFF)        // system blue
-        case .labs: Color(hex: 0xAF52DE)           // system purple
+        case .general: VNColor.paper.opacity(0.55)
+        case .integrations: VNColor.invader
+        case .notifications: VNColor.stop
+        case .display: VNColor.running
+        case .sound: VNColor.go
+        case .usage: VNColor.amber
+        case .shortcuts: VNColor.agent("cursor")
+        case .ssh: VNColor.agent("codex")
+        case .labs: VNColor.agent("qoder")
+        case .about: VNColor.agent("claude")
         }
     }
 
     var blurb: String {
         switch self {
-        case .general: "Startup, visibility, and how decisions commit."
-        case .sound: "Alert chimes for permissions, waits, and finishes."
-        case .notifications: "Escalation when a request sits unanswered — on this Mac or your phone."
-        case .privacy: "What auto-approves, what stays quiet, and per-project trust."
+        case .general: "Startup, visibility, and which permissions reach the notch."
+        case .integrations: "Which coding agents send their events here."
+        case .notifications: "Chasing you when something waits — and when to stay quiet."
+        case .display: "Which screen the notch lives on, and how long it stays open."
+        case .sound: "Alert tones for permissions, waits, and finishes."
+        case .usage: "Plan limits in the panel header, read from local files."
+        case .shortcuts: "Keys for approving, jumping, and dismissing."
+        case .ssh: "Agents running on other machines, over an SSH tunnel."
         case .labs: "Experiments: web dashboard, lock-screen notch, the CLI."
+        case .about: "Version, links, and removing Vibe Notch cleanly."
         }
     }
 }
 
-/// The big icon + description card at the top of each pane (System Settings style).
-private struct PaneHeader: View {
-    let pane: Pane
-    var body: some View {
-        Section {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: pane.icon)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(pane.iconColor.gradient, in: RoundedRectangle(cornerRadius: 8))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(pane.rawValue).font(.headline)
-                    Text(pane.blurb).font(.callout).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.vertical, 2)
-        }
-    }
-}
+// MARK: - Shell
 
 private struct SettingsRoot: View {
     @State private var selected: Pane = .general
 
     var body: some View {
-        // System Settings look: sidebar of categories, grouped form detail
         NavigationSplitView {
-            List(Pane.allCases, id: \.self, selection: Binding(get: { selected }, set: { selected = $0 ?? .general })) { p in
-                Label {
-                    Text(p.rawValue)
-                } icon: {
-                    Image(systemName: p.icon)
-                        .foregroundStyle(.white)
-                        .frame(width: 20, height: 20)
-                        .background(p.iconColor, in: RoundedRectangle(cornerRadius: 5))
-                }
+            List(selection: Binding(get: { selected }, set: { selected = $0 ?? .general })) {
+                ForEach(Pane.setup) { SidebarRow(pane: $0) }
+                Section("Advanced") { ForEach(Pane.advanced) { SidebarRow(pane: $0) } }
+                Section("Vibe Notch") { ForEach(Pane.app) { SidebarRow(pane: $0) } }
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(190)
+            .navigationSplitViewColumnWidth(196)
             .toolbar(removing: .sidebarToggle)
         } detail: {
-            Form { pane(selected) }
-                .formStyle(.grouped)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    PaneHeader(pane: selected)
+                    pane(selected)
+                }
+                .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .frame(width: 660, height: 440)
+        .frame(width: 740, height: 580)
     }
 
     @ViewBuilder private func pane(_ p: Pane) -> some View {
-        PaneHeader(pane: p)
         switch p {
         case .general: GeneralPane()
-        case .sound: SoundPane()
+        case .integrations: IntegrationsPane()
         case .notifications: NotificationsPane()
-        case .privacy: PrivacyPane()
+        case .display: DisplayPane()
+        case .sound: SoundPane()
+        case .usage: UsagePane()
+        case .shortcuts: ShortcutsPane()
+        case .ssh: SSHPane()
         case .labs: LabsPane()
+        case .about: AboutPane()
         }
     }
 }
 
-// MARK: - Shared pane atoms
+private struct SidebarRow: View {
+    let pane: Pane
+    var body: some View {
+        Label { Text(pane.rawValue) } icon: { IconTile(pane: pane, size: 20) }
+            .tag(pane)
+    }
+}
 
+/// Flat tint fill + hairline + tight radius — deliberately not Apple's glossy
+/// gradient square, so the window reads as ours at a glance.
+private struct IconTile: View {
+    let pane: Pane
+    var size: CGFloat
 
+    var body: some View {
+        Image(systemName: pane.icon)
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(pane.tint)
+            .frame(width: size, height: size)
+            .background(pane.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: size * 0.25))
+            .overlay(
+                RoundedRectangle(cornerRadius: size * 0.25)
+                    .strokeBorder(pane.tint.opacity(0.34), lineWidth: 0.5)
+            )
+    }
+}
+
+private struct PaneHeader: View {
+    let pane: Pane
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            IconTile(pane: pane, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(pane.rawValue).font(.system(size: 17, weight: .semibold))
+                Text(pane.blurb).font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+// MARK: - Atoms
+
+/// A titled group of rows. Mono headers are the house voice.
+private struct SectionCard<Content: View>: View {
+    var title: String?
+    var footnote: String?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title.uppercased())
+                    .font(VNFont.sysMono(10, .semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.6)
+            }
+            VStack(spacing: 0) { content }
+                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
+                )
+            if let footnote {
+                Text(footnote).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
 
 private struct SettingRow<Content: View>: View {
     let label: String
     var caption: String?
+    var divider = true
     @ViewBuilder var control: Content
 
     var body: some View {
-        LabeledContent {
-            control
-        } label: {
-            Text(label)
-            if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).font(.system(size: 13))
+                    if let caption {
+                        Text(caption).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 12)
+                control
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            if divider { Divider().opacity(0.35).padding(.leading, 12) }
         }
     }
 }
@@ -159,140 +254,547 @@ private struct VNToggle: View {
     }
 }
 
-// MARK: - Panes
+/// Seconds field that commits on Enter *and* on focus loss — a value typed and
+/// abandoned used to be silently discarded.
+private struct SecondsField: View {
+    @State var value: Int
+    var width: CGFloat = 52
+    let write: (Int) -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.roundedBorder).frame(width: width)
+                .focused($focused)
+                .onSubmit { write(max(0, value)) }
+                .onChange(of: focused) { _, isFocused in if !isFocused { write(max(0, value)) } }
+            Text("sec").foregroundStyle(.secondary).font(.caption)
+        }
+    }
+}
+
+// MARK: - General
 
 private struct GeneralPane: View {
     var body: some View {
-        SettingRow(label: "Launch at login") {
-            VNToggle(isOn: VNSettings.launchAtLogin) { VNSettings.launchAtLogin = $0 }
+        SectionCard(title: "Startup") {
+            SettingRow(label: "Launch at login") {
+                VNToggle(isOn: VNSettings.launchAtLogin) { VNSettings.launchAtLogin = $0 }
+            }
+            SettingRow(label: "Auto-hide when idle",
+                       caption: "Disappear entirely when no agent is working — keeps the notch off fullscreen video.") {
+                VNToggle(isOn: VNSettings.autoHideWhenIdle) { VNSettings.autoHideWhenIdle = $0 }
+            }
+            SettingRow(label: "Smart suppression",
+                       caption: "Don't pop cards while the agent's own terminal is the app you're looking at.", divider: false) {
+                VNToggle(isOn: VNSettings.smartSuppression) { VNSettings.smartSuppression = $0 }
+            }
         }
-        SettingRow(label: "Auto-hide when idle",
-                   caption: "Disappear entirely when no agent sessions are active.") {
-            VNToggle(isOn: VNSettings.autoHideWhenIdle) { VNSettings.autoHideWhenIdle = $0 }
-        }
-        SettingRow(label: "Smart suppression",
-                   caption: "Don't pop approval cards while the agent's terminal is the app you're using.") {
-            VNToggle(isOn: VNSettings.smartSuppression) { VNSettings.smartSuppression = $0 }
-        }
-        SettingRow(label: "Undo window",
-                   caption: "Hold decisions this long so they can be taken back. 0 sends them instantly.") {
-            UndoField()
+
+        SectionCard(title: "Approvals",
+                    footnote: "Below the threshold, the agent's own terminal prompt handles it — the notch never sees it.") {
+            SettingRow(label: "Notch handles",
+                       caption: "Which permissions are worth interrupting you for.") {
+                MinRiskPicker()
+            }
+            SettingRow(label: "Undo window",
+                       caption: "Hold decisions this long so they can be taken back. 0 sends them instantly.") {
+                SecondsField(value: VNSettings.undoSeconds, width: 44) { VNSettings.undoSeconds = $0 }
+            }
+            SettingRow(label: "Auto-approve safe list",
+                       caption: "Simple read-only commands (git status, ls, pwd…) approve silently.") {
+                VNToggle(isOn: VNSettings.safeListEnabled) { VNSettings.safeListEnabled = $0 }
+            }
+            SettingRow(label: "Safe list", caption: "The patterns that qualify. Plain JSON.") {
+                Button("Edit…") {
+                    _ = SafeList.patterns() // seed the file so there's something to open
+                    NSWorkspace.shared.open(SafeList.url)
+                }.controlSize(.small)
+            }
+            SettingRow(label: "Per-project policies",
+                       caption: "Strict folders can disable Bypass / Always Allow / safe-list by path prefix.", divider: false) {
+                Button("Edit…") {
+                    let url = VNPaths.data.appendingPathComponent("policies.json")
+                    if !FileManager.default.fileExists(atPath: url.path) {
+                        try? Data("[]".utf8).write(to: url)
+                    }
+                    NSWorkspace.shared.open(url)
+                }.controlSize(.small)
+            }
         }
     }
 }
 
-private struct SoundPane: View {
-    @State private var volume = VNSettings.soundVolume
+private struct MinRiskPicker: View {
+    @State private var value = VNSettings.notchMinRisk
+    var body: some View {
+        Picker("", selection: $value) {
+            Text("All permissions").tag("low")
+            Text("Medium + high risk").tag("medium")
+            Text("High risk only").tag("high")
+        }
+        .labelsHidden().frame(width: 178).controlSize(.small)
+        .onChange(of: value) { _, v in VNSettings.notchMinRisk = v }
+    }
+}
+
+// MARK: - Integrations
+
+private struct IntegrationsPane: View {
+    /// Bumped after every connect/disconnect so the rows re-read from disk.
+    @State private var revision = 0
 
     var body: some View {
-        SettingRow(label: "Sound alerts") {
-            VNToggle(isOn: VNSettings.soundEnabled) { VNSettings.soundEnabled = $0 }
-        }
-        SettingRow(label: "Volume") {
-            Slider(value: $volume, in: 0...1) { editing in
-                if !editing {
-                    VNSettings.soundVolume = volume
-                    SoundManager.shared.play(.done)
-                }
+        SectionCard(title: "CLI Hooks",
+                    footnote: "Vibe Notch backs up each config once before its first edit, and removes only its own entries.") {
+            ForEach(Array(Agents.all.enumerated()), id: \.element.id) { index, spec in
+                AgentRow(spec: spec, isLast: index == Agents.all.count - 1) { revision += 1 }
             }
-            .frame(width: 160)
         }
-        Text("Custom packs: drop permission/waiting/done (.wav .aiff .mp3 .m4a) into ~/.vibenotch/sounds")
-            .font(.caption).foregroundStyle(.secondary)
+        .id(revision)
+
+        SectionCard(title: "Setup") {
+            SettingRow(label: "Auto-configure new CLIs",
+                       caption: "Wire up newly detected agents on launch. Off means Vibe Notch never touches a config you didn't connect yourself.", divider: false) {
+                VNToggle(isOn: VNSettings.autoConfigureAgents) { VNSettings.autoConfigureAgents = $0 }
+            }
+        }
     }
 }
 
+private struct AgentRow: View {
+    let spec: AgentSpec
+    let isLast: Bool
+    let changed: () -> Void
+
+    private var installer: AgentHookInstaller { AgentHookInstaller(spec) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(VNColor.agent(spec.id).opacity(spec.isDetected ? 0.9 : 0.25))
+                    .frame(width: 8, height: 8)
+                Text(spec.name).font(.system(size: 13))
+                    .foregroundStyle(spec.isDetected ? .primary : .secondary)
+                Spacer(minLength: 12)
+                if !spec.isDetected {
+                    Text("Not installed").font(.caption).foregroundStyle(.secondary)
+                } else if installer.isConnected {
+                    Label("Active", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(VNColor.go).labelStyle(.titleAndIcon)
+                } else {
+                    Label("Off", systemImage: "circle")
+                        .font(.caption).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
+                }
+                Toggle("", isOn: Binding(
+                    get: { installer.isConnected },
+                    set: { on in toggle(to: on) }
+                ))
+                .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                .disabled(!spec.isDetected)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            if !isLast { Divider().opacity(0.35).padding(.leading, 12) }
+        }
+    }
+
+    private func toggle(to on: Bool) {
+        do {
+            if on {
+                let src = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
+                try installer.connect(hookBinarySource: src)
+            } else {
+                try installer.disconnect()
+            }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not update \(spec.name)"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+        }
+        changed()
+    }
+}
+
+// MARK: - Notifications
+
 private struct NotificationsPane: View {
-    @State private var escalation = VNSettings.escalationSeconds
     @State private var topic = VNSettings.ntfyTopic
 
     var body: some View {
-        SettingRow(label: "Escalate unanswered permissions",
-                   caption: "Repeat the chime and badge while a request sits unanswered. 0 turns it off.") {
-            HStack(spacing: 6) {
-                TextField("", value: $escalation, format: .number)
-                    .textFieldStyle(.roundedBorder).frame(width: 52)
-                    .onSubmit { VNSettings.escalationSeconds = max(0, escalation) }
-                Text("sec").foregroundStyle(.secondary)
+        SectionCard(title: "Follow-up") {
+            SettingRow(label: "Escalate unanswered permissions",
+                       caption: "Repeat the chime and mark the menu bar while a request sits waiting. 0 turns it off.", divider: false) {
+                SecondsField(value: VNSettings.escalationSeconds) { VNSettings.escalationSeconds = $0 }
             }
         }
-        SettingRow(label: "Phone pings (ntfy.sh topic)",
-                   caption: "Escalations also POST to ntfy.sh/<topic> — subscribe in the ntfy app. Empty = off.") {
-            TextField("my-secret-topic", text: $topic)
-                .textFieldStyle(.roundedBorder).frame(width: 160)
-                .onSubmit { VNSettings.ntfyTopic = topic.trimmingCharacters(in: .whitespaces) }
+
+        SectionCard(title: "Phone",
+                    footnote: "Escalations POST to ntfy.sh/<topic> — subscribe in the ntfy app. Nothing else ever leaves your Mac.") {
+            SettingRow(label: "ntfy.sh topic",
+                       caption: "Pick something unguessable — anyone with the topic sees the notification.", divider: false) {
+                TextField("my-secret-topic", text: $topic)
+                    .textFieldStyle(.roundedBorder).frame(width: 178)
+                    .onSubmit { VNSettings.ntfyTopic = topic.trimmingCharacters(in: .whitespaces) }
+            }
+        }
+
+        SectionCard(title: "Quiet scenes",
+                    footnote: "While a scene is active, cards queue silently — no sound, no auto-expand. The menu-bar count still moves.") {
+            SettingRow(label: "Screen is being shared",
+                       caption: "Nothing pops open mid-demo. Browser-tab shares can't be detected.") {
+                VNToggle(isOn: VNSettings.screenShareGuard) { VNSettings.screenShareGuard = $0 }
+            }
+            SettingRow(label: "Focus mode is on", divider: false) {
+                VNToggle(isOn: VNSettings.focusGuard) { VNSettings.focusGuard = $0 }
+            }
         }
     }
 }
 
-private struct PrivacyPane: View {
+// MARK: - Display
+
+private struct DisplayPane: View {
+    @State private var screenID = VNSettings.notchDisplayID
+    @State private var dwell = VNSettings.dwellSeconds
+
     var body: some View {
-        SettingRow(label: "Screen-share guard",
-                   caption: "While your screen is shared, approval cards queue silently — nothing pops up mid-demo.") {
-            VNToggle(isOn: VNSettings.screenShareGuard) { VNSettings.screenShareGuard = $0 }
-        }
-        SettingRow(label: "Focus-mode guard",
-                   caption: "Also hold cards quietly while a macOS Focus is on.") {
-            VNToggle(isOn: VNSettings.focusGuard) { VNSettings.focusGuard = $0 }
-        }
-        SettingRow(label: "Auto-approve safe list",
-                   caption: "Simple read-only commands (git status, ls, pwd…) approve silently.") {
-            VNToggle(isOn: VNSettings.safeListEnabled) { VNSettings.safeListEnabled = $0 }
-        }
-        SettingRow(label: "Safe list", caption: "Patterns, user-editable JSON.") {
-            Button("Edit…") { NSWorkspace.shared.open(SafeList.url) }
-                .controlSize(.small)
-        }
-        SettingRow(label: "Per-project policies",
-                   caption: "Strict folders can disable Bypass / Always Allow / safe-list by path prefix.") {
-            Button("Edit…") {
-                let url = VNPaths.data.appendingPathComponent("policies.json")
-                if !FileManager.default.fileExists(atPath: url.path) {
-                    try? Data("[]".utf8).write(to: url)
+        SectionCard(title: "Notch",
+                    footnote: "If the chosen display is unplugged, the notch falls back to the main one.") {
+            SettingRow(label: "Display",
+                       caption: "Which screen the notch appears on.", divider: false) {
+                Picker("", selection: $screenID) {
+                    Text("Main Display").tag("")
+                    ForEach(NSScreen.screens, id: \.vnDisplayID) { screen in
+                        Text(screen.localizedName).tag(screen.vnDisplayID)
+                    }
                 }
-                NSWorkspace.shared.open(url)
+                .labelsHidden().frame(width: 178).controlSize(.small)
+                .onChange(of: screenID) { _, v in VNSettings.notchDisplayID = v }
             }
-            .controlSize(.small)
+        }
+
+        SectionCard(title: "Behavior") {
+            SettingRow(label: "Hover dwell",
+                       caption: "How long a hover-opened panel stays up before collapsing itself. Cards with a decision waiting ignore this.", divider: false) {
+                HStack(spacing: 8) {
+                    Slider(value: $dwell, in: 2...15, step: 0.5) { editing in
+                        if !editing { VNSettings.dwellSeconds = dwell }
+                    }
+                    .frame(width: 132)
+                    Text("\(dwell, specifier: "%.1f")s")
+                        .font(VNFont.sysMono(11)).foregroundStyle(.secondary)
+                        .frame(width: 38, alignment: .trailing)
+                }
+            }
         }
     }
 }
+
+// MARK: - Sound
+
+private struct SoundPane: View {
+    @State private var volume = VNSettings.soundVolume
+    @State private var theme = VNSettings.soundTheme
+
+    var body: some View {
+        SectionCard(title: "Alerts",
+                    footnote: "Custom pack: drop permission / waiting / done (.wav .aiff .mp3 .m4a) into ~/.vibenotch/sounds to override the synth tones.") {
+            SettingRow(label: "Sound alerts") {
+                VNToggle(isOn: VNSettings.soundEnabled) { VNSettings.soundEnabled = $0 }
+            }
+            SettingRow(label: "Theme", caption: "Three synthesized voices — no audio files needed.") {
+                Picker("", selection: $theme) {
+                    Text("Chime").tag("chime")
+                    Text("Arcade").tag("arcade")
+                    Text("Minimal").tag("minimal")
+                }
+                .labelsHidden().frame(width: 140).controlSize(.small)
+                .onChange(of: theme) { _, v in
+                    VNSettings.soundTheme = v
+                    SoundManager.shared.play(.done)
+                }
+            }
+            SettingRow(label: "Volume", divider: false) {
+                Slider(value: $volume, in: 0...1) { editing in
+                    if !editing {
+                        VNSettings.soundVolume = volume
+                        SoundManager.shared.play(.done)
+                    }
+                }
+                .frame(width: 178)
+            }
+        }
+    }
+}
+
+// MARK: - Usage
+
+private struct UsagePane: View {
+    @State private var connected = StatusLineInstaller.isInstalled
+
+    var body: some View {
+        SectionCard(title: "Usage limits") {
+            SettingRow(label: "Show usage limits",
+                       caption: "Plan windows in the expanded panel header.", divider: false) {
+                VNToggle(isOn: VNSettings.showUsageLimits) { VNSettings.showUsageLimits = $0 }
+            }
+        }
+
+        SectionCard(title: "Claude usage bridge",
+                    footnote: "Read from local files only — no API keys, no accounts, no network. Codex usage needs no setup; it comes from its own session logs.") {
+            SettingRow(label: "Status line bridge",
+                       caption: connected
+                           ? "Connected. Your own status line output is unchanged — we only tee the rate-limit numbers."
+                           : "Claude reports its limits to the status line. Vibe Notch wraps yours to read them.") {
+                if connected {
+                    Label("Connected", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(VNColor.go)
+                } else {
+                    Button("Connect usage") {
+                        StatusLineInstaller.installIfNeeded()
+                        connected = StatusLineInstaller.isInstalled
+                    }.controlSize(.small)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Shortcuts
+
+private struct ShortcutsPane: View {
+    /// Rebinding is Stage 2 — until then these are shown as the fixed keys they
+    /// are, rather than as controls that pretend to be editable.
+    private static let keys: [(String, String, String)] = [
+        ("Approve", "⌃A", "Allow the front permission card."),
+        ("Jump to terminal", "⌃G", "Focus the exact tab or pane the agent is in."),
+        ("Command palette", "⌘K", "Search sessions, resume history, approve all."),
+        ("Collapse panel", "esc", "Active only while the panel is expanded."),
+    ]
+
+    var body: some View {
+        SectionCard(title: "Global") {
+            SettingRow(label: "Enable keyboard shortcuts",
+                       caption: "Turn every shortcut off without losing the mappings.", divider: false) {
+                VNToggle(isOn: VNSettings.shortcutsEnabled) { VNSettings.shortcutsEnabled = $0 }
+            }
+        }
+
+        SectionCard(title: "Keys",
+                    footnote: "Fixed for now — rebinding is coming. ⌃G needs Accessibility permission to work outside the panel.") {
+            ForEach(Array(Self.keys.enumerated()), id: \.offset) { index, key in
+                SettingRow(label: key.0, caption: key.2,
+                           divider: index < Self.keys.count - 1) {
+                    Text(key.1)
+                        .font(VNFont.sysMono(11, .semibold))
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 5))
+                }
+            }
+        }
+    }
+}
+
+// MARK: - SSH Remote
+
+private struct SSHPane: View {
+    @State private var servers = SSHRemote.load()
+    @State private var busy = false
+
+    var body: some View {
+        // Explanation, not a control — a row with an empty trailing slot reads
+        // like a setting whose switch failed to draw.
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Monitor and approve agents running on another machine.")
+                .font(.system(size: 13))
+            Text("Requires key-based SSH auth. Vibe Notch deploys a small Python hook client and keeps an auto-reconnecting reverse tunnel; approvals ride back over it. Remote sessions show a host badge, and Always Allow stays allow-once for them — persistent rules belong on the server.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+
+        SectionCard(title: "Hosts") {
+            if servers.isEmpty {
+                SettingRow(label: "No hosts configured yet", divider: true) { EmptyView() }
+            } else {
+                ForEach(Array(servers.enumerated()), id: \.element.host) { index, server in
+                    SettingRow(label: server.host,
+                               caption: server.enabled ? "Connected" : "Disabled",
+                               divider: true) {
+                        Button("Remove") {
+                            AppDelegate.shared?.tunnels.removeServer(host: server.host)
+                            servers = SSHRemote.load()
+                        }.controlSize(.small)
+                    }
+                }
+            }
+            SettingRow(label: "Add a host", caption: "user@hostname", divider: false) {
+                Button(busy ? "Deploying…" : "Add Host…") { addHost() }
+                    .controlSize(.small).disabled(busy)
+            }
+        }
+    }
+
+    private func addHost() {
+        let alert = NSAlert()
+        alert.messageText = "Add SSH Server"
+        alert.informativeText = "user@host, with key-based auth. Vibe Notch deploys its hook client and opens a reverse tunnel."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.placeholderString = "deploy@my-server"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Deploy & Connect")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let host = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty, let delegate = AppDelegate.shared else { return }
+        busy = true
+        Task { @MainActor in
+            if let error = await delegate.tunnels.addServer(host: host) {
+                let fail = NSAlert()
+                fail.messageText = "SSH deploy failed"
+                fail.informativeText = error
+                fail.runModal()
+            }
+            servers = SSHRemote.load()
+            busy = false
+        }
+    }
+}
+
+// MARK: - Labs
 
 private struct LabsPane: View {
     @State private var port = VNSettings.dashboardPort
+    @State private var dashboardOn = VNSettings.dashboardPort > 0
 
     var body: some View {
-        SettingRow(label: "Web dashboard",
-                   caption: "Sessions + pending approvals in the browser — handy on an iPad via Tailscale. Toggle from the menu bar.") {
-            Button("Open") {
-                if let url = URL(string: "http://localhost:\(VNSettings.dashboardPort)") {
-                    NSWorkspace.shared.open(url)
+        SectionCard(title: "Web dashboard",
+                    footnote: "Bound to 127.0.0.1 only. The page is read-only; approve/deny need a token printed to the log at startup.") {
+            SettingRow(label: "Run the dashboard",
+                       caption: "Sessions and pending approvals in a browser.") {
+                VNToggle(isOn: dashboardOn) { on in
+                    dashboardOn = on
+                    VNSettings.dashboardPort = on ? (port > 0 ? port : 4141) : 0
+                    AppDelegate.shared?.applyDashboardSetting()
                 }
             }
-            .controlSize(.small)
+            SettingRow(label: "Port", divider: false) {
+                HStack(spacing: 8) {
+                    TextField("", value: $port, format: .number.grouping(.never))
+                        .textFieldStyle(.roundedBorder).frame(width: 64)
+                        .onSubmit {
+                            VNSettings.dashboardPort = dashboardOn ? port : 0
+                            AppDelegate.shared?.applyDashboardSetting()
+                        }
+                    Button("Open") {
+                        if let url = URL(string: "http://127.0.0.1:\(VNSettings.dashboardPort)") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .controlSize(.small).disabled(!dashboardOn)
+                }
+            }
         }
-        SettingRow(label: "Dashboard port") {
-            TextField("", value: $port, format: .number.grouping(.never))
-                .textFieldStyle(.roundedBorder).frame(width: 64)
-                .onSubmit { VNSettings.dashboardPort = port }
+
+        SectionCard(title: "Experiments") {
+            SettingRow(label: "Notch over lock screen",
+                       caption: "Pins the panel into a max-level window space. Uses a private API — expect weirdness.", divider: false) {
+                VNToggle(isOn: VNSettings.lockScreenNotch) { on in
+                    VNSettings.lockScreenNotch = on
+                    AppDelegate.shared?.applyLockScreenSetting()
+                }
+            }
         }
-        SettingRow(label: "Notch over lock screen",
-                   caption: "Experimental — keeps the panel visible on the lock screen.") {
-            VNToggle(isOn: VNSettings.lockScreenNotch) { VNSettings.lockScreenNotch = $0 }
+
+        SectionCard(title: "Command line",
+                    footnote: "Add ~/.vibenotch/bin to your PATH for a bare `vibenotch`.") {
+            SettingRow(label: "vibenotch",
+                       caption: "list · approve · deny · send · interrupt · model", divider: false) {
+                Text("~/.vibenotch/bin")
+                    .font(VNFont.sysMono(11)).foregroundStyle(.secondary)
+            }
         }
-        Text("CLI: ~/.vibenotch/bin/vibenotch — list · approve · deny · send · interrupt")
-            .font(.caption.monospaced()).foregroundStyle(.secondary)
     }
 }
 
+// MARK: - About
 
-private struct UndoField: View {
-    @State private var secs = VNSettings.undoSeconds
+private struct AboutPane: View {
+    private var version: String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "v\(short) (\(build))"
+    }
+
     var body: some View {
-        HStack(spacing: 6) {
-            TextField("", value: $secs, format: .number)
-                .textFieldStyle(.roundedBorder).frame(width: 44)
-                .onSubmit { VNSettings.undoSeconds = max(0, secs) }
-            Text("sec").foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+            if let icon = NSApp.applicationIconImage {
+                Image(nsImage: icon).resizable().frame(width: 72, height: 72)
+            }
+            Text("Vibe Notch").font(.system(size: 19, weight: .semibold))
+            Text(version).font(VNFont.sysMono(11)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+
+        SectionCard {
+            LinkRow(label: "Source & releases", value: "GitHub",
+                    url: "https://github.com/kaushal07wick/Vibe-Notch")
+            LinkRow(label: "Report a bug", value: "Issues",
+                    url: "https://github.com/kaushal07wick/Vibe-Notch/issues")
+            LinkRow(label: "License", value: "GPL-3.0", divider: false,
+                    url: "https://github.com/kaushal07wick/Vibe-Notch/blob/master/LICENSE")
+        }
+
+        SectionCard(title: "Remove",
+                    footnote: "Unhooks every agent config, leaving your own hooks and status line intact. The app and ~/.vibenotch stay — delete them yourself.") {
+            SettingRow(label: "Disconnect all agents",
+                       caption: "Stop sending events here, without uninstalling.", divider: false) {
+                Button("Disconnect…", role: .destructive) { disconnectAll() }
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func disconnectAll() {
+        let connected = Agents.all.filter { AgentHookInstaller($0).isConnected }
+        let alert = NSAlert()
+        alert.messageText = "Disconnect \(connected.count) agent\(connected.count == 1 ? "" : "s")?"
+        alert.informativeText = connected.isEmpty
+            ? "Nothing is connected right now."
+            : "Removes Vibe Notch's hooks from: " + connected.map(\.name).joined(separator: ", ")
+        alert.addButton(withTitle: "Disconnect")
+        alert.addButton(withTitle: "Cancel")
+        guard !connected.isEmpty, alert.runModal() == .alertFirstButtonReturn else { return }
+        for spec in connected { try? AgentHookInstaller(spec).disconnect() }
+        // Otherwise the next launch would helpfully wire them all back up.
+        VNSettings.autoConfigureAgents = false
+    }
+}
+
+private struct LinkRow: View {
+    let label: String
+    let value: String
+    var divider = true
+    let url: String
+
+    var body: some View {
+        SettingRow(label: label, divider: divider) {
+            Button {
+                if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(value)
+                    Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .semibold))
+                }
+            }
+            .buttonStyle(.link)
         }
     }
 }

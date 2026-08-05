@@ -21,6 +21,7 @@ final class ShortcutMonitor {
         }) { monitors.append(mouse) }
 
         let handle: (NSEvent) -> Bool = { [weak store] event in
+            guard VNSettings.shortcutsEnabled else { return false } // master switch, mappings kept
             if event.keyCode == 53 { collapse(); return true } // ESC
             guard let store, event.modifierFlags.contains(.control) else { return false }
             switch event.charactersIgnoringModifiers {
