@@ -500,6 +500,40 @@ shape, UI consumes. Propose field additions here before changing.
     the session card (Claude: /model <name>; Codex: /model picker). CLI/dashboard
     verb `model` also live.
   All reuse the existing injection layer — no new plumbing. 23/23.
+- 2026-08-05 · SHIP-READINESS PASS (Kaushal: polish for a free/open-source v1,
+  bugs before packaging). Three commits, 33/33 green:
+  (1) HOOK LATENCY, root cause found and measured. Every event walked the
+  process tree with a `ps` spawn PER ANCESTOR — up to 14 (6 for the tty, 8 for
+  the terminal-name fallback, each walking separately). 229ms per event on the
+  shipped binary, paid on every tool call and on the blocking approval path.
+  This is the "cards arrive late" complaint; the July transcript fix never
+  touched it. New `ProcessAncestry` (sysctl + proc_pidpath) → **229ms → 10.7ms**
+  measured over 20 runs. A single `ps -ax` snapshot was tried first: 140ms.
+  Also `gitInfo(cwd)` ran twice per card.
+  (2) SECURITY: dashboard /approve took no auth — any browser page on the Mac
+  could `<img src="http://127.0.0.1:4141/approve">` its way through a
+  permission. Token-gated now. The ntfy Approve/Deny buttons pointed at
+  `hostname:port` while the server binds loopback, so they never worked at all —
+  removed rather than left pretending.
+  (3) PARALLEL TOOL CALLS lost their cards: any progress event dropped EVERY
+  pending card for the session, so tool B's PreToolUse cancelled tool A's live
+  card. Now narrowed; PreToolUse is out of the trigger set (socket close is the
+  real terminal-answer signal).
+  (4) IPC fd race: the EOF watcher shared the request fd and could read from a
+  recycled number, eating a byte of an unrelated hook's JSON. Own dup now.
+  (5) Also: answer() bypassed commit() (no stats/hooks, escalation stuck on);
+  multi-line replies silently failed on iTerm/Terminal (raw newline in an
+  AppleScript literal); missed-permissions.log uncapped (found at 214KB/2487
+  lines with the app quit for two weeks).
+  (6) PACKAGING: `--options runtime` with no entitlements would have shipped a
+  notarized build with every AppleScript feature dead — entitlements file +
+  NSAppleEventsUsageDescription added, `--deep` replaced with inside-out
+  signing, notarytool step added, CFBundleVersion no longer pinned to 1.
+  ⚠ THE TWO "DO NOT LAUNCH" BANNERS AT THE TOP ARE FROM 2026-07-19 and look
+  stale (app has not run since Jul 21). Left in place — Kaushal clears them.
+  NOT verified live: everything above is build + test + measurement only.
+  Needs Kaushal: Developer ID (the one true blocker for distribution), and a
+  green light to deploy/launch for a real-world pass.
 - 2026-07-19 · backend: IDLE-HIDE (Kaushal: notch covers fullscreen video when
   a session is paused). New `store.isBusy` = pending OR a session that did a
   working/waiting event in the last 90s. When NOT busy and not hovering, the
