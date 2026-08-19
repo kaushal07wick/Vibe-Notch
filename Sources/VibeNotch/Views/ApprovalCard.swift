@@ -45,21 +45,42 @@ struct ApprovalCard: View {
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
         .frame(width: 620)
+        .background(riskTint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(riskBorder, lineWidth: risk == .high ? 1.2 : 0.8))
+        .padding(.horizontal, 4)
+    }
+
+    /// High risk earns a red cast, medium a faint amber one, low nothing.
+    private var riskTint: Color {
+        switch risk {
+        case .high: VNColor.stop.opacity(0.07)
+        case .medium: VNColor.amber.opacity(0.035)
+        case .low: .clear
+        }
+    }
+
+    private var riskBorder: Color {
+        switch risk {
+        case .high: VNColor.stop.opacity(0.55)
+        case .medium: VNColor.amber.opacity(0.28)
+        case .low: .clear
+        }
     }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
-            // mascot + pixel status badge — "?" while a decision is pending (VI style)
-            HStack(alignment: .top, spacing: 3) {
-                AgentIcon(source: i.source, size: 22)
-                PixelGlyph(grid: PixelGlyph.question, color: VNColor.agent(i.source), px: 2.2)
-                    .offset(y: -2)
-            }
+            AgentIcon(source: i.source, size: 22)
             VStack(alignment: .leading, spacing: 2) {
-                Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
-                    .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                HStack(spacing: 6) {
+                    // "?" belongs on the line it qualifies, not floating off
+                    // the mascot's shoulder.
+                    PixelGlyph(grid: PixelGlyph.question, color: VNColor.amber, px: 2)
+                    Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
+                        .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                }
                 if let user = i.userMessage {
-                    Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                    Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
                         .lineLimit(1).truncationMode(.tail)
                 }
             }
@@ -69,9 +90,16 @@ struct ApprovalCard: View {
     }
 
     private var toolLine: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(VNColor.amber)
-            Text(i.tool ?? "Tool").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(VNColor.amber)
+        let tint = risk == .high ? VNColor.stop : VNColor.amber
+        return HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(tint)
+            Text(i.tool ?? "Tool").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(tint)
+            if risk == .high {
+                Text("HIGH RISK").font(VNFont.sysMono(9, .semibold)).tracking(0.8)
+                    .foregroundStyle(VNColor.stop)
+                    .padding(.horizontal, 5).padding(.vertical, 1.5)
+                    .background(VNColor.stop.opacity(0.14), in: Capsule())
+            }
             Spacer(minLength: 0)
         }
     }
