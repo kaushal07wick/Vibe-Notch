@@ -192,7 +192,7 @@ private struct PaneHeader: View {
 // MARK: - Atoms
 
 /// A titled group of rows. Mono headers are the house voice.
-private struct SectionCard<Content: View>: View {
+struct SectionCard<Content: View>: View {
     var title: String?
     var footnote: String?
     @ViewBuilder var content: Content
@@ -219,7 +219,7 @@ private struct SectionCard<Content: View>: View {
     }
 }
 
-private struct SettingRow<Content: View>: View {
+struct SettingRow<Content: View>: View {
     let label: String
     var caption: String?
     var divider = true
@@ -567,14 +567,34 @@ private struct UsagePane: View {
 
 private struct ShortcutsPane: View {
     @State private var revision = 0
+    @State private var axGranted = AccessibilityPermission.granted
+    private let poll = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         SectionCard(title: "Global") {
             SettingRow(label: "Enable keyboard shortcuts",
-                       caption: "Turn every shortcut off without losing the mappings.", divider: false) {
+                       caption: "Turn every shortcut off without losing the mappings.") {
                 VNToggle(isOn: VNSettings.shortcutsEnabled) { VNSettings.shortcutsEnabled = $0 }
             }
+            // Without Accessibility the global monitor never fires and the keys
+            // look broken. This is where people come looking.
+            SettingRow(label: "Accessibility permission",
+                       caption: axGranted
+                           ? "Granted — shortcuts work in any app."
+                           : "Not granted — shortcuts only work while the notch panel is focused.",
+                       divider: false) {
+                if axGranted {
+                    Label("Granted", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(VNColor.go).labelStyle(.titleAndIcon)
+                } else {
+                    Button("Grant…") {
+                        AccessibilityPermission.request()
+                        AccessibilityPermission.openSettings()
+                    }
+                }
+            }
         }
+        .onReceive(poll) { _ in axGranted = AccessibilityPermission.granted }
 
         SectionCard(title: "Keys",
                     footnote: "Click a shortcut to record a new one, ⌫ to clear, esc to cancel. Outside the panel these need Accessibility permission, granted once in System Settings › Privacy & Security.") {

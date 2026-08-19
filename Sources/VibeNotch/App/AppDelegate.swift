@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         try? VNPaths.ensure()
         AgentHookInstaller.pluginSourceDir = Bundle.main.resourceURL
-        autoConnectDetectedAgents()
+        _ = connectDetectedAgents()
         StatusLineInstaller.installIfNeeded()
         usage.start()
         setupStatusItem()
@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applyLockScreenSetting()
         away.onReturn = { [weak self] since in self?.store.showDigest(since: since) }
         away.start()
+        Welcome.showIfFirstRun()
     }
 
     func applyDashboardSetting() {
@@ -96,7 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Zero-config: wire every detected agent on launch; refresh already-connected
     /// ones so newly added hook events land. Fail-open — errors are logged only.
-    private func autoConnectDetectedAgents() {
+    /// Returns the names of agents that could not be connected.
+    ///
+    /// `force` is the Welcome window's Connect button — an explicit yes that
+    /// overrides both the auto-configure preference and the first-run hold.
+    @discardableResult
+    func connectDetectedAgents(force: Bool = false) -> [String] {
         let hookBinary = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
         let cli = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch")
         if FileManager.default.fileExists(atPath: cli.path) {
@@ -104,17 +110,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? FileManager.default.removeItem(at: dest)
             try? FileManager.default.copyItem(at: cli, to: dest)
         }
+        var failed: [String] = []
+        // Before the Welcome window has been answered, nothing gets written —
+        // editing someone's ~/.claude/settings.json unasked is a surprise.
+        let mayConnect = force || (VNSettings.autoConfigureAgents && VNSettings.welcomeSeen)
         for spec in Agents.detected {
             let installer = AgentHookInstaller(spec)
             if installer.isConnected {
                 installer.reconcile()
-            } else if VNSettings.autoConfigureAgents {
-                // Opt-out: writing into an agent's settings.json without asking
-                // is a surprise on someone else's machine.
+            } else if mayConnect {
                 do { try installer.connect(hookBinarySource: hookBinary) }
-                catch { NSLog("VibeNotch: could not connect \(spec.name): \(error)") }
+                catch {
+                    NSLog("VibeNotch: could not connect \(spec.name): \(error)")
+                    failed.append(spec.name)
+                }
             }
         }
+        return failed
     }
 
     private func startServer() {

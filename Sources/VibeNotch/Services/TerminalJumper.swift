@@ -70,14 +70,7 @@ enum TerminalJumper {
         default:
             return false
         }
-        return runAppleScript(script) == "ok"
-    }
-
-    private static func runAppleScript(_ source: String) -> String? {
-        var error: NSDictionary?
-        let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
-        if let error { NSLog("VibeNotch: jump script error: \(error)"); return nil }
-        return result?.stringValue
+        return VNAppleScript.run(script, purpose: "jumping to the \(terminal) tab") == "ok"
     }
 
     // MARK: App activation fallback

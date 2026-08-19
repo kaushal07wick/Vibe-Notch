@@ -115,6 +115,13 @@ enum VNSettings {
         set { d.set(newValue, forKey: "autoConfigureAgents") }
     }
 
+    /// First-run window has been dismissed. Until it is, Vibe Notch touches
+    /// no agent config — the window's Connect button is the yes.
+    static var welcomeSeen: Bool {
+        get { d.bool(forKey: "welcomeSeen") }
+        set { d.set(newValue, forKey: "welcomeSeen") }
+    }
+
     // MARK: Display
 
     /// Which screen owns the notch. Empty = the main display.

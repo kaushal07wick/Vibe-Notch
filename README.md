@@ -99,8 +99,11 @@ monitoring over SSH, and a scriptable CLI
 | Cursor | — | ✅ | `~/.cursor/hooks.json` |
 | Gemini CLI | — | ✅ | `~/.gemini/settings.json` |
 
-Detected agents are wired automatically on first launch; toggle any of them
-from the menu bar. Every config edit is backed up and reversible.
+On first launch a setup window shows the agents it found and connects them
+when you say so — nothing is written to an agent's config before that. After
+that, newly detected agents are wired automatically (switchable in Settings ›
+CLI Hooks, where you can also toggle any agent off). Every config edit is
+backed up and reversible.
 
 ## Install
 
@@ -125,8 +128,9 @@ cd Vibe-Notch
 open .build/VibeNotch.app
 ```
 
-No Dock icon — look for the notch and the menu-bar item. Detected agents
-connect automatically.
+No Dock icon — the setup window opens on first launch to show you where the
+app lives and which agents it found. Reopen it any time from the menu bar
+(**✦ › Setup Guide…**).
 
 ### Try it without a real agent
 

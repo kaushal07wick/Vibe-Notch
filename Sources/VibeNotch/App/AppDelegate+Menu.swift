@@ -49,11 +49,16 @@ extension AppDelegate {
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
+        let welcome = NSMenuItem(title: "Setup Guide…", action: #selector(openWelcome), keyEquivalent: "")
+        welcome.target = self
+        menu.addItem(welcome)
         menu.addItem(NSMenuItem(title: "Quit Vibe Notch",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
     @objc private func openSettings() { SettingsWindow.show() }
+
+    @objc private func openWelcome() { Welcome.show() }
 
     @objc private func togglePanel() { notch.toggle() }
 

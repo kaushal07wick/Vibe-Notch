@@ -20,7 +20,9 @@ enum TerminalControl {
                                       meta: s.termMeta ?? [:], text: trimmed)
         guard plan.isSupported else { return false }
         for argv in plan.commands { run(argv) }
-        if let script = plan.appleScript { runAppleScript(script) }
+        if let script = plan.appleScript {
+            VNAppleScript.run(script, purpose: "typing a reply into \(s.terminal ?? "the terminal")")
+        }
         StatsLog.bump("replies")
         return true
     }
@@ -68,11 +70,5 @@ enum TerminalControl {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
         return String(data: data, encoding: .utf8)
-    }
-
-    private static func runAppleScript(_ source: String) {
-        var error: NSDictionary?
-        NSAppleScript(source: source)?.executeAndReturnError(&error)
-        if let error { NSLog("VibeNotch: injection script error: \(error)") }
     }
 }

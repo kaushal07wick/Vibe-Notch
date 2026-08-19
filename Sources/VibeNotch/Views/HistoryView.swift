@@ -108,11 +108,10 @@ enum SessionHistory {
             do script "\(cmd.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))"
         end tell
         """
-        Task.detached {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            p.arguments = ["-e", script]
-            try? p.run()
+        // Same consent wall as every other script we run — via osascript it
+        // used to fail with no trace at all.
+        Task { @MainActor in
+            VNAppleScript.run(script, purpose: "resuming the session in Terminal")
         }
     }
 
