@@ -30,6 +30,11 @@ extension AppDelegate {
         case "approve_all":
             store.approveAll(sessionId: cmd.sessionId)
             return #"{"ok":true}"#
+        case "open":
+            // Hold the panel open (as if hovered) — scripts, and looking at the
+            // UI while working on it without a pointer on the notch.
+            notch.open(seconds: Double(cmd.detail ?? "") ?? 20)
+            return #"{"ok":true}"#
         case "undo":
             store.undoLast()
             return #"{"ok":true}"#

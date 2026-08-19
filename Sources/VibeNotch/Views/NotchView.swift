@@ -120,12 +120,16 @@ struct CompactLeading: View {
         HStack(spacing: 4) {
             // OUR mascot — the Owl — regardless of which brands are running
             // (per-agent marks live in the expanded rows)
-            OwlMark(px: 1.1, escalated: store.escalated)
-            // …and the orbit spinner while any session works
-            PixelSpinner(active: anyRunning)
+            OwlMark(px: 1.5, escalated: store.escalated)
+            // activity is a dot beside the owl, not a second creature
+            Circle()
+                .fill(store.escalated ? VNColor.amber : VNColor.running)
+                .frame(width: 4, height: 4)
+                .opacity(anyRunning ? 1 : 0)
+                .animation(.easeOut(duration: 0.2), value: anyRunning)
         }
         // mirror-width flanks keep the shape centred on the physical notch
-        .frame(width: 32)
+        .frame(width: 38)
         .padding(.horizontal, 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(store.escalated ? "Vibe Notch, a permission is waiting"

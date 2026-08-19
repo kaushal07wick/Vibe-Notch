@@ -58,14 +58,14 @@ struct LinkChip: View {
             HStack(spacing: 5) {
                 globe
                 Text(LinkFinder.label(url))
-                    .font(VNFont.sysMono(10, .semibold))
+                    .font(VNFont.sysMono(9.5, .medium))
                     .lineLimit(1).truncationMode(.middle)
                 Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 7.5, weight: .bold))
+                    .font(.system(size: 7, weight: .bold))
                     .opacity(0.7)
             }
             .foregroundStyle(Color(hex: 0x8AC3F0))
-            .padding(.horizontal, 8).padding(.vertical, 3.5)
+            .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Color(hex: 0x14283A).opacity(hovering ? 1 : 0.8),
                         in: Capsule())
             .overlay(Capsule().strokeBorder(Color(hex: 0x8AC3F0).opacity(hovering ? 0.5 : 0.25)))

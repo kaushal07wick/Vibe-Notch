@@ -39,7 +39,7 @@ struct ActivityCard: View {
     private func singleCard(_ s: SessionActivity) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
-                AgentIcon(source: s.source, size: 20)
+                AgentIcon(source: s.source, size: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(sessionTitle(folder: s.folder, task: s.task))
@@ -75,16 +75,26 @@ struct ActivityCard: View {
             // height follows content, capped so long lists scroll instead of
             // taking over the screen (VI behavior)
             ScrollView {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(sessions) { s in SessionRow(s: s, onDismiss: onDismiss) }
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
+                        SessionRow(s: s, onDismiss: onDismiss)
+                        if index < sessions.count - 1 {
+                            Rectangle().fill(Color.white.opacity(0.055))
+                                .frame(height: 1).padding(.leading, 40)
+                        }
+                    }
                 }
             }
             .frame(maxHeight: 360)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 4)
+            .background(Color.white.opacity(0.035),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06)))
+            .padding(.top, 6)
         }
-        .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
-        .frame(width: 600, alignment: .leading)
+        .padding(EdgeInsets(top: 2, leading: 16, bottom: 10, trailing: 16))
+        .frame(width: 620, alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -94,14 +104,13 @@ struct ActivityCard: View {
             Spacer(minLength: 8)
             ForEach(metrics, id: \.label) { metric in
                 HStack(spacing: 4) {
-                    if let color = metric.color { Circle().fill(color).frame(width: 5.5, height: 5.5) }
-                    Text(metric.label).font(VNFont.sysMono(10.5, .semibold))
-                        .foregroundStyle(VNColor.paper.opacity(metric.color == nil ? 0.34 : 0.48))
+                    if let color = metric.color { Circle().fill(color).frame(width: 5, height: 5) }
+                    Text(metric.label).font(VNFont.sysMono(9.5, .medium))
+                        .foregroundStyle(VNColor.paper.opacity(metric.color == nil ? 0.3 : 0.42))
                 }
             }
         }
-        .padding(.bottom, 5)
-        .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.05)).frame(height: 1) }
+        .padding(.bottom, 2)
     }
 
     private var metrics: [(label: String, color: Color?)] {
@@ -219,37 +228,37 @@ struct SessionRow: View {
 
     var body: some View {
         Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty) } label: {
-            HStack(alignment: .center, spacing: 10) {
-                AgentIcon(source: s.source, size: 18)
-                    .overlay(alignment: .bottomTrailing) {
-                        StatusGlyph(event: s.event).offset(x: 5, y: 3)
+            HStack(alignment: .center, spacing: 11) {
+                AgentIcon(source: s.source, size: 20)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        StatusGlyph(event: s.event)
+                        Text(sessionTitle(folder: s.folder, task: s.task))
+                            .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(sessionTitle(folder: s.folder, task: s.task))
-                        .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
                             .lineLimit(1).truncationMode(.tail)
                     }
-                    brief.font(.system(size: 10.5)).lineLimit(1).truncationMode(.tail)
-                    if let first = LinkFinder.links(in: s.detail, max: 1).first {
-                        LinkChip(url: first).padding(.top, 2)
-                    }
+                    brief.font(.system(size: 11)).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
-                    // pills stay on hover; only the age slot becomes the archive button
+                    // pills stay on hover; the age slot turns into jump + archive
                     PillCluster(source: s.source, terminal: s.terminal, tty: s.tty,
                                 showJump: false, age: hovering ? nil : s.updatedAt)
-                    if hovering { binButton }
+                    if hovering {
+                        JumpPill(terminal: s.terminal, tty: s.tty)
+                        binButton
+                    }
                 }
             }
-            .padding(EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8))
+            .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityHint("Jumps to this session's terminal tab")
-        .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
 

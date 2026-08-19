@@ -11,7 +11,7 @@ public enum VNProtocol {
     /// Wire protocol version — bump only on breaking shape changes.
     public static let version = 1
     /// Build version stamped into the hook binary and checked by the app.
-    public static let build = "0.2.0"
+    public static let build = "0.3.0"
 }
 
 public enum VNMessageType: String, Codable, Sendable {

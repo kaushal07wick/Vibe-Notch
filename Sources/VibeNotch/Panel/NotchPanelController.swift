@@ -74,8 +74,23 @@ final class NotchPanelController {
         Task { await notch.expand(on: targetScreen) }
     }
 
+    /// Open the panel in its full (hovered) form without a pointer — the CLI's
+    /// `vibenotch open`. Also how the UI gets looked at while iterating on it.
+    func open(seconds: Double) {
+        hoverUntil = Date().addingTimeInterval(seconds)
+        store.hovering = true
+        expanded = true
+        Task { await notch.expand(on: targetScreen) }
+        refresh()
+    }
+
+    /// While set, the panel behaves as if the pointer were on it.
+    private var hoverUntil = Date.distantPast
+
     private func refresh() {
-        if store.hovering != notch.isHovering { store.hovering = notch.isHovering } // drives brief→full
+        let held = Date() < hoverUntil
+        let wantHover = notch.isHovering || held
+        if store.hovering != wantHover { store.hovering = wantHover } // drives brief→full
 
         // A decision just landed (clicked here OR answered in the terminal):
         // collapse immediately, even though the cursor still sits on the panel.
@@ -92,7 +107,7 @@ final class NotchPanelController {
         if !notch.isHovering { needsHoverExit = false }
         // Flag-based only: any pointer-exit re-arms hover instantly. (The old
         // timed windows left hover dead with nothing scheduled to re-check.)
-        let hovering = notch.isHovering && !needsHoverExit
+        let hovering = (notch.isHovering && !needsHoverExit) || held
         // smart suppression: if you're already looking at the agent's terminal,
         // the prompt is right in front of you — no popup (badge + hover still work)
         let suppressed = VNSettings.smartSuppression && !hovering && frontmostIsTerminal()
@@ -102,7 +117,7 @@ final class NotchPanelController {
         // missed (Stage Manager, fast cmd-tab) — re-evaluate every second so
         // suppression engages/releases reliably.
         recheckTask?.cancel()
-        if hasPending || (store.isBusy && VNSettings.autoHideWhenIdle) {
+        if hasPending || held || (store.isBusy && VNSettings.autoHideWhenIdle) {
             recheckTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { return }
@@ -126,7 +141,7 @@ final class NotchPanelController {
             return
         }
 
-        guard want != expanded else { scheduleDwell(hasPending: hasPending, want: want); return }
+        guard want != expanded else { scheduleDwell(hasPending: hasPending || held, want: want); return }
         expanded = want
         Task {
             if want {
@@ -138,24 +153,43 @@ final class NotchPanelController {
                 await notch.compact(on: targetScreen)
             }
         }
-        scheduleDwell(hasPending: hasPending, want: want)
+        scheduleDwell(hasPending: hasPending || held, want: want)
     }
 
     /// Auto-collapse hover-only expansions so the notch never squats open.
+    ///
+    /// The deadline is absolute. This used to cancel and restart the timer on
+    /// every call — and `refresh()` runs on every hook event, every hover tick
+    /// and every app switch, so with an agent actually working the countdown
+    /// restarted faster than it could finish and the panel stayed open until
+    /// the sessions went quiet.
     private func scheduleDwell(hasPending: Bool, want: Bool) {
+        guard want, !hasPending else {
+            dwellTask?.cancel(); dwellTask = nil; dwellDeadline = nil
+            return
+        }
+        if let deadline = dwellDeadline, deadline > Date(), dwellTask != nil { return }
+
+        let deadline = Date().addingTimeInterval(VNSettings.dwellSeconds)
+        dwellDeadline = deadline
         dwellTask?.cancel()
-        guard want, !hasPending else { return }
         dwellTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(VNSettings.dwellSeconds))
+            try? await Task.sleep(for: .seconds(max(0, deadline.timeIntervalSinceNow)))
             guard !Task.isCancelled, let self, self.store.pending.isEmpty else { return }
+            self.dwellDeadline = nil
             self.needsHoverExit = true
             self.expanded = false
             await self.notch.compact(on: self.targetScreen)
         }
     }
 
+    /// When the current hover-only expansion is due to collapse.
+    private var dwellDeadline: Date?
+
     /// ESC — collapse immediately.
     func collapseNow() {
+        hoverUntil = .distantPast
+        dwellDeadline = nil
         dwellTask?.cancel()
         needsHoverExit = true
         expanded = false

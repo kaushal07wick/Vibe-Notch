@@ -113,8 +113,15 @@ Grab the latest `VibeNotch-x.y.z.dmg` from
 [Releases](https://github.com/kaushal07wick/Vibe-Notch/releases), open it, and
 drag **VibeNotch** to Applications.
 
-> Builds are currently ad-hoc signed — on first open, right-click →
-> **Open** to pass Gatekeeper.
+> **Not notarized yet** (no Apple Developer ID). macOS quarantines the
+> download and will say the app is damaged — right-click → Open does not get
+> past that. Clear the quarantine flag once after installing:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/VibeNotch.app
+> ```
+>
+> Building from source has no quarantine and needs none of this.
 
 ### Build from source
 

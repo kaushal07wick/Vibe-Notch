@@ -10,7 +10,7 @@ struct AgentSprite {
     let colors: [Character: Color]
 }
 
-private let CLAUDE_ORANGE = Color(hex: 0xDD775B) // exact fill from Anthropic's mascot clips
+private let CLAUDE_ORANGE = Color(hex: 0xE8845C) // Anthropic's mascot fill, one step up so it holds at 20pt
 private let INK = Color(hex: 0x141414)
 private let PAPER = Color(hex: 0xF1EAD9)
 
@@ -40,7 +40,7 @@ let agentSprites: [String: AgentSprite] = [
             "..o.o..o.o",
             "..o.o..o.o",
         ],
-        colors: ["o": CLAUDE_ORANGE, "k": .black]
+        colors: ["o": CLAUDE_ORANGE, "k": INK]
     ),
     // OpenAI (Codex) — hexagonal knot ring.
     "codex": AgentSprite(
@@ -195,7 +195,11 @@ struct PixelGlyph: View {
     let color: Color
     var px: CGFloat = 2
 
+    /// Pixel art only stays sharp on whole device pixels (½pt at 2×).
+    static func snap(_ px: CGFloat) -> CGFloat { max(0.5, (px * 2).rounded() / 2) }
+
     var body: some View {
+        let px = Self.snap(px)
         Canvas { c, _ in
             for (y, row) in grid.enumerated() {
                 for (x, ch) in row.enumerated() where ch == "o" {
@@ -228,7 +232,10 @@ struct AgentSpriteView: View {
         } else if let sprite = agentSprites[source] {
             let cols = CGFloat(sprite.frameA[0].count)
             let rows = CGFloat(sprite.frameA.count)
-            let px = size / cols
+            // Snap the cell to a whole device pixel (½pt on a 2× display).
+            // size/cols is usually fractional — 18/10 = 1.8 — so every cell
+            // straddled two pixels and the sprite blurred into a blob.
+            let px = max(1, (size / cols * 2).rounded() / 2)
             TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
                 let useA = !animated || reduceMotion || sprite.frameB == nil
                     || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
@@ -245,8 +252,9 @@ struct AgentSpriteView: View {
                 }
                 .frame(width: cols * px, height: rows * px)
             }
+            .frame(width: size, height: size) // keep the row's rhythm regardless
         } else {
-            PixelInvader(color: VNColor.agent(source), px: size / 11)
+            PixelInvader(color: VNColor.agent(source), px: max(1, (size / 11 * 2).rounded(.down) / 2))
         }
     }
 }
@@ -383,6 +391,7 @@ struct OwlMark: View {
                 : t < 1.66 ? Self.blink
                 : t < 2.56 ? Self.open
                 : Self.glance
+            let px = PixelGlyph.snap(px)
             Canvas { c, _ in
                 for (y, row) in grid.enumerated() {
                     for (x, ch) in row.enumerated() {

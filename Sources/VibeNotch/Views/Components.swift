@@ -127,10 +127,10 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: 24, height: 24)
-                .background(.white.opacity(0.08), in: Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -282,6 +282,8 @@ struct PixelInvader: View {
     }
 
     var body: some View {
+        // Whole-device-pixel cells; a fractional px blurs pixel art.
+        let px = max(1, (self.px * 2).rounded() / 2)
         TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
             let useA = !animated || reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.4) % 2 == 0
             let f = cells(useA ? Self.frameA : Self.frameB)
