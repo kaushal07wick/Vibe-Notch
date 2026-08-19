@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notch Spinners — v2</title>
+<style>
+  :root {
+    --ink: #0b0b0d;
+    --panel: #161619;
+    --edge: #26262c;
+    --paper: #f2ecdd;
+    --muted: #74747e;
+    --green: #6fb982;
+    --orange: #dd775b;
+    --white: #eef0e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(130% 90% at 50% -20%, #1b1b22 0%, var(--ink) 55%);
+    color: var(--paper);
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; line-height: 1.55; }
+  .sub code { color: var(--paper); }
+
+  .bar-stage { margin: 28px 0 6px; display: flex; justify-content: center; }
+  .notch-pill {
+    background: #000; border-radius: 0 0 18px 18px;
+    padding: 11px 26px 13px; display: flex; align-items: center; gap: 24px;
+    box-shadow: 0 10px 34px rgba(0,0,0,.65);
+  }
+  .notch-hint { text-align: center; color: var(--muted); font-size: 11px; letter-spacing: .08em; margin: 10px 0 26px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
+    padding: 12px 16px; margin-bottom: 26px;
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 12px;
+    font-size: 12px; color: var(--muted);
+  }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  .swatch { display: flex; gap: 6px; }
+  .swatch button { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid transparent; cursor: pointer; padding: 0; }
+  .swatch button[aria-pressed="true"] { border-color: var(--paper); }
+  input[type=range] { accent-color: var(--green); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 14px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: #3a3a44; transform: translateY(-2px); }
+  .stage { display: flex; align-items: center; gap: 16px; background: var(--ink); border-radius: 10px; padding: 12px 16px; }
+  .stage canvas { display: block; }
+  .tiny-wrap { margin-left: auto; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .tiny-wrap span { font-size: 9px; color: var(--muted); letter-spacing: .1em; }
+  .name { font-size: 12.5px; font-weight: 600; letter-spacing: .06em; color: var(--white); display: flex; align-items: baseline; gap: 8px; }
+  .name .idx { color: var(--muted); font-size: 11px; font-weight: 400; }
+  .note { font-size: 11.5px; color: var(--muted); margin: 5px 0 0; line-height: 1.45; }
+  .tag { display: inline-block; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; margin-top: 9px; }
+  .tag.easy { background: rgba(111,185,130,.14); color: var(--green); }
+  .tag.med  { background: rgba(221,119,91,.15); color: var(--orange); }
+  footer { color: var(--muted); font-size: 11.5px; margin-top: 34px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Notch Spinners <span style="color:var(--green)">v2</span></h1>
+    <p class="sub">A fresh direction — smooth, glowing, motion-designed loaders. No pixel grids, no equalizer bars. Easing, squash-and-stretch, halos and gradients. Each shows enlarged and at true ~18&nbsp;px notch size. Pick one and I port it to SwiftUI.</p>
+  </header>
+
+  <div class="bar-stage"><div class="notch-pill" id="barPill"></div></div>
+  <p class="notch-hint">↑ true size, in a notch pill</p>
+
+  <div class="controls">
+    <label>speed <input type="range" id="speed" min="0.35" max="2" step="0.05" value="1"></label>
+    <label>tint
+      <span class="swatch" id="swatch">
+        <button data-c="#6fb982" style="background:#6fb982" aria-pressed="true"></button>
+        <button data-c="#dd775b" style="background:#dd775b" aria-pressed="false"></button>
+        <button data-c="#eef0e8" style="background:#eef0e8" aria-pressed="false"></button>
+      </span>
+    </label>
+    <span style="margin-left:auto">green = the app's live-activity color</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <footer>Rendered with <code>&lt;canvas&gt;</code> + glow — the SwiftUI <code>Canvas</code> port draws the same arcs and dots. &ldquo;Easy&rdquo; = one arc/dot loop; &ldquo;Med&rdquo; = trails or physics.</footer>
+</div>
+
+<script>
+let TINT = "#6fb982", SPEED = 1;
+const TAU = Math.PI * 2;
+const hex = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+const rgba = (a) => { const [r,g,b] = hex(TINT); return `rgba(${r},${g},${b},${a})`; };
+const easeInOut = t => -(Math.cos(Math.PI * t) - 1) / 2;
+
+// each: { name, port, note, draw(ctx, t, S) }  — center-based, S = box size
+const SPINNERS = [
+  { name:"Halo Arc", port:"easy",
+    note:"A rounded arc that spins while its length breathes. The premium default.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.32, lw=S*0.10;
+      const cyc=(t/1300)%1, e=easeInOut(cyc<0.5?cyc*2:(1-cyc)*2);
+      const start=t/480, sweep=0.12*TAU + e*0.72*TAU;
+      ctx.lineWidth=lw; ctx.lineCap="round"; ctx.strokeStyle=rgba(1);
+      ctx.shadowBlur=S*0.16; ctx.shadowColor=rgba(0.9);
+      ctx.beginPath(); ctx.arc(c,c,R,start,start+sweep); ctx.stroke(); } },
+
+  { name:"Orbit", port:"easy",
+    note:"Three dots orbit, each softly breathing in size. Calm and modern.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.30;
+      ctx.shadowBlur=S*0.14; ctx.shadowColor=rgba(0.9);
+      for(let i=0;i<3;i++){ const a=t/520 + i*TAU/3;
+        const r=S*0.075*(0.72+0.28*Math.sin(t/300+i*2));
+        ctx.fillStyle=rgba(1); ctx.beginPath();
+        ctx.arc(c+Math.cos(a)*R, c+Math.sin(a)*R, r, 0, TAU); ctx.fill(); } } },
+
+  { name:"Comet", port:"med",
+    note:"A glowing head with a gradient motion-blur tail sweeping the circle.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.32, head=t/460;
+      ctx.shadowBlur=S*0.12; ctx.shadowColor=rgba(0.9);
+      for(let k=12;k>=0;k--){ const a=head-k*0.10, al=1-k/13;
+        ctx.fillStyle=rgba(al*al); ctx.beginPath();
+        ctx.arc(c+Math.cos(a)*R, c+Math.sin(a)*R, S*0.065*(0.4+0.6*al), 0, TAU); ctx.fill(); } } },
+
+  { name:"Ping", port:"easy",
+    note:"Concentric rings pulse outward and fade — a soft radar ping.",
+    draw(ctx,t,S){ const c=S/2; ctx.lineCap="round";
+      for(let j=0;j<2;j++){ const p=((t/1150)+j*0.5)%1;
+        const r=S*0.10+p*S*0.30, al=(1-p)*(1-p);
+        ctx.lineWidth=S*0.06*(1-p*0.6); ctx.strokeStyle=rgba(al);
+        ctx.shadowBlur=S*0.10; ctx.shadowColor=rgba(al);
+        ctx.beginPath(); ctx.arc(c,c,r,0,TAU); ctx.stroke(); }
+      ctx.shadowBlur=0; ctx.fillStyle=rgba(0.9);
+      ctx.beginPath(); ctx.arc(c,c,S*0.07,0,TAU); ctx.fill(); } },
+
+  { name:"Bounce", port:"med",
+    note:"A ball drops with squash-and-stretch and a shadow. Full of life.",
+    draw(ctx,t,S){ const c=S/2, floor=S*0.72, top=S*0.28, r=S*0.11;
+      const p=(t%760)/760, h=Math.abs(Math.sin(p*Math.PI)); // 0 bottom .. 1 top
+      const y=floor-(floor-top)*h;
+      const sq=1-h; const sx=1+sq*0.35, sy=1-sq*0.35;
+      ctx.fillStyle=rgba(0.12+0.18*h);
+      ctx.beginPath(); ctx.ellipse(c,floor+r*0.7, r*(1.1-0.4*h), r*0.3, 0,0,TAU); ctx.fill();
+      ctx.shadowBlur=S*0.14; ctx.shadowColor=rgba(0.9); ctx.fillStyle=rgba(1);
+      ctx.beginPath(); ctx.ellipse(c,y, r*sx, r*sy, 0,0,TAU); ctx.fill(); } },
+
+  { name:"Wave", port:"easy",
+    note:"Five dots ripple in a smooth travelling sine. Reads as gentle motion.",
+    draw(ctx,t,S){ const n=5, gap=S*0.15, x0=S/2-(n-1)*gap/2, c=S/2;
+      ctx.shadowBlur=S*0.12; ctx.shadowColor=rgba(0.9); ctx.fillStyle=rgba(1);
+      for(let i=0;i<n;i++){ const y=c+Math.sin(t/240 - i*0.7)*S*0.14;
+        ctx.beginPath(); ctx.arc(x0+i*gap, y, S*0.05, 0, TAU); ctx.fill(); } } },
+
+  { name:"Dual Ring", port:"med",
+    note:"Two arcs counter-rotate at different radii. Mechanical, precise.",
+    draw(ctx,t,S){ const c=S/2; ctx.lineCap="round";
+      ctx.shadowBlur=S*0.10; ctx.shadowColor=rgba(0.8);
+      ctx.lineWidth=S*0.075; ctx.strokeStyle=rgba(1);
+      ctx.beginPath(); ctx.arc(c,c,S*0.34, t/560, t/560+TAU*0.62); ctx.stroke();
+      ctx.strokeStyle=rgba(0.55);
+      ctx.beginPath(); ctx.arc(c,c,S*0.20, -t/420, -t/420+TAU*0.5); ctx.stroke(); } },
+
+  { name:"Infinity", port:"med",
+    note:"A dot traces a figure-eight with a fading trail. Hypnotic, unique.",
+    draw(ctx,t,S){ const c=S/2, A=S*0.34, head=t/620;
+      ctx.shadowBlur=S*0.10; ctx.shadowColor=rgba(0.9);
+      for(let k=14;k>=0;k--){ const th=head-k*0.10, al=1-k/15;
+        const d=1+Math.sin(th)*Math.sin(th);
+        const x=c+A*Math.cos(th)/d, y=c+A*Math.sin(th)*Math.cos(th)/d;
+        ctx.fillStyle=rgba(al*al); ctx.beginPath();
+        ctx.arc(x,y,S*0.055*(0.4+0.6*al),0,TAU); ctx.fill(); } } },
+
+  { name:"Fade Dots", port:"easy",
+    note:"Eight dots ring the circle, brightness chasing round. The refined classic.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.32, n=8, head=t/110;
+      ctx.shadowBlur=S*0.08; ctx.shadowColor=rgba(0.7);
+      for(let i=0;i<n;i++){ const a=i/n*TAU;
+        const d=((i-head)%n+n)%n; const al=0.15+0.85*(1-d/n);
+        ctx.fillStyle=rgba(al); ctx.beginPath();
+        ctx.arc(c+Math.cos(a)*R, c+Math.sin(a)*R, S*0.055, 0, TAU); ctx.fill(); } } },
+
+  { name:"Pulse Core", port:"easy",
+    note:"A solid core beats while a halo ring expands out of it. Heartbeat energy.",
+    draw(ctx,t,S){ const c=S/2, p=(t/900)%1;
+      ctx.lineWidth=S*0.05*(1-p); ctx.strokeStyle=rgba((1-p)*(1-p));
+      ctx.beginPath(); ctx.arc(c,c,S*0.10+p*S*0.24,0,TAU); ctx.stroke();
+      const beat=0.10+0.02*Math.sin(t/220);
+      ctx.shadowBlur=S*0.18; ctx.shadowColor=rgba(1); ctx.fillStyle=rgba(1);
+      ctx.beginPath(); ctx.arc(c,c,S*beat,0,TAU); ctx.fill(); } },
+
+  { name:"Conic", port:"med",
+    note:"A conic-gradient ring sweeps round — the modern gradient spinner.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.30;
+      const g=ctx.createConicGradient(t/700, c, c);
+      g.addColorStop(0, rgba(0)); g.addColorStop(1, rgba(1));
+      ctx.lineWidth=S*0.10; ctx.lineCap="round"; ctx.strokeStyle=g;
+      ctx.beginPath(); ctx.arc(c,c,R,0,TAU); ctx.stroke();
+      ctx.shadowBlur=0; ctx.fillStyle=rgba(1);
+      const a=t/700; ctx.beginPath();
+      ctx.arc(c+Math.cos(a)*R, c+Math.sin(a)*R, S*0.05, 0, TAU); ctx.fill(); } },
+
+  { name:"Jelly", port:"med",
+    note:"A blob morphs its corners in a soft rotate. Organic, playful, alive.",
+    draw(ctx,t,S){ const c=S/2, R=S*0.26, pts=6;
+      ctx.shadowBlur=S*0.14; ctx.shadowColor=rgba(0.9); ctx.fillStyle=rgba(1);
+      ctx.beginPath();
+      for(let i=0;i<=pts;i++){ const a=i/pts*TAU + t/700;
+        const rr=R*(1+0.22*Math.sin(a*3 + t/300));
+        const x=c+Math.cos(a)*rr, y=c+Math.sin(a)*rr;
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+      ctx.closePath(); ctx.fill(); } },
+];
+
+function makeCanvas(display){
+  const dpr=Math.min(window.devicePixelRatio||1,3);
+  const cv=document.createElement("canvas");
+  cv.width=display*dpr; cv.height=display*dpr;
+  cv.style.width=display+"px"; cv.style.height=display+"px";
+  const ctx=cv.getContext("2d"); ctx.scale(dpr,dpr);
+  return {cv,ctx,display};
+}
+function paint(inst,spec,t){
+  const {ctx,display}=inst;
+  ctx.clearRect(0,0,display,display);
+  ctx.save(); ctx.shadowBlur=0; spec.draw(ctx,t,display); ctx.restore();
+}
+
+const instances=[];
+const grid=document.getElementById("grid");
+SPINNERS.forEach((spec,i)=>{
+  const card=document.createElement("div"); card.className="card";
+  const stage=document.createElement("div"); stage.className="stage";
+  const big=makeCanvas(76); big.cv.className="big";
+  const tw=document.createElement("div"); tw.className="tiny-wrap";
+  const tiny=makeCanvas(20);
+  const lab=document.createElement("span"); lab.textContent="18PX";
+  tw.append(tiny.cv,lab);
+  stage.append(big.cv,tw);
+  const meta=document.createElement("div");
+  meta.innerHTML=`<div class="name">${spec.name}<span class="idx">${String(i+1).padStart(2,"0")}</span></div>
+    <p class="note">${spec.note}</p><span class="tag ${spec.port}">${spec.port==="easy"?"easy port":"med port"}</span>`;
+  card.append(stage,meta); grid.append(card);
+  instances.push({inst:big,spec},{inst:tiny,spec});
+});
+
+const barPill=document.getElementById("barPill");
+[0,1,3,10].forEach(idx=>{ const inst=makeCanvas(18); barPill.append(inst.cv); instances.push({inst,spec:SPINNERS[idx]}); });
+
+let clock=0,last=null;
+function frame(now){ if(last!=null)clock+=(now-last)*SPEED; last=now;
+  for(const {inst,spec} of instances) paint(inst,spec,clock);
+  requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+document.getElementById("speed").addEventListener("input",e=>SPEED=+e.target.value);
+document.getElementById("swatch").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return; TINT=b.dataset.c;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",x===b));
+});
+</script>
+</body>
+</html>

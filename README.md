@@ -199,7 +199,7 @@ deliberately small (Swift package, three targets, no Xcode project).
 - `swift build && swift test` must stay green (`./scripts/bundle.sh` for the .app)
 - One focused change per PR; match the surrounding style
 - Agents are added via a single `AgentSpec` — see [`docs/`](docs/) and
-  `Sources/VibeNotchCore/AgentSpec.swift`
+  `Sources/VibeNotchCore/Agents/AgentSpec.swift`
 - UI changes: attach a before/after screenshot
 
 ## License
