@@ -45,6 +45,7 @@ public enum TerminalDetector {
         case "Tabby": return "Tabby"
         case "rio": return "Rio"
         case "zed": return "Zed"
+        case "waveterm": return "Wave"
         case "vscode":
             // VS Code forks share TERM_PROGRAM=vscode; tell them apart by paths.
             let hints = [env["VSCODE_GIT_ASKPASS_MAIN"], env["VSCODE_GIT_ASKPASS_NODE"], env["__CFBundleIdentifier"]]
@@ -64,7 +65,7 @@ public enum TerminalDetector {
             ("iTerm", "iTerm"), ("wezterm", "WezTerm"), ("kitty", "kitty"),
             ("alacritty", "Alacritty"), ("ghostty", "Ghostty"),
             ("Terminal", "Terminal"), ("Warp", "Warp"), ("Hyper", "Hyper"),
-            ("tabby", "Tabby"), ("rio", "Rio"), ("zed", "Zed"),
+            ("tabby", "Tabby"), ("rio", "Rio"), ("zed", "Zed"), ("Wave", "Wave"),
             ("Cursor", "Cursor"), ("Windsurf", "Windsurf"), ("Electron", "VS Code"),
         ]
         for ancestor in ancestors {
@@ -122,6 +123,9 @@ public struct JumpPlan: Equatable, Sendable {
         case "Hyper": return "co.zeit.hyper"
         case "Tabby": return "org.tabby"
         case "Rio": return "com.raphaelamorim.rio"
+        // ponytail: app activation only — Wave's wsh CLI may be able to focus the
+        // exact tab; worth revisiting if per-tab lands.
+        case "Wave": return "dev.commandline.waveterm"
         case "Zed": return "dev.zed.Zed"
         case "VS Code": return "com.microsoft.VSCode"
         case "Cursor": return "com.todesktop.230313mzl4w4u92"

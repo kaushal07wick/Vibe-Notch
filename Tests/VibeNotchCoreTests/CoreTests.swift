@@ -211,6 +211,9 @@ extension CoreTests {
         XCTAssertEqual(TerminalDetector.detect(env: ["TERM_PROGRAM": "vscode",
                                                      "VSCODE_GIT_ASKPASS_MAIN": "/Applications/Cursor.app/x"]).name, "Cursor")
         XCTAssertEqual(TerminalDetector.detect(env: ["ALACRITTY_WINDOW_ID": "1"]).name, "Alacritty")
+        // Wave reports TERM_PROGRAM=waveterm; unmapped, it fell through raw and
+        // matched no bundle id, so jumping did nothing at all.
+        XCTAssertEqual(TerminalDetector.detect(env: ["TERM_PROGRAM": "waveterm"]).name, "Wave")
         XCTAssertNil(TerminalDetector.detect(env: [:]).name)
         XCTAssertEqual(TerminalDetector.detect(env: ["TMUX": "/tmp/t,1,0", "TMUX_PANE": "%5",
                                                      "TERM_PROGRAM": "iTerm.app"]).meta["TMUX_PANE"], "%5")
@@ -287,6 +290,7 @@ extension CoreTests {
         XCTAssertTrue(iterm.useTTYScript)
         // plain fallback still resolves the app
         XCTAssertEqual(JumpPlan.make(terminal: "kitty", tty: nil, meta: [:]).bundleID, "net.kovidgoyal.kitty")
+        XCTAssertEqual(JumpPlan.make(terminal: "Wave", tty: nil, meta: [:]).bundleID, "dev.commandline.waveterm")
         XCTAssertEqual(JumpPlan.make(terminal: "Cursor", tty: nil, meta: [:]).bundleID, "com.todesktop.230313mzl4w4u92")
     }
 }

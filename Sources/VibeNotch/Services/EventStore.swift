@@ -391,7 +391,10 @@ final class EventStore: ObservableObject {
             break
         }
         guard !lines.isEmpty else { return }
-        s.console.append(contentsOf: lines)
+        // 200 lines was the only cap, and a line has no length limit — one
+        // heredoc pushed a live session to 55KB, re-serialized on every save.
+        // Nothing renders past a couple of hundred characters anyway.
+        s.console.append(contentsOf: lines.map { $0.count > 300 ? $0.prefix(300) + "…" : $0 })
         if s.console.count > 200 { s.console.removeFirst(s.console.count - 200) }
     }
 

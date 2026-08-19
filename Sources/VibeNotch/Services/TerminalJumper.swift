@@ -83,9 +83,13 @@ enum TerminalJumper {
             NSWorkspace.shared.openApplication(at: url, configuration: config)
             return
         }
-        // Unknown terminal — try activating a running app by name.
+        // Unknown terminal — try activating a running app by name. Match both
+        // directions: TERM_PROGRAM is often longer than the app's name
+        // ("waveterm" vs "Wave"), and a one-way contains missed every one.
         if let name, let app = NSWorkspace.shared.runningApplications.first(where: {
-            $0.localizedName?.localizedCaseInsensitiveContains(name) == true
+            guard let appName = $0.localizedName else { return false }
+            return appName.localizedCaseInsensitiveContains(name)
+                || (appName.count >= 3 && name.localizedCaseInsensitiveContains(appName))
         }) {
             app.activate()
         }
