@@ -141,6 +141,7 @@ struct HistoryList: View {
                         .background(Color.white.opacity(0.07), in: Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close history")
             }
             .padding(.bottom, 6)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }

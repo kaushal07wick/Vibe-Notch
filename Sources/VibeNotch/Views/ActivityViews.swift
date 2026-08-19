@@ -248,6 +248,7 @@ struct SessionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Jumps to this session's terminal tab")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 8))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
@@ -261,6 +262,7 @@ struct SessionRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Archive session")
         .help("Archive session")
     }
 
@@ -335,6 +337,7 @@ struct PanicButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(PressFeedback())
+        .accessibilityLabel(armed ? "Confirm interrupt" : "Interrupt the running command")
         .help("Interrupt the running command (^C)")
         .animation(.easeOut(duration: 0.12), value: armed)
     }
@@ -361,6 +364,7 @@ struct ReplyRow: View {
                         .font(.system(size: 14)).foregroundStyle(VNColor.go)
                 }
                 .buttonStyle(PressFeedback())
+                .accessibilityLabel("Send reply")
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)

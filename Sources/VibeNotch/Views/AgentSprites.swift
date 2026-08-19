@@ -275,6 +275,8 @@ struct EvolvedInvader: View {
             PixelInvader(color: Self.levelColors[min(level, 5) - 1], px: px)
         }
         .onAppear { level = StatsLog.mascotLevel(totals: StatsLog.totals()) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Invader level \(level) of 5")
         .help("Invader level \(level)/5 — grows with your sessions")
     }
 }
@@ -282,7 +284,24 @@ struct EvolvedInvader: View {
 /// Session-state glyph shown beside the mascot in rows (VI's language).
 struct StatusGlyph: View {
     let event: String
+
+    /// What the glyph means, spoken.
+    private var spoken: String? {
+        switch event {
+        case "PermissionRequest": "Waiting for permission"
+        case "Notification": "Waiting for you"
+        case "PreToolUse", "PostToolUse", "UserPromptSubmit": "Working"
+        case "Stop": "Done"
+        case "PostToolUseFailure", "StopFailure": "Failed"
+        default: nil
+        }
+    }
+
     var body: some View {
+        content.accessibilityLabel(spoken ?? "")
+    }
+
+    @ViewBuilder private var content: some View {
         switch event {
         case "PermissionRequest":
             Image(systemName: "exclamationmark.triangle.fill")

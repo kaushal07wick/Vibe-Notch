@@ -48,6 +48,7 @@ struct JumpPill: View {
             .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Jump to the agent's terminal tab")
     }
 }
 
@@ -120,6 +121,8 @@ struct PillCluster: View {
 struct HeaderIconButton: View {
     let symbol: String
     let tint: Color
+    /// Spoken name — the glyph alone tells VoiceOver nothing.
+    let label: String
     let action: () -> Void
     var body: some View {
         Button(action: action) {
@@ -130,6 +133,8 @@ struct HeaderIconButton: View {
                 .background(.white.opacity(0.08), in: Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .help(label)
     }
 }
 
@@ -195,6 +200,7 @@ struct AgentIcon: View {
     var body: some View {
         // each agent gets its own pixel brand mark (claude mascot, openai knot, …)
         AgentSpriteView(source: source, size: size)
+            .accessibilityLabel(agentName(source))
     }
 }
 
@@ -225,6 +231,7 @@ struct PixelRingSpinner: View {
             }
             .frame(width: side, height: side)
         }
+        .accessibilityHidden(true)
     }
 
     private func arc(_ ctx: GraphicsContext, _ c: CGPoint, radius: CGFloat,
@@ -286,6 +293,7 @@ struct PixelInvader: View {
             }
             .frame(width: 11 * px, height: 8 * px)
         }
+        .accessibilityHidden(true) // decoration; the state it sits beside is labelled
     }
 }
 

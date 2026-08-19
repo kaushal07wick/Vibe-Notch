@@ -27,19 +27,23 @@ struct ExpandedContent: View {
                 Button("") { showPalette.toggle(); if showPalette { showHistory = false } }
                     .keyboardShortcut("k", modifiers: .command)
                     .frame(width: 0, height: 0).opacity(0)
+                    .accessibilityHidden(true) // invisible shortcut host, not a control
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
-                                 tint: showHistory ? VNColor.go : .white.opacity(0.62)) {
+                                 tint: showHistory ? VNColor.go : .white.opacity(0.62),
+                                 label: "Session history") {
                     if !showHistory { history = SessionHistory.load() }
                     showHistory.toggle()
                     if showHistory { showPalette = false }
                 }
                 HeaderIconButton(
                     symbol: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
-                    tint: soundOn ? .white.opacity(0.62) : .orange.opacity(0.92)
+                    tint: soundOn ? .white.opacity(0.62) : .orange.opacity(0.92),
+                    label: soundOn ? "Mute alerts" : "Unmute alerts"
                 ) {
                     soundOn.toggle() // @AppStorage — same key VNSettings reads, always in sync
                 }
-                HeaderIconButton(symbol: "gearshape.fill", tint: .white.opacity(0.62)) {
+                HeaderIconButton(symbol: "gearshape.fill", tint: .white.opacity(0.62),
+                                 label: "Settings") {
                     SettingsWindow.show()
                 }
             }
@@ -123,6 +127,9 @@ struct CompactLeading: View {
         // mirror-width flanks keep the shape centred on the physical notch
         .frame(width: 32)
         .padding(.horizontal, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(store.escalated ? "Vibe Notch, a permission is waiting"
+                                            : anyRunning ? "Vibe Notch, agents working" : "Vibe Notch, idle")
     }
 
     private var anyRunning: Bool {
@@ -151,6 +158,7 @@ struct CompactTrailing: View {
                         .font(.system(size: 10)).foregroundStyle(VNColor.amber)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Undo the last decision")
                 .help("Undo the last decision")
             } else if store.privacyHold && !store.pending.isEmpty {
                 // shared screen: a lock instead of the count — no info leaked
@@ -161,6 +169,7 @@ struct CompactTrailing: View {
                     .font(.system(size: 10.5, weight: .semibold))
                     .monospacedDigit()
                     .foregroundStyle(VNColor.text)
+                    .accessibilityLabel("\(count) active session\(count == 1 ? "" : "s")")
             } else {
                 Circle().fill(VNColor.faint).frame(width: 4, height: 4)
             }

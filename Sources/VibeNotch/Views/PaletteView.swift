@@ -17,6 +17,7 @@ struct PaletteView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "command").font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                    .accessibilityHidden(true)
                 TextField("Jump, resume, approve…", text: $query)
                     .textFieldStyle(.plain).font(.system(size: 13))
                     .focused($focused)
@@ -28,6 +29,7 @@ struct PaletteView: View {
                         .background(Color.white.opacity(0.07), in: Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close the palette")
             }
             .padding(.bottom, 7)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
