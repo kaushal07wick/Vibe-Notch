@@ -59,6 +59,19 @@ public struct AgentHookInstaller: Sendable {
         }
     }
 
+    /// Replace the installed hook whenever it differs from the one in this
+    /// bundle. The skew check only fires on a protocol *version* change, and
+    /// that string moves at release time — so every fix to the hook between
+    /// releases sat in the bundle unused while the old binary kept running.
+    /// Byte comparison needs no version to maintain.
+    public static func refreshHookBinary(from source: URL) {
+        let dest = VNPaths.bin.appendingPathComponent("vibenotch-hook")
+        guard FileManager.default.fileExists(atPath: source.path),
+              !FileManager.default.contentsEqual(atPath: source.path, andPath: dest.path)
+        else { return }
+        try? installHookBinary(from: source)
+    }
+
     public static func installHookBinary(from source: URL) throws {
         try VNPaths.ensure()
         let dest = VNPaths.bin.appendingPathComponent("vibenotch-hook")

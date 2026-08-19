@@ -104,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @discardableResult
     func connectDetectedAgents(force: Bool = false) -> [String] {
         let hookBinary = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
+        AgentHookInstaller.refreshHookBinary(from: hookBinary)
         let cli = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch")
         if FileManager.default.fileExists(atPath: cli.path) {
             let dest = VNPaths.bin.appendingPathComponent("vibenotch")

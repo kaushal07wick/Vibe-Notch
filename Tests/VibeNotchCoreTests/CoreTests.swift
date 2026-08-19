@@ -412,4 +412,28 @@ extension CoreTests {
         XCTAssertEqual(StatsLog.mascotLevel(totals: ["approved": 100, "sessions": 50]), 2)
         XCTAssertEqual(StatsLog.mascotLevel(totals: ["approved": 4000, "autoApproved": 2000]), 5)
     }
+    /// The hook binary must follow the app, not a version string someone
+    /// remembers to bump — this Mac ran a two-week-old hook for that reason.
+    func testHookBinaryRefreshesWhenBundledCopyDiffers() throws {
+        let fm = FileManager.default
+        let dest = VNPaths.bin.appendingPathComponent("vibenotch-hook")
+        let saved = fm.contents(atPath: dest.path)
+        defer { if let saved { try? saved.write(to: dest) } }
+
+        let source = fm.temporaryDirectory.appendingPathComponent("hook-\(UUID().uuidString)")
+        try Data("NEW".utf8).write(to: source)
+        defer { try? fm.removeItem(at: source) }
+
+        try? VNPaths.ensure()
+        try? Data("OLD".utf8).write(to: dest)
+        AgentHookInstaller.refreshHookBinary(from: source)
+        XCTAssertEqual(fm.contents(atPath: dest.path), Data("NEW".utf8))
+
+        // Identical contents must not rewrite the file.
+        let before = try fm.attributesOfItem(atPath: dest.path)[.modificationDate] as? Date
+        AgentHookInstaller.refreshHookBinary(from: source)
+        let after = try fm.attributesOfItem(atPath: dest.path)[.modificationDate] as? Date
+        XCTAssertEqual(before, after)
+    }
+
 }
