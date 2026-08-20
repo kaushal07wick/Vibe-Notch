@@ -765,6 +765,9 @@ private struct KeyRecorder: NSViewRepresentable {
 private struct SSHPane: View {
     @State private var servers = SSHRemote.load()
     @State private var busy = false
+    @State private var tick = Date()
+    @ObservedObject private var tunnels = AppDelegate.shared?.tunnels ?? SSHTunnelManager()
+    private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         // Explanation, not a control — a row with an empty trailing slot reads
@@ -786,12 +789,15 @@ private struct SSHPane: View {
             } else {
                 ForEach(Array(servers.enumerated()), id: \.element.host) { index, server in
                     SettingRow(label: server.host,
-                               caption: server.enabled ? "Connected" : "Disabled",
+                               caption: status(for: server),
                                divider: true) {
-                        Button("Remove") {
-                            AppDelegate.shared?.tunnels.removeServer(host: server.host)
-                            servers = SSHRemote.load()
-                        }.controlSize(.small)
+                        HStack(spacing: 8) {
+                            Circle().fill(statusColor(for: server)).frame(width: 7, height: 7)
+                            Button("Remove") {
+                                AppDelegate.shared?.tunnels.removeServer(host: server.host)
+                                servers = SSHRemote.load()
+                            }.controlSize(.small)
+                        }
                     }
                 }
             }
@@ -799,6 +805,34 @@ private struct SSHPane: View {
                 Button(busy ? "Deploying…" : "Add Host…") { addHost() }
                     .controlSize(.small).disabled(busy)
             }
+        }
+        // Keeps the retry countdown ticking.
+        .onReceive(poll) { tick = $0 }
+    }
+
+    /// Live tunnel state, not the stored enabled flag — that said "Connected"
+    /// whether or not anything was actually connected.
+    private func status(for server: SSHServer) -> String {
+        guard server.enabled else { return "Disabled" }
+        switch tunnels.state[server.host] {
+        case .up(let since):
+            return "Connected · up \(ageString(since))"
+        case .retrying(let at, let reason):
+            let secs = max(0, Int(at.timeIntervalSince(tick)))
+            return "\(reason) — retrying in \(secs)s"
+        case .connecting:
+            return "Connecting…"
+        case .stopped, .none:
+            return "Not connected"
+        }
+    }
+
+    private func statusColor(for server: SSHServer) -> Color {
+        guard server.enabled else { return .secondary.opacity(0.4) }
+        switch tunnels.state[server.host] {
+        case .up: return VNColor.go
+        case .retrying: return VNColor.amber
+        default: return .secondary.opacity(0.5)
         }
     }
 
