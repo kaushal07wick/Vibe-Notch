@@ -237,18 +237,33 @@ private struct QuestionPrompt: View {
     private var complete: Bool { (0..<questions.count).allSatisfy { !(picked[$0] ?? []).isEmpty } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(questions.enumerated()), id: \.offset) { qi, q in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(q.question)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(VNColor.paper.opacity(0.86))
-                        .fixedSize(horizontal: false, vertical: true)
-                    ForEach(q.options, id: \.label) { opt in
-                        optionRow(qi: qi, q: q, opt: opt)
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(questions.enumerated()), id: \.offset) { qi, q in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                if questions.count > 1 {
+                                    Text("\(qi + 1)/\(questions.count)")
+                                        .font(VNFont.sysMono(9.5, .semibold))
+                                        .foregroundStyle(VNColor.faint)
+                                }
+                                Text(q.question)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(VNColor.paper.opacity(0.86))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            ForEach(q.options, id: \.label) { opt in
+                                optionRow(qi: qi, q: q, opt: opt)
+                            }
+                        }
                     }
                 }
+                .padding(.trailing, 2)
             }
+            // Cap it and let it scroll — the Answer button has to stay reachable.
+            .frame(maxHeight: 300)
+            .fixedSize(horizontal: false, vertical: true)
             if !instant {
                 WideButton(title: "Answer", kind: .primary) {
                     submit(questions.indices.map { (picked[$0] ?? []).sorted().joined(separator: ", ") })
@@ -280,7 +295,7 @@ private struct QuestionPrompt: View {
                     Text(opt.label).font(.system(size: 11.8, weight: .medium)).foregroundStyle(VNColor.text)
                     if let d = opt.description, !d.isEmpty {
                         Text(d).font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
-                            .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(2).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Spacer(minLength: 0)

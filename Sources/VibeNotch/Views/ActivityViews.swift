@@ -57,6 +57,7 @@ struct ActivityCard: View {
             }
             SessionStatusLine(s: s, full: full)
             if full, TerminalControl.canReply(to: s) { ReplyRow(session: s) }
+
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
         .frame(width: 600, alignment: .leading)
@@ -69,6 +70,9 @@ struct ActivityCard: View {
 
     // MARK: Session list
 
+    /// Which row has its reply field open, if any.
+    @State private var replyingTo: String?
+
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             sessionsHeader
@@ -77,7 +81,14 @@ struct ActivityCard: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
-                        SessionRow(s: s, onDismiss: onDismiss)
+                        SessionRow(s: s, onDismiss: onDismiss,
+                                   replying: replyingTo == s.sessionId) { id in
+                            replyingTo = replyingTo == id ? nil : id
+                        }
+                        if replyingTo == s.sessionId {
+                            ReplyRow(session: s) { replyingTo = nil }
+                                .padding(.horizontal, 10).padding(.bottom, 8)
+                        }
                         if index < sessions.count - 1 {
                             Rectangle().fill(Color.white.opacity(0.055))
                                 .frame(height: 1).padding(.leading, 40)
@@ -224,6 +235,8 @@ struct TerminalBlock: View {
 struct SessionRow: View {
     let s: SessionActivity
     var onDismiss: (String) -> Void = { _ in }
+    var replying = false
+    var onReply: (String) -> Void = { _ in }
     @State private var hovering = false
 
     var body: some View {
@@ -247,7 +260,8 @@ struct SessionRow: View {
                     // pills stay on hover; the age slot turns into jump + archive
                     PillCluster(source: s.source, terminal: s.terminal, tty: s.tty,
                                 showJump: false, age: hovering ? nil : s.updatedAt)
-                    if hovering {
+                    if hovering || replying {
+                        replyButton
                         JumpPill(terminal: s.terminal, tty: s.tty)
                         binButton
                     }
@@ -260,6 +274,21 @@ struct SessionRow: View {
         .accessibilityHint("Jumps to this session's terminal tab")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
+    }
+
+    @ViewBuilder private var replyButton: some View {
+        if TerminalControl.canReply(to: s) {
+            Button { onReply(s.sessionId) } label: {
+                Image(systemName: replying ? "arrowshape.turn.up.left.fill" : "arrowshape.turn.up.left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(replying ? VNColor.go : VNColor.muted)
+                    .frame(width: 24, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Reply to this agent")
+            .help("Type an instruction into this session")
+        }
     }
 
     private var binButton: some View {
@@ -355,18 +384,23 @@ struct PanicButton: View {
 /// Reply straight into the session's terminal pane.
 struct ReplyRow: View {
     let session: SessionActivity
+    /// Called after a successful send, so the list can close the row.
+    var onSent: () -> Void = {}
     @State private var text = ""
+    @State private var sentNote = false
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "arrowshape.turn.up.left")
                 .font(.system(size: 10)).foregroundStyle(VNColor.faint)
-            TextField("Reply to \(agentName(session.source))…", text: $text)
+            TextField(sentNote ? "Sent — typed into \(session.terminal ?? "the terminal")"
+                               : "Tell \(agentName(session.source)) what to do…", text: $text)
                 .textFieldStyle(.plain)
                 .font(.system(size: 11.5))
                 .focused($focused)
                 .onSubmit(send)
+                .onAppear { focused = true }
             if !text.isEmpty {
                 Button(action: send) {
                     Image(systemName: "arrow.up.circle.fill")
@@ -383,8 +417,11 @@ struct ReplyRow: View {
     }
 
     private func send() {
-        guard TerminalControl.send(text, to: session) else { return }
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty,
+              TerminalControl.send(text, to: session) else { return }
         text = ""
+        sentNote = true
+        onSent()
     }
 }
 

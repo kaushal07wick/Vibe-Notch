@@ -3,11 +3,20 @@ import VibeNotchCore
 
 /// Acts on a session's terminal: type a reply into the exact pane, or
 /// interrupt (^C) the foreground process. Local sessions only.
+@MainActor
 enum TerminalControl {
     /// Whether reply-from-notch can reach this session's terminal.
+    ///
+    /// Direct injection covers tmux, WezTerm, kitty, iTerm and Terminal. Every
+    /// other terminal — Wave, Ghostty, Warp, Alacritty… — had no path at all,
+    /// so the reply field never appeared and `vibenotch send` was a no-op. The
+    /// keystroke fallback covers them as long as we can bring the app forward.
     static func canReply(to s: SessionActivity) -> Bool {
-        s.host == nil && InjectionPlan.make(terminal: s.terminal, tty: s.tty,
-                                            meta: s.termMeta ?? [:], text: "x").isSupported
+        guard s.host == nil else { return false }
+        if InjectionPlan.make(terminal: s.terminal, tty: s.tty,
+                              meta: s.termMeta ?? [:], text: "x").isSupported { return true }
+        return JumpPlan.make(terminal: s.terminal, tty: s.tty,
+                             meta: s.termMeta ?? [:]).bundleID != nil
     }
 
     /// Type `text` + Enter into the session's terminal. Returns false when the
@@ -18,12 +27,48 @@ enum TerminalControl {
         guard !trimmed.isEmpty, s.host == nil else { return false }
         let plan = InjectionPlan.make(terminal: s.terminal, tty: s.tty,
                                       meta: s.termMeta ?? [:], text: trimmed)
-        guard plan.isSupported else { return false }
+        guard plan.isSupported else { return sendByTyping(trimmed, to: s) }
         for argv in plan.commands { run(argv) }
         if let script = plan.appleScript {
             VNAppleScript.run(script, purpose: "typing a reply into \(s.terminal ?? "the terminal")")
         }
         StatsLog.bump("replies")
+        return true
+    }
+
+    /// Fallback for terminals with no scripting API: focus the session's tab,
+    /// wait for the app to actually come forward, then type.
+    ///
+    /// The frontmost check is the safety: if the jump didn't land, we abort
+    /// rather than type someone's prompt into whatever window happens to be
+    /// under the keyboard.
+    @MainActor
+    private static func sendByTyping(_ text: String, to s: SessionActivity) -> Bool {
+        let plan = JumpPlan.make(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
+        guard let bundleID = plan.bundleID else { return false }
+
+        TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
+        Task { @MainActor in
+            for _ in 0..<20 { // up to ~2s for the terminal to take focus
+                if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID { break }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID else {
+                NSLog("VibeNotch: reply aborted — \(bundleID) never came forward")
+                return
+            }
+            let escaped = text
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: " ")
+            VNAppleScript.run("""
+                tell application "System Events"
+                    keystroke "\(escaped)"
+                    key code 36
+                end tell
+                """, purpose: "typing a reply into \(s.terminal ?? "the terminal")")
+            StatsLog.bump("replies")
+        }
         return true
     }
 
