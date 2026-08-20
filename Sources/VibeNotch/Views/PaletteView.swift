@@ -16,14 +16,14 @@ struct PaletteView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: "command").font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                Image(systemName: "command").font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
                     .accessibilityHidden(true)
                 TextField("Jump, resume, approve…", text: $query)
-                    .textFieldStyle(.plain).font(.system(size: 13))
+                    .textFieldStyle(.plain).font(VNFont.ui(13))
                     .focused($focused)
                     .onSubmit { hits.first?.run() }
                 Button(action: close) {
-                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "xmark").font(VNFont.ui(9, .semibold))
                         .foregroundStyle(VNColor.muted)
                         .frame(width: 20, height: 20)
                         .background(Color.white.opacity(0.07), in: Circle())
@@ -38,7 +38,7 @@ struct PaletteView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(hits) { hit in PaletteRow(hit: hit) }
                     if hits.isEmpty {
-                        Text("Nothing matches.").font(.system(size: 11))
+                        Text("Nothing matches.").font(VNFont.ui(11))
                             .foregroundStyle(VNColor.faint).padding(.vertical, 10)
                     }
                 }
@@ -48,7 +48,7 @@ struct PaletteView: View {
             .padding(.top, 5)
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 620, alignment: .leading)
+        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
         .onAppear {
             history = SessionHistory.load(limit: 10)
             focused = true
@@ -102,9 +102,9 @@ struct PaletteView: View {
         var body: some View {
             Button(action: hit.run) {
                 HStack(spacing: 9) {
-                    Image(systemName: hit.icon).font(.system(size: 11))
+                    Image(systemName: hit.icon).font(VNFont.ui(11))
                         .foregroundStyle(hit.tint).frame(width: 16)
-                    Text(hit.title).font(.system(size: 11.8, weight: .medium))
+                    Text(hit.title).font(VNFont.ui(11.8, .medium))
                         .foregroundStyle(VNColor.text).lineLimit(1).truncationMode(.tail)
                     if let sub = hit.subtitle {
                         Text(sub).font(VNFont.sysMono(9.5, .medium)).foregroundStyle(VNColor.faint)

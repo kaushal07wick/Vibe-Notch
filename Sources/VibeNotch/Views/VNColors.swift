@@ -41,10 +41,26 @@ enum VNColor {
 
 /// DepartureMono — kept for the terminal/command blocks (retro, readable code).
 enum VNFont {
-    static func mono(_ size: CGFloat) -> Font { .custom("Departure Mono", size: size) }
+    /// Every panel font goes through here so Display › Content size scales the
+    /// whole card at once instead of one label at a time.
+    static var scale: CGFloat {
+        let stored = UserDefaults.standard.double(forKey: "contentScale")
+        return stored <= 0 ? 1 : min(1.6, max(0.8, stored))
+    }
+
+    static func scaled(_ size: CGFloat) -> CGFloat { (size * scale * 2).rounded() / 2 }
+
+    static func mono(_ size: CGFloat) -> Font { .custom("Departure Mono", size: scaled(size)) }
     /// SF Mono — for small badges/counts/time (matches Open Island's `.monospaced`).
     static func sysMono(_ size: CGFloat, _ weight: Font.Weight = .medium) -> Font {
-        .system(size: size, weight: weight, design: .monospaced)
+        .system(size: scaled(size), weight: weight, design: .monospaced)
+    }
+    /// The panel's UI font. Same call shape as `.system(size:weight:)`.
+    static func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        .system(size: scaled(size), weight: weight)
+    }
+    static func uiMono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        .system(size: scaled(size), weight: weight, design: .monospaced)
     }
 }
 

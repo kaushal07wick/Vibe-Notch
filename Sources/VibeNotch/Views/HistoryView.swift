@@ -130,11 +130,11 @@ struct HistoryList: View {
             HStack(spacing: 8) {
                 Text("HISTORY").font(VNFont.sysMono(10, .semibold)).tracking(1.4)
                     .foregroundStyle(VNColor.paper.opacity(0.55))
-                Text("click to resume").font(.system(size: 10))
+                Text("click to resume").font(VNFont.ui(10))
                     .foregroundStyle(VNColor.faint)
                 Spacer(minLength: 8)
                 Button(action: close) {
-                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "xmark").font(VNFont.ui(9, .semibold))
                         .foregroundStyle(VNColor.muted)
                         .frame(width: 20, height: 20)
                         .background(Color.white.opacity(0.07), in: Circle())
@@ -150,7 +150,7 @@ struct HistoryList: View {
 
             if entries.isEmpty {
                 Text("No past sessions found.")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                    .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
                     .padding(.vertical, 14)
             } else {
                 ScrollView {
@@ -164,7 +164,7 @@ struct HistoryList: View {
             }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 620, alignment: .leading)
+        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
     }
 }
 
@@ -204,7 +204,7 @@ private struct HistoryRow: View {
                 SessionGlyph(tint: SessionGlyph.tint(entry.folder))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.task)
-                        .font(.system(size: 12))
+                        .font(VNFont.ui(12))
                         .foregroundStyle(VNColor.text.opacity(0.92))
                         .lineLimit(1).truncationMode(.tail)
                     HStack(spacing: 5) {

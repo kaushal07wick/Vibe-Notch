@@ -136,6 +136,25 @@ enum VNSettings {
         set { d.set(newValue, forKey: "dwellSeconds") }
     }
 
+    /// Panel type scale, 0.8…1.6. Everything in the notch scales together.
+    static var contentScale: Double {
+        get { let v = d.double(forKey: "contentScale"); return v <= 0 ? 1 : v }
+        set { d.set(newValue, forKey: "contentScale") }
+    }
+
+    /// How wide the expanded panel is, in points.
+    static var panelWidth: Int {
+        get { let v = d.integer(forKey: "panelWidth"); return v <= 0 ? 620 : v }
+        set { d.set(newValue, forKey: "panelWidth") }
+    }
+
+    /// Collapse a hover-opened panel when the pointer leaves. Off keeps it up
+    /// until Esc or a click elsewhere.
+    static var collapseOnLeave: Bool {
+        get { d.object(forKey: "collapseOnLeave") as? Bool ?? true }
+        set { d.set(newValue, forKey: "collapseOnLeave") }
+    }
+
     // MARK: Shortcuts
 
     /// Master switch for every keyboard shortcut, mappings kept.

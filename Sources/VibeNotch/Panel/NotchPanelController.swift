@@ -107,7 +107,10 @@ final class NotchPanelController {
         if !notch.isHovering { needsHoverExit = false }
         // Flag-based only: any pointer-exit re-arms hover instantly. (The old
         // timed windows left hover dead with nothing scheduled to re-check.)
-        let hovering = (notch.isHovering && !needsHoverExit) || held
+        // With collapse-on-leave off, an opened panel stays up until Esc or a
+        // decision — the pointer leaving is not enough.
+        let stickyOpen = !VNSettings.collapseOnLeave && expanded == true && !needsHoverExit
+        let hovering = (notch.isHovering && !needsHoverExit) || held || stickyOpen
         // smart suppression: if you're already looking at the agent's terminal,
         // the prompt is right in front of you — no popup (badge + hover still work)
         let suppressed = VNSettings.smartSuppression && !hovering && frontmostIsTerminal()

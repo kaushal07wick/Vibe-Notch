@@ -61,7 +61,7 @@ struct LinkChip: View {
                     .font(VNFont.sysMono(9.5, .medium))
                     .lineLimit(1).truncationMode(.middle)
                 Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(VNFont.ui(7, .bold))
                     .opacity(0.7)
             }
             .foregroundStyle(Color(hex: 0x8AC3F0))

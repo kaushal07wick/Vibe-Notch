@@ -41,7 +41,7 @@ struct JumpPill: View {
         Button { TerminalJumper.jump(terminal: terminal, tty: tty) } label: {
             HStack(spacing: 3) {
                 Text("^G").font(VNFont.mono(9.5))
-                Image(systemName: "arrow.up.forward").font(.system(size: 8, weight: .bold))
+                Image(systemName: "arrow.up.forward").font(VNFont.ui(8, .bold))
             }
             .foregroundStyle(Color(hex: 0x6FD3E0))
             .padding(.horizontal, 6).padding(.vertical, 2.5)
@@ -127,7 +127,7 @@ struct HeaderIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12.5, weight: .medium))
+                .font(VNFont.ui(12.5, .medium))
                 .foregroundStyle(tint)
                 .frame(width: 24, height: 24)
                 .contentShape(Rectangle())
@@ -150,7 +150,7 @@ struct WideButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(title).font(VNFont.ui(12, .semibold)).lineLimit(1)
                 if let hint {
                     // shortcut hint hugs the trailing edge (VI: "Allow Once   ^Y")
                     HStack {

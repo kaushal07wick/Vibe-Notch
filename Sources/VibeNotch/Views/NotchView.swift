@@ -11,6 +11,8 @@ struct ExpandedContent: View {
 
     @AppStorage("soundEnabled") private var soundOn = true
     @AppStorage("showUsageLimits") private var showUsage = true
+    @AppStorage("contentScale") private var contentScale = 1.0
+    @AppStorage("panelWidth") private var panelWidth = 620
     @State private var showHistory = false
     @State private var showPalette = false
     @State private var history: [ResumeEntry] = []
@@ -51,9 +53,9 @@ struct ExpandedContent: View {
             // while-you-were-away digest (backend clears it after a few seconds)
             if let digest = store.digest {
                 HStack(spacing: 7) {
-                    Image(systemName: "moon.zzz.fill").font(.system(size: 10))
+                    Image(systemName: "moon.zzz.fill").font(VNFont.ui(10))
                         .foregroundStyle(VNColor.running)
-                    Text(digest).font(.system(size: 10.5, weight: .medium))
+                    Text(digest).font(VNFont.ui(10.5, .medium))
                         .foregroundStyle(VNColor.muted).lineLimit(2)
                     Spacer(minLength: 0)
                 }
@@ -63,9 +65,9 @@ struct ExpandedContent: View {
             // screen-share guard: cards are queued silently while sharing
             if store.privacyHold && !store.pending.isEmpty {
                 HStack(spacing: 6) {
-                    Image(systemName: "lock.shield.fill").font(.system(size: 10))
+                    Image(systemName: "lock.shield.fill").font(VNFont.ui(10))
                     Text("\(store.pending.count) approval\(store.pending.count == 1 ? "" : "s") held while screen sharing")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(VNFont.ui(10.5, .medium))
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(VNColor.amber)
@@ -159,18 +161,18 @@ struct CompactTrailing: View {
                 // decision in its undo window — tap the glyph to take it back
                 Button { store.undoLast() } label: {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
-                        .font(.system(size: 10)).foregroundStyle(VNColor.amber)
+                        .font(VNFont.ui(10)).foregroundStyle(VNColor.amber)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Undo the last decision")
                 .help("Undo the last decision")
             } else if store.privacyHold && !store.pending.isEmpty {
                 // shared screen: a lock instead of the count — no info leaked
-                Image(systemName: "lock.fill").font(.system(size: 8))
+                Image(systemName: "lock.fill").font(VNFont.ui(8))
                     .foregroundStyle(VNColor.amber)
             } else if count > 0 {
                 Text("\(count)")
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(VNFont.ui(10.5, .semibold))
                     .monospacedDigit()
                     .foregroundStyle(VNColor.text)
                     .accessibilityLabel("\(count) active session\(count == 1 ? "" : "s")")

@@ -259,6 +259,7 @@ private struct VNToggle: View {
 private struct SecondsField: View {
     @State var value: Int
     var width: CGFloat = 52
+    var unit = "sec"
     let write: (Int) -> Void
     @FocusState private var focused: Bool
 
@@ -269,7 +270,7 @@ private struct SecondsField: View {
                 .focused($focused)
                 .onSubmit { write(max(0, value)) }
                 .onChange(of: focused) { _, isFocused in if !isFocused { write(max(0, value)) } }
-            Text("sec").foregroundStyle(.secondary).font(.caption)
+            Text(unit).foregroundStyle(.secondary).font(.caption)
         }
     }
 }
@@ -278,6 +279,14 @@ private struct SecondsField: View {
 
 private struct GeneralPane: View {
     var body: some View {
+
+        SectionCard(title: "Panel") {
+            SettingRow(label: "Collapse when the pointer leaves",
+                       caption: "Off keeps an opened panel up until Esc, a decision, or the dwell timer.",
+                       divider: false) {
+                VNToggle(isOn: VNSettings.collapseOnLeave) { VNSettings.collapseOnLeave = $0 }
+            }
+        }
         SectionCard(title: "Startup") {
             SettingRow(label: "Launch at login") {
                 VNToggle(isOn: VNSettings.launchAtLogin) { VNSettings.launchAtLogin = $0 }
@@ -461,6 +470,31 @@ private struct DisplayPane: View {
     @State private var dwell = VNSettings.dwellSeconds
 
     var body: some View {
+
+        SectionCard(title: "Size",
+                    footnote: "Everything in the panel scales together — text, pills and the mono blocks.") {
+            SettingRow(label: "Content size",
+                       caption: "Larger text in the notch panel. 100% is the default.") {
+                Picker("", selection: Binding(
+                    get: { VNSettings.contentScale },
+                    set: { VNSettings.contentScale = $0 }
+                )) {
+                    Text("90%").tag(0.9)
+                    Text("100%").tag(1.0)
+                    Text("110%").tag(1.1)
+                    Text("125%").tag(1.25)
+                    Text("150%").tag(1.5)
+                }
+                .labelsHidden().pickerStyle(.menu).frame(width: 92)
+            }
+            SettingRow(label: "Panel width",
+                       caption: "How wide the expanded panel gets, in points.",
+                       divider: false) {
+                SecondsField(value: VNSettings.panelWidth, width: 62, unit: "pt") {
+                    VNSettings.panelWidth = min(1000, max(420, $0))
+                }
+            }
+        }
         SectionCard(title: "Notch",
                     footnote: "If the chosen display is unplugged, the notch falls back to the main one.") {
             SettingRow(label: "Display",

@@ -24,9 +24,9 @@ struct ActivityCard: View {
         HStack(spacing: 12) {
             EvolvedInvader(px: 2)
             VStack(alignment: .leading, spacing: 2) {
-                Text("vibe-notch").font(.system(size: 13, weight: .semibold))
+                Text("vibe-notch").font(VNFont.ui(13, .semibold))
                 Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
-                    .font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                    .font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
             }
             Spacer(minLength: 12)
         }
@@ -43,11 +43,11 @@ struct ActivityCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(sessionTitle(folder: s.folder, task: s.task))
-                            .font(.system(size: 12.5, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                            .font(VNFont.ui(12.5, .semibold)).lineLimit(1).truncationMode(.tail)
                         GitChip(branch: s.gitBranch, dirty: s.gitDirty)
                     }
                     if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                        Text("You: \(user)").font(VNFont.ui(10.5)).foregroundStyle(VNColor.muted)
                             .lineLimit(full ? 3 : 1).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -60,7 +60,7 @@ struct ActivityCard: View {
 
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
-        .frame(width: 600, alignment: .leading)
+        .frame(width: CGFloat(VNSettings.panelWidth) - 20, alignment: .leading)
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
@@ -105,7 +105,7 @@ struct ActivityCard: View {
             .padding(.top, 6)
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 10, trailing: 16))
-        .frame(width: 620, alignment: .leading)
+        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
     }
 
     private var sessionsHeader: some View {
@@ -148,7 +148,7 @@ struct SessionStatusLine: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 icon
-                Text(label).font(.system(size: 11.5, weight: .medium)).foregroundStyle(labelColor)
+                Text(label).font(VNFont.ui(11.5, .medium)).foregroundStyle(labelColor)
                 Spacer(minLength: 0)
                 if s.subagents > 0 {
                     Text("\(s.subagents) subagent\(s.subagents == 1 ? "" : "s")")
@@ -177,10 +177,10 @@ struct SessionStatusLine: View {
     @ViewBuilder private var icon: some View {
         switch s.event {
         case "PreToolUse", "PostToolUse", "UserPromptSubmit": PixelRingSpinner(color: VNColor.running)
-        case "Notification": Image(systemName: "hourglass").font(.system(size: 10)).foregroundStyle(VNColor.amber)
-        case "Stop": Image(systemName: "checkmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.go)
+        case "Notification": Image(systemName: "hourglass").font(VNFont.ui(10)).foregroundStyle(VNColor.amber)
+        case "Stop": Image(systemName: "checkmark.circle.fill").font(VNFont.ui(10)).foregroundStyle(VNColor.go)
         case "PostToolUseFailure", "StopFailure":
-            Image(systemName: "xmark.circle.fill").font(.system(size: 10)).foregroundStyle(VNColor.stop)
+            Image(systemName: "xmark.circle.fill").font(VNFont.ui(10)).foregroundStyle(VNColor.stop)
         default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
         }
     }
@@ -247,13 +247,13 @@ struct SessionRow: View {
                     HStack(spacing: 6) {
                         StatusGlyph(event: s.event)
                         Text(sessionTitle(folder: s.folder, task: s.task))
-                            .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                            .font(VNFont.ui(13, .semibold)).lineLimit(1).truncationMode(.tail)
                     }
                     if let user = s.userMessage {
-                        Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                        Text("You: \(user)").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
                             .lineLimit(1).truncationMode(.tail)
                     }
-                    brief.font(.system(size: 11)).lineLimit(1).truncationMode(.tail)
+                    brief.font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
                 HStack(spacing: 5) {
@@ -280,7 +280,7 @@ struct SessionRow: View {
         if TerminalControl.canReply(to: s) {
             Button { onReply(s.sessionId) } label: {
                 Image(systemName: replying ? "arrowshape.turn.up.left.fill" : "arrowshape.turn.up.left")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(VNFont.ui(11, .medium))
                     .foregroundStyle(replying ? VNColor.go : VNColor.muted)
                     .frame(width: 24, height: 20)
                     .contentShape(Rectangle())
@@ -294,7 +294,7 @@ struct SessionRow: View {
     private var binButton: some View {
         Button { onDismiss(s.sessionId) } label: {
             Image(systemName: "archivebox")
-                .font(.system(size: 11, weight: .medium))
+                .font(VNFont.ui(11, .medium))
                 .foregroundStyle(VNColor.muted)
                 .frame(width: 24, height: 20)
                 .contentShape(Rectangle())
@@ -366,7 +366,7 @@ struct PanicButton: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: "octagon.fill").font(.system(size: 9))
+                Image(systemName: "octagon.fill").font(VNFont.ui(9))
                 Text(armed ? "sure?" : "^C").font(VNFont.sysMono(9.5, .semibold))
             }
             .foregroundStyle(armed ? .white : VNColor.stop)
@@ -393,18 +393,18 @@ struct ReplyRow: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: "arrowshape.turn.up.left")
-                .font(.system(size: 10)).foregroundStyle(VNColor.faint)
+                .font(VNFont.ui(10)).foregroundStyle(VNColor.faint)
             TextField(sentNote ? "Sent — typed into \(session.terminal ?? "the terminal")"
                                : "Tell \(agentName(session.source)) what to do…", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11.5))
+                .font(VNFont.ui(11.5))
                 .focused($focused)
                 .onSubmit(send)
                 .onAppear { focused = true }
             if !text.isEmpty {
                 Button(action: send) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 14)).foregroundStyle(VNColor.go)
+                        .font(VNFont.ui(14)).foregroundStyle(VNColor.go)
                 }
                 .buttonStyle(PressFeedback())
                 .accessibilityLabel("Send reply")

@@ -33,10 +33,10 @@ struct ApprovalCard: View {
             if queued > 0 {
                 HStack(spacing: 14) {
                     Text("Show all \(queued + 1) sessions")
-                        .font(.system(size: 11)).foregroundStyle(VNColor.faint)
+                        .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
                     Button { store.approveAll() } label: {
                         Text("Approve all \(queued + 1)")
-                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(VNColor.go)
+                            .font(VNFont.ui(11, .semibold)).foregroundStyle(VNColor.go)
                     }
                     .buttonStyle(PressFeedback())
                 }
@@ -44,7 +44,7 @@ struct ApprovalCard: View {
             }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 620)
+        .frame(width: CGFloat(VNSettings.panelWidth))
         .background(riskTint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
             .strokeBorder(riskBorder, lineWidth: risk == .high ? 1.2 : 0.8))
@@ -77,10 +77,10 @@ struct ApprovalCard: View {
                     // the mascot's shoulder.
                     PixelGlyph(grid: PixelGlyph.question, color: VNColor.amber, px: 2)
                     Text(sessionTitle(folder: (i.cwd as NSString?)?.lastPathComponent, task: i.title))
-                        .font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
+                        .font(VNFont.ui(13, .semibold)).lineLimit(1).truncationMode(.tail)
                 }
                 if let user = i.userMessage {
-                    Text("You: \(user)").font(.system(size: 11)).foregroundStyle(VNColor.muted)
+                    Text("You: \(user)").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
                         .lineLimit(1).truncationMode(.tail)
                 }
             }
@@ -92,8 +92,8 @@ struct ApprovalCard: View {
     private var toolLine: some View {
         let tint = risk == .high ? VNColor.stop : VNColor.amber
         return HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundStyle(tint)
-            Text(i.tool ?? "Tool").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(tint)
+            Image(systemName: "exclamationmark.triangle.fill").font(VNFont.ui(9)).foregroundStyle(tint)
+            Text(i.tool ?? "Tool").font(VNFont.ui(11.5, .semibold)).foregroundStyle(tint)
             if risk == .high {
                 Text("HIGH RISK").font(VNFont.sysMono(9, .semibold)).tracking(0.8)
                     .foregroundStyle(VNColor.stop)
@@ -113,15 +113,15 @@ struct ApprovalCard: View {
         let overflow = all.count - maxLines
         return VStack(alignment: .leading, spacing: 6) {
             (Text("$ ").foregroundStyle(VNColor.amber) + Text(shown).foregroundStyle(VNColor.paper.opacity(0.82)))
-                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .font(VNFont.uiMono(11.5, .semibold))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if overflow > 0 {
-                Text("+\(overflow) lines").font(.system(size: 10.5, weight: .medium))
+                Text("+\(overflow) lines").font(VNFont.ui(10.5, .medium))
                     .foregroundStyle(VNColor.paper.opacity(0.35))
             }
             if let desc = i.commandDescription {
-                Text(desc).font(.system(size: 11, weight: .medium))
+                Text(desc).font(VNFont.ui(11, .medium))
                     .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1)
             }
         }
@@ -153,7 +153,7 @@ struct ApprovalCard: View {
                 diffLines(new, prefix: "+", color: VNColor.go)
             }
             if let desc = i.commandDescription {
-                Text(desc).font(.system(size: 11, weight: .medium))
+                Text(desc).font(VNFont.ui(11, .medium))
                     .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1).padding(.top, 3)
             }
         }
@@ -169,12 +169,12 @@ struct ApprovalCard: View {
         return VStack(alignment: .leading, spacing: 1) {
             ForEach(Array(shown.enumerated()), id: \.offset) { _, line in
                 Text("\(prefix) \(line)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(VNFont.uiMono(11, .medium))
                     .foregroundStyle(color.opacity(0.9))
                     .lineLimit(1).truncationMode(.tail)
             }
             if lines.count > 6 {
-                Text("\(prefix) +\(lines.count - 6) lines").font(.system(size: 10))
+                Text("\(prefix) +\(lines.count - 6) lines").font(VNFont.ui(10))
                     .foregroundStyle(color.opacity(0.5))
             }
         }
@@ -184,8 +184,8 @@ struct ApprovalCard: View {
 
     private var planLine: some View {
         HStack(spacing: 6) {
-            Image(systemName: "doc.text").font(.system(size: 10)).foregroundStyle(VNColor.running)
-            Text("Plan ready for review").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(VNColor.running)
+            Image(systemName: "doc.text").font(VNFont.ui(10)).foregroundStyle(VNColor.running)
+            Text("Plan ready for review").font(VNFont.ui(12.5, .semibold)).foregroundStyle(VNColor.running)
             Spacer(minLength: 0)
         }
     }
@@ -193,7 +193,7 @@ struct ApprovalCard: View {
     private func planBlock(_ plan: String) -> some View {
         ScrollView {
             Text(planAttributed(plan))
-                .font(.system(size: 11.5))
+                .font(VNFont.ui(11.5))
                 .foregroundStyle(VNColor.text.opacity(0.92))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
@@ -249,7 +249,7 @@ private struct QuestionPrompt: View {
                                         .foregroundStyle(VNColor.faint)
                                 }
                                 Text(q.question)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(VNFont.ui(12, .semibold))
                                     .foregroundStyle(VNColor.paper.opacity(0.86))
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -288,13 +288,13 @@ private struct QuestionPrompt: View {
         } label: {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 11))
+                    .font(VNFont.ui(11))
                     .foregroundStyle(isOn ? VNColor.invader : VNColor.faint)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(opt.label).font(.system(size: 11.8, weight: .medium)).foregroundStyle(VNColor.text)
+                    Text(opt.label).font(VNFont.ui(11.8, .medium)).foregroundStyle(VNColor.text)
                     if let d = opt.description, !d.isEmpty {
-                        Text(d).font(.system(size: 10.5)).foregroundStyle(VNColor.muted)
+                        Text(d).font(VNFont.ui(10.5)).foregroundStyle(VNColor.muted)
                             .lineLimit(2).truncationMode(.tail).fixedSize(horizontal: false, vertical: true)
                     }
                 }
