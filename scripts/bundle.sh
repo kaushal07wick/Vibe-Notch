@@ -26,6 +26,8 @@ cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns" 2>/dev/
 plutil -replace CFBundleIconFile -string AppIcon "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources/Fonts"
 cp "$ROOT/Resources/Fonts/"*.otf "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
+mkdir -p "$APP/Contents/Resources/AgentIcons"
+cp "$ROOT/Resources/AgentIcons/"*.png "$APP/Contents/Resources/AgentIcons/" 2>/dev/null || true
 cp "$ROOT/Resources/"*.js "$APP/Contents/Resources/" 2>/dev/null || true
 cp "$ROOT/Resources/"*.py "$APP/Contents/Resources/" 2>/dev/null || true
 

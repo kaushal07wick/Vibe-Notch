@@ -34,6 +34,11 @@ enum VNColor {
         case "qoder":     return Color(hex: 0xFF6B9F)
         case "droid":     return Color(hex: 0x6E9FFF)
         case "codebuddy": return Color(hex: 0xFCA5A5)
+        case "mistral":   return Color(hex: 0xFA520F)
+        case "deepseek":  return Color(hex: 0x4D6BFE)
+        case "glm":       return Color(hex: 0xE8E4DA)
+        case "hermes":    return Color(hex: 0xE8E4DA)
+        case "pi":        return Color(hex: 0xF4F4F5)
         default:          return Color(hex: 0xD97742) // claude
         }
     }

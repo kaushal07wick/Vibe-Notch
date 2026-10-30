@@ -76,11 +76,7 @@ public enum Agents {
         // Claude-schema forks: same hook payloads, different home dir.
         .init(id: "qwen", name: "Qwen Code", configDir: ".qwen",
               configFile: "settings.json", mechanism: .jsonHooks(events: claudeEvents)),
-        .init(id: "qoder", name: "Qoder", configDir: ".qoder",
-              configFile: "settings.json", mechanism: .jsonHooks(events: claudeEvents)),
         .init(id: "droid", name: "Droid", configDir: ".factory",
-              configFile: "settings.json", mechanism: .jsonHooks(events: claudeEvents)),
-        .init(id: "codebuddy", name: "CodeBuddy", configDir: ".codebuddy",
               configFile: "settings.json", mechanism: .jsonHooks(events: claudeEvents)),
         .init(id: "gemini", name: "Gemini CLI", configDir: ".gemini",
               configFile: "settings.json", mechanism: .jsonHooks(events: geminiEvents)),

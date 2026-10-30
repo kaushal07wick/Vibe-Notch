@@ -13,6 +13,8 @@ cd "$ROOT"
 python3 scripts/make-icon.py
 ./scripts/bundle.sh release
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+mkdir -p "$APP/Contents/Resources/AgentIcons"
+cp "$ROOT/Resources/AgentIcons/"*.png "$APP/Contents/Resources/AgentIcons/"
 plutil -replace CFBundleIconFile -string AppIcon "$APP/Contents/Info.plist"
 
 ENTITLEMENTS="$ROOT/Resources/VibeNotch.entitlements"

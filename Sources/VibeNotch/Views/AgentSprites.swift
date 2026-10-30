@@ -221,7 +221,10 @@ struct AgentSpriteView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        if source == "codex" {
+        if let logo = AgentLogo.image(source) {
+            Image(nsImage: logo).resizable().interpolation(.high).scaledToFit()
+                .frame(width: size, height: size)
+        } else if source == "codex" {
             OpenAILogoShape()
                 .fill(Color(hex: 0xE8E8E3))
                 .frame(width: size, height: size)
@@ -437,5 +440,18 @@ struct ClaudeBurst: View {
                 c.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: r * 0.26, lineCap: .round))
             }
         }
+    }
+}
+
+
+/// The agents' real logos, bundled as PNGs in Resources/AgentIcons/<id>.png.
+enum AgentLogo {
+    nonisolated(unsafe) private static var cache: [String: NSImage?] = [:]
+    static func image(_ source: String) -> NSImage? {
+        if let hit = cache[source] { return hit }
+        let url = Bundle.main.resourceURL?.appendingPathComponent("AgentIcons/\(source).png")
+        let image = url.flatMap { NSImage(contentsOf: $0) }
+        cache[source] = image
+        return image
     }
 }

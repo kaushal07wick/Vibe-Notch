@@ -42,8 +42,14 @@ enum SessionHistory {
         // Parse the most-recent `limit` from EACH source, then merge — otherwise
         // a flood of Claude sessions buries an older (but wanted) Codex one.
         func recent(_ files: [(URL, Date)], _ source: String) -> [ResumeEntry] {
-            files.sorted { $0.1 > $1.1 }.prefix(limit)
-                .compactMap { parse($0.0, date: $0.1, source: source) }
+            // Keep going past transcripts with no real prompt (empty or system-only
+            // sessions) until `limit` usable ones are found.
+            var out: [ResumeEntry] = []
+            for (url, date) in files.sorted(by: { $0.1 > $1.1 }) {
+                if let entry = parse(url, date: date, source: source) { out.append(entry) }
+                if out.count == limit { break }
+            }
+            return out
         }
         return (recent(claude, "claude") + recent(codex, "codex"))
             .sorted { $0.date > $1.date }
@@ -62,36 +68,55 @@ enum SessionHistory {
         return parts.count >= 5 ? parts.suffix(5).joined(separator: "-") : name
     }
 
-    /// cwd + first user message from the head of a transcript (both schemas).
-    private static func parse(_ url: URL, date: Date, source: String) -> ResumeEntry? {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+    /// Visits a transcript line by line without loading it (Codex files run to
+    /// tens of MB, with a multi-hundred-KB preamble before the first prompt).
+    /// `body` returns true to stop.
+    private static func forEachLine(_ url: URL, maxBytes: Int = 32_000_000, _ body: (Data) -> Bool) {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return }
         defer { try? handle.close() }
-        // Codex buries the real user prompt after a huge system/agent preamble;
-        // Claude's is near the top. Read enough to reach it either way.
-        let head = handle.readData(ofLength: source == "codex" ? 512_000 : 32_768)
-        guard let text = String(data: head, encoding: .utf8) else { return nil }
-
-        var cwd: String?
-        var task: String?
-        for line in text.split(separator: "\n") {
-            guard let data = line.data(using: .utf8),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
-            if cwd == nil { cwd = obj["cwd"] as? String ?? (obj["payload"] as? [String: Any])?["cwd"] as? String }
-            if task == nil {
-                let msg = (obj["message"] as? [String: Any]) ?? (obj["payload"] as? [String: Any]) ?? obj
-                let role = (msg["role"] as? String) ?? (obj["type"] as? String)
-                // Claude: content is a String; Codex: content can be an array of parts
-                var textContent: String?
-                if let c = msg["content"] as? String { textContent = c }
-                else if let parts = msg["content"] as? [[String: Any]] {
-                    textContent = parts.compactMap { $0["text"] as? String }.joined(separator: " ")
-                }
-                if role == "user", let content = textContent {
-                    let clean = content.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !clean.isEmpty && !clean.hasPrefix("<") { task = String(clean.prefix(90)) }
-                }
+        var buffer = Data(), read = 0
+        while read < maxBytes {
+            guard let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty else { break }
+            read += chunk.count
+            buffer.append(chunk)
+            var start = buffer.startIndex
+            while let nl = buffer[start...].firstIndex(of: 0x0A) {
+                if body(Data(buffer[start..<nl])) { return }
+                start = buffer.index(after: nl)
             }
-            if cwd != nil && task != nil { break }
+            buffer = Data(buffer[start...]) // keep only the unfinished tail
+        }
+    }
+
+    private static func promptText(_ obj: [String: Any]) -> String? {
+        let msg = (obj["message"] as? [String: Any]) ?? (obj["payload"] as? [String: Any]) ?? obj
+        // Claude: {message:{role:user}}; Codex: {payload:{role:user}} or event_msg user_message
+        let isUser = (msg["role"] as? String) == "user" || (obj["type"] as? String) == "user"
+            || (msg["type"] as? String) == "user_message"
+        guard isUser else { return nil }
+        var text: String?
+        if let c = msg["content"] as? String { text = c }
+        else if let parts = msg["content"] as? [[String: Any]] {
+            text = parts.compactMap { $0["text"] as? String }.joined(separator: " ")
+        } else if let m = msg["message"] as? String { text = m }
+        guard let clean = text?.trimmingCharacters(in: .whitespacesAndNewlines), !clean.isEmpty,
+              !clean.hasPrefix("<"), !clean.hasPrefix("# AGENTS"), !clean.hasPrefix("[Image"),
+              !clean.hasPrefix("Caveat:") else { return nil }
+        return String(clean.prefix(90))
+    }
+
+    /// cwd + first real user message of a transcript (both schemas).
+    private static func parse(_ url: URL, date: Date, source: String) -> ResumeEntry? {
+        var cwd: String?, task: String?
+        forEachLine(url, maxBytes: source == "codex" ? 32_000_000 : 1_000_000) { line in
+            // Cheap filter: only JSON-parse lines that can matter (huge preamble lines don't).
+            let mayHaveCWD = cwd == nil && line.range(of: Data("\"cwd\"".utf8)) != nil
+            let mayBePrompt = task == nil && (line.range(of: Data("\"user".utf8)) != nil)
+            guard mayHaveCWD || mayBePrompt,
+                  let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { return false }
+            if cwd == nil { cwd = obj["cwd"] as? String ?? (obj["payload"] as? [String: Any])?["cwd"] as? String }
+            if task == nil { task = promptText(obj) }
+            return cwd != nil && task != nil
         }
         guard let task else { return nil }
         let id = source == "codex" ? codexUUID(url) : url.deletingPathExtension().lastPathComponent
