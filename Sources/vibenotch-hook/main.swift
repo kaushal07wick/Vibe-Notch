@@ -160,7 +160,11 @@ func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String
         }
     }
     if source != "codex", let answers, var input = originalInput {
-        input["answers"] = answers.map { [$0] } // one selected label per question
+        // Claude's schema: a record of question text -> chosen label (an array fails validation)
+        let texts = (input["questions"] as? [[String: Any]] ?? []).map { $0["question"] as? String ?? "" }
+        var record: [String: String] = [:]
+        for (i, a) in answers.enumerated() where i < texts.count { record[texts[i]] = a }
+        input["answers"] = record
         decision["updatedInput"] = input
     }
     let inner: [String: Any] = ["hookEventName": "PermissionRequest", "decision": decision]
