@@ -13,6 +13,8 @@ final class NowPlaying: ObservableObject {
     @Published var artwork: NSImage?
     @Published var app: String?          // "System" (bridge) | "Music" | "Spotify"
     private var lastTrack = ""
+    /// After a click the icon flips at once; readings older than the command are ignored until then.
+    private var holdPlayingUntil = Date.distantPast
     private var timer: Timer?
 
     private static let bundles = ["Music": "com.apple.Music", "Spotify": "com.spotify.client"]
@@ -56,7 +58,8 @@ final class NowPlaying: ObservableObject {
         guard let data, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let t = j["title"] as? String, !t.isEmpty else { refreshScripted(); return }
         let a = j["artist"] as? String ?? ""
-        app = "System"; title = t; artist = a; playing = (j["playing"] as? Bool) ?? ((j["playing"] as? Int) == 1)
+        app = "System"; title = t; artist = a
+        if Date() > holdPlayingUntil { playing = (j["playing"] as? Bool) ?? ((j["playing"] as? Int) == 1) }
         if "System|\(t)|\(a)" != lastTrack {
             lastTrack = "System|\(t)|\(a)"
             artwork = (j["art"] as? String).flatMap { Data(base64Encoded: $0) }.flatMap(NSImage.init(data:))
@@ -84,7 +87,8 @@ final class NowPlaying: ObservableObject {
             app = nil; title = ""; artist = ""; playing = false; artwork = nil; lastTrack = ""
             return
         }
-        app = name; title = t; artist = a; playing = isPlaying
+        app = name; title = t; artist = a
+        if Date() > holdPlayingUntil { playing = isPlaying }
         if "\(name)|\(t)|\(a)" != lastTrack {
             lastTrack = "\(name)|\(t)|\(a)"
             artwork = loadArtwork(name)
@@ -116,6 +120,7 @@ final class NowPlaying: ObservableObject {
     enum Command: String { case playpause, next = "next track", previous = "previous track" }
     func send(_ command: Command) {
         guard let app else { return }
+        if command == .playpause { playing.toggle(); holdPlayingUntil = Date().addingTimeInterval(1.5) }
         if app == "System" {
             let code = command == .playpause ? 2 : command == .next ? 4 : 5
             Task.detached {
