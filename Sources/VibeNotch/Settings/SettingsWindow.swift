@@ -302,7 +302,10 @@ private struct SecondsField: View {
     var body: some View {
         HStack(spacing: 6) {
             TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder).frame(width: width)
+                .textFieldStyle(.plain).multilineTextAlignment(.center)
+                .frame(width: width).padding(.vertical, 4)
+                .background(Color.white.opacity(focused ? 0.12 : 0.07), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .focusEffectDisabled()
                 .focused($focused)
                 .onSubmit { write(max(0, value)) }
                 .onChange(of: focused) { _, isFocused in if !isFocused { write(max(0, value)) } }
