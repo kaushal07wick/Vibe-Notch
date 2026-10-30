@@ -302,3 +302,45 @@ func sessionTitle(folder: String?, task: String?) -> String {
     if let task, !task.isEmpty { return "\(f) · \(task)" }
     return f
 }
+
+/// The notch mascot: a little ghost. Eyes glance side to side and the hem ripples
+/// while agents work; asleep (eyes shut) when idle. X body, W eye white, P pupil.
+struct PixelGhost: View {
+    var color: Color
+    var px: CGFloat = 1.5
+    var awake = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let top = [
+        "...XXXXX...",
+        "..XXXXXXX..",
+        ".XXXXXXXXX.",
+    ]
+    private static let lookRight = [".XXWWXWWXX.", ".XXWPXWPXX."]
+    private static let lookLeft  = [".XXWWXWWXX.", ".XXPWXPWXX."]
+    private static let asleep    = [".XXXXXXXXX.", ".XXPPXPPXX."]
+    private static let body = [".XXXXXXXXX.", ".XXXXXXXXX."]
+    private static let hemA = ".XX.XXX.XX."
+    private static let hemB = ".X.XXX.XXX."
+
+    var body: some View {
+        let px = max(1, (self.px * 2).rounded() / 2)
+        TimelineView(.animation(minimumInterval: 0.4, paused: !awake || reduceMotion)) { ctx in
+            let beat = Int(ctx.date.timeIntervalSinceReferenceDate / 0.4)
+            let moving = awake && !reduceMotion
+            let eyes = !awake ? Self.asleep : (moving && beat % 4 >= 2 ? Self.lookLeft : Self.lookRight)
+            let rows = Self.top + eyes + Self.body + [moving && beat % 2 == 1 ? Self.hemB : Self.hemA]
+            Canvas { c, _ in
+                for (y, row) in rows.enumerated() {
+                    for (x, ch) in row.enumerated() where ch != "." {
+                        let fill: Color = ch == "W" ? .white : ch == "P" ? .black : color
+                        c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: px, height: px)),
+                               with: .color(fill))
+                    }
+                }
+            }
+            .frame(width: 11 * px, height: CGFloat(rows.count) * px)
+        }
+        .accessibilityHidden(true)
+    }
+}

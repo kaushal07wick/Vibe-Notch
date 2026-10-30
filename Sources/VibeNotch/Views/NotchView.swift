@@ -136,7 +136,7 @@ struct CompactLeading: View {
             let breathe = mood == .idle ? (0.45 + 0.2 * (tick / 6 % 2 == 0 ? 1 : 0)) : 1
             let color = mood == .waiting ? VNColor.amber : VNColor.running
             HStack(spacing: 4) {
-                PixelInvader(color: color, px: 1.5, animated: mood != .idle)
+                PixelGhost(color: color, px: 1.5, awake: mood != .idle)
                     .offset(x: dx, y: dy)
                     .opacity(breathe)
                 Circle().fill(color).frame(width: 4, height: 4)
