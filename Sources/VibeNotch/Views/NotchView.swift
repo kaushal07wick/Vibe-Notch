@@ -37,17 +37,23 @@ struct ExpandedContent: View {
                     .keyboardShortcut("k", modifiers: .command)
                     .frame(width: 0, height: 0).opacity(0)
                     .accessibilityHidden(true) // invisible shortcut host, not a control
+                HeaderIconButton(symbol: store.showWidgets ? "music.note.house.fill" : "music.note.house",
+                                 tint: store.showWidgets ? VNColor.running : .white.opacity(0.62),
+                                 label: "Music and calendar") {
+                    store.showWidgets.toggle()
+                    if store.showWidgets { store.showTray = false; showHistory = false; showPalette = false }
+                }
                 HeaderIconButton(symbol: store.showTray ? "tray.full.fill" : "tray",
                                  tint: store.showTray ? VNColor.running : .white.opacity(0.62),
                                  label: "File tray") {
                     store.showTray.toggle()
-                    if store.showTray { showHistory = false; showPalette = false }
+                    if store.showTray { store.showWidgets = false; showHistory = false; showPalette = false }
                 }
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62),
                                  label: "Session history") {
                     if !showHistory {
-                        store.showTray = false
+                        store.showTray = false; store.showWidgets = false
                         historyLoading = true
                         Task.detached {
                             let loaded = SessionHistory.load()
@@ -96,6 +102,8 @@ struct ExpandedContent: View {
             ZStack {
                 if showPalette {
                     PaletteView(store: store) { showPalette = false }
+                } else if store.showWidgets && store.pending.isEmpty {
+                    WidgetsView()
                 } else if store.showTray && store.pending.isEmpty {
                     TrayView()
                 } else if showHistory && store.pending.isEmpty {

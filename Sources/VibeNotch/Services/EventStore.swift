@@ -47,6 +47,8 @@ final class EventStore: ObservableObject {
     @Published var hovering = false
     /// The file tray is open — it holds the panel up (you're dragging things in and out).
     @Published var showTray = false
+    /// The now-playing + calendar page is open (also holds the panel up).
+    @Published var showWidgets = false
     /// An open multiple-choice question in a live Codex session, and which of its questions is next.
     @Published var codexQuestion: CodexQuestion?
     @Published var codexQuestionStep = 0

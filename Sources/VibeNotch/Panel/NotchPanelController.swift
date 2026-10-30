@@ -18,6 +18,9 @@ final class NotchPanelController {
     private var recheckTask: Task<Void, Never>?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
+    private var dragMonitor: Any?
+    private var dragUpMonitor: Any?
+    private var trayAutoOpened = false
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
@@ -55,9 +58,17 @@ final class NotchPanelController {
         // collapsing it would just re-open it on the next refresh.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.expanded == true, self.store.pending.isEmpty, !self.store.showTray else { return }
+                guard let self, self.expanded == true, self.store.pending.isEmpty, !self.store.showTray, !self.store.showWidgets else { return }
                 self.collapseNow()
             }
+        }
+        // Dragging a file toward the notch opens the tray under it, ready to drop into; if the
+        // drag ends elsewhere the tray goes away again.
+        dragMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
+            Task { @MainActor in self?.fileDragMoved() }
+        }
+        dragUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+            Task { @MainActor in self?.fileDragEnded() }
         }
         // app switches change whether the agent's terminal is frontmost
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -107,11 +118,34 @@ final class NotchPanelController {
         refresh()
     }
 
+    private func fileDragMoved() {
+        guard !trayAutoOpened, !store.showTray else { return }
+        let pb = NSPasteboard(name: .drag)
+        guard pb.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) else { return }
+        let screen = targetScreen, mouse = NSEvent.mouseLocation
+        // only when the pointer is heading for the notch, not on every Finder drag
+        guard mouse.y > screen.frame.maxY - 140, abs(mouse.x - screen.frame.midX) < 320 else { return }
+        trayAutoOpened = true
+        store.showWidgets = false
+        store.showTray = true
+    }
+
+    private func fileDragEnded() {
+        guard trayAutoOpened else { return }
+        trayAutoOpened = false
+        // let a drop on the tray register first, then fold the tray away if it went nowhere
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            guard let panel = self.panelWindow, !panel.frame.contains(NSEvent.mouseLocation) else { return }
+            self.store.showTray = false
+        }
+    }
+
     /// While set, the panel behaves as if the pointer were on it.
     private var hoverUntil = Date.distantPast
 
     private func refresh() {
-        let held = Date() < hoverUntil || store.showTray
+        let held = Date() < hoverUntil || store.showTray || store.showWidgets
         let wantHover = notch.isHovering || held
         if store.hovering != wantHover { store.hovering = wantHover } // drives brief→full
 
@@ -214,7 +248,7 @@ final class NotchPanelController {
 
     /// ESC — collapse immediately.
     func collapseNow() {
-        store.showTray = false
+        store.showTray = false; store.showWidgets = false
         hoverUntil = .distantPast
         dwellDeadline = nil
         dwellTask?.cancel()

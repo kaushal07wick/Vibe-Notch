@@ -24,6 +24,10 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Vibe Notch controls your terminal to jump to an agent's tab, type replies into its pane, and switch its model.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Vibe Notch shows today's events in the notch.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Vibe Notch shows today's events in the notch.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>
