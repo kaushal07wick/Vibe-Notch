@@ -17,6 +17,7 @@ final class NotchPanelController {
     private var needsHoverExit = false
     private var recheckTask: Task<Void, Never>?
     private var clickMonitor: Any?
+    private var outsideClickMonitor: Any?
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
@@ -48,6 +49,15 @@ final class NotchPanelController {
         clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             if let panel = self?.panelWindow, event.window === panel, !panel.isKeyWindow { panel.makeKey() }
             return event
+        }
+        // A click anywhere else (another app, the desktop) dismisses an open panel. Clicks
+        // inside it are local events, so this only sees outside ones. An approval stays up:
+        // collapsing it would just re-open it on the next refresh.
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.expanded == true, self.store.pending.isEmpty else { return }
+                self.collapseNow()
+            }
         }
         // app switches change whether the agent's terminal is frontmost
         NSWorkspace.shared.notificationCenter.addObserver(
