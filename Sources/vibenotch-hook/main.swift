@@ -225,6 +225,11 @@ if event == "PermissionRequest" {
     exit(0)
 }
 
+// Claude's idle_prompt fires ~60s after a turn ends ("waiting for your input"): the agent is
+// done, not blocked on a decision. Showing it as amber "Waiting for input" mislabels a
+// finished session, so leave the Stop state alone.
+if event == "Notification", obj["notification_type"] as? String == "idle_prompt" { exit(0) }
+
 // Activity update — fold this event into the session's live state.
 let transcript = Transcript(obj["transcript_path"] as? String)
 let task = oneLine(userText(transcript, first: true))
