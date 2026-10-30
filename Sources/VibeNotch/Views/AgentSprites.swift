@@ -230,10 +230,19 @@ struct AgentSpriteView: View {
                 .fill(VNColor.agent(source))
                 .frame(width: size, height: size)
         } else {
-            Image(systemName: source == "claude" ? "asterisk" : "sparkle")
-                .font(.system(size: size * 0.82, weight: .bold))
-                .foregroundStyle(VNColor.agent(source))
-                .frame(width: size, height: size)
+            if source == "claude" {
+                ClaudeBurst(color: VNColor.agent(source)).frame(width: size, height: size)
+            } else {
+                // no official mark bundled: a clean lettermark tile in the agent's colour
+                let tint = VNColor.agent(source)
+                Text(String(agentName(source).prefix(1)))
+                    .font(.system(size: size * 0.6, weight: .heavy, design: .rounded))
+                    .foregroundStyle(tint)
+                    .frame(width: size, height: size)
+                    .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                        .strokeBorder(tint.opacity(0.4), lineWidth: 0.75))
+            }
         }
     }
 }
@@ -406,6 +415,27 @@ struct OwlMark: View {
         case "A", "y": return Color(hex: 0xF0B43C)
         case "p": return Color(hex: 0x4F7DF0)
         default: return nil
+        }
+    }
+}
+
+
+/// Hand-drawn burst: rounded rays of uneven length, in the spirit of the Claude spark.
+struct ClaudeBurst: View {
+    var color: Color
+    private static let lengths: [CGFloat] = [1, 0.74, 0.92, 0.7, 1, 0.78, 0.94, 0.72, 0.98, 0.76, 0.9, 0.72]
+
+    var body: some View {
+        Canvas { c, sz in
+            let r = min(sz.width, sz.height) / 2
+            let mid = CGPoint(x: sz.width / 2, y: sz.height / 2)
+            for (i, len) in Self.lengths.enumerated() {
+                let a = Double(i) / Double(Self.lengths.count) * 2 * .pi - .pi / 2
+                var path = Path()
+                path.move(to: CGPoint(x: mid.x + cos(a) * r * 0.16, y: mid.y + sin(a) * r * 0.16))
+                path.addLine(to: CGPoint(x: mid.x + cos(a) * r * len, y: mid.y + sin(a) * r * len))
+                c.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: r * 0.26, lineCap: .round))
+            }
         }
     }
 }
