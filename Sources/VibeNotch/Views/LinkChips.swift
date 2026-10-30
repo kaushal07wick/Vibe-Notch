@@ -20,7 +20,7 @@ enum LinkFinder {
             if out.count == max { return out }
         }
         // local files a browser can show (the agent "created it locally")
-        for m in text.matching(#"(?<=^|[\s"'`(])(/[^\s"'`()]+\.(?:html?|pdf|png|svg))"#) {
+        for m in text.matching(#"(?<=^|[\s"'`(])(/[^\s"'`()]+\.(?:html?|pdf|png|jpe?g|gif|webp|svg))"#) {
             let url = URL(fileURLWithPath: m)
             if FileManager.default.fileExists(atPath: m),
                seen.insert(url.absoluteString).inserted { out.append(url) }
@@ -99,14 +99,45 @@ struct LinkChip: View {
     ]
 }
 
-/// Row of link chips for a session's latest output.
+/// Local images the agent mentions, shown right in the notch.
+struct ImageThumb: View {
+    let url: URL
+    @State private var image: NSImage?
+
+    var body: some View {
+        Button { NSWorkspace.shared.open(url) } label: {
+            Group {
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: 150, alignment: .leading)
+                } else {
+                    Color.white.opacity(0.05).frame(height: 60)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.white.opacity(0.1)))
+        }
+        .buttonStyle(PressFeedback())
+        .help(url.path)
+        .task { image = NSImage(contentsOf: url) }
+    }
+}
+
+/// Row of link chips (and inline image previews) for a session's latest output.
 struct LinkChipRow: View {
     let text: String?
+    var imagesOnly = false
+    private static let imageExts: Set<String> = ["png", "jpg", "jpeg", "gif", "webp"]
     var body: some View {
-        let links = LinkFinder.links(in: text)
-        if !links.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(links, id: \.absoluteString) { LinkChip(url: $0) }
+        let all = LinkFinder.links(in: text)
+        let images = all.filter { $0.isFileURL && Self.imageExts.contains($0.pathExtension.lowercased()) }
+        let rest = imagesOnly ? [] : all.filter { !images.contains($0) }
+        if !images.isEmpty || !rest.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(images.prefix(2), id: \.absoluteString) { ImageThumb(url: $0) }
+                if !rest.isEmpty {
+                    HStack(spacing: 6) { ForEach(rest, id: \.absoluteString) { LinkChip(url: $0) } }
+                }
             }
         }
     }

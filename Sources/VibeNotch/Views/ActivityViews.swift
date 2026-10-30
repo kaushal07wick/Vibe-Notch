@@ -205,6 +205,7 @@ struct SessionRow: View {
                             .font(VNFont.ui(11)).foregroundStyle(VNColor.running).lineLimit(1).truncationMode(.tail)
                     }
                     brief.font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
+                    LinkChipRow(text: s.detail, imagesOnly: true)
                 }
                 Spacer(minLength: 8)
               }

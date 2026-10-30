@@ -200,14 +200,13 @@ private struct IconTile: View {
 
     var body: some View {
         Image(systemName: pane.icon)
-            .font(.system(size: size * 0.5, weight: .semibold))
-            .foregroundStyle(pane.tint)
+            .font(.system(size: size * 0.52, weight: .semibold))
+            .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(pane.tint.opacity(0.16), in: RoundedRectangle(cornerRadius: size * 0.25))
-            .overlay(
-                RoundedRectangle(cornerRadius: size * 0.25)
-                    .strokeBorder(pane.tint.opacity(0.34), lineWidth: 0.5)
-            )
+            .background(
+                LinearGradient(colors: [pane.tint, pane.tint.opacity(0.62)], startPoint: .top, endPoint: .bottom),
+                in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+            .shadow(color: pane.tint.opacity(0.35), radius: 3, y: 1)
     }
 }
 
@@ -419,9 +418,8 @@ private struct AgentRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(VNColor.agent(spec.id).opacity(spec.isDetected ? 0.9 : 0.25))
-                    .frame(width: 8, height: 8)
+                AgentIcon(source: spec.id, size: 18)
+                    .opacity(spec.isDetected ? 1 : 0.3)
                 Text(spec.name).font(.system(size: 13))
                     .foregroundStyle(spec.isDetected ? .primary : .secondary)
                 Spacer(minLength: 12)
@@ -799,8 +797,41 @@ private struct KeyRecorder: NSViewRepresentable {
 
 // MARK: - SSH Remote
 
+/// Concrete `Host` aliases from ~/.ssh/config (wildcards and negations skipped),
+/// following one level of `Include`.
+private enum SSHConfigHosts {
+    static func aliases() -> [String] {
+        var seen = Set<String>(), out: [String] = []
+        let ssh = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
+        func read(_ url: URL, depth: Int) {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+            for raw in text.split(whereSeparator: \.isNewline) {
+                let parts = raw.split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "=" }).map(String.init)
+                guard let key = parts.first?.lowercased(), parts.count > 1 else { continue }
+                if key == "host" {
+                    for name in parts.dropFirst() where !name.contains(where: { "*?!".contains($0) }) {
+                        if seen.insert(name).inserted { out.append(name) }
+                    }
+                } else if key == "include", depth == 0 {
+                    for pattern in parts.dropFirst() {
+                        let path = pattern.hasPrefix("/") ? pattern : pattern.hasPrefix("~") ? (pattern as NSString).expandingTildeInPath : ssh.appendingPathComponent(pattern).path
+                        var g = glob_t()
+                        if glob(path, 0, nil, &g) == 0 {
+                            for i in 0..<Int(g.gl_pathc) { if let c = g.gl_pathv[i] { read(URL(fileURLWithPath: String(cString: c)), depth: 1) } }
+                        }
+                        globfree(&g)
+                    }
+                }
+            }
+        }
+        read(ssh.appendingPathComponent("config"), depth: 0)
+        return out
+    }
+}
+
 private struct SSHPane: View {
     @State private var servers = SSHRemote.load()
+    @State private var aliases = SSHConfigHosts.aliases()
     @State private var busy = false
     @State private var tick = Date()
     @ObservedObject private var tunnels = AppDelegate.shared?.tunnels ?? SSHTunnelManager()
@@ -838,13 +869,53 @@ private struct SSHPane: View {
                     }
                 }
             }
-            SettingRow(label: "Add a host", caption: "user@hostname", divider: false) {
+            SettingRow(label: "Add a host", caption: "user@hostname", divider: !pending.isEmpty) {
                 Button(busy ? "Deploying…" : "Add Host…") { addHost() }
                     .controlSize(.small).disabled(busy)
             }
         }
         // Keeps the retry countdown ticking.
         .onReceive(poll) { tick = $0 }
+
+        if !pending.isEmpty {
+            SectionCard(title: "From ~/.ssh/config",
+                        footnote: "Adding deploys the hook client to that machine over SSH, so it only happens when you ask.") {
+                SettingRow(label: "\(pending.count) host\(pending.count == 1 ? "" : "s") found",
+                           caption: "Every alias in your SSH config.", divider: true) {
+                    Button(busy ? "Deploying…" : "Add all") { add(pending) }
+                        .controlSize(.small).disabled(busy)
+                }
+                ForEach(Array(pending.enumerated()), id: \.element) { index, alias in
+                    SettingRow(label: alias, divider: index < pending.count - 1) {
+                        Button("Add") { add([alias]) }.controlSize(.small).disabled(busy)
+                    }
+                }
+            }
+        }
+    }
+
+    private var pending: [String] {
+        let have = Set(servers.map(\.host))
+        return aliases.filter { !have.contains($0) }
+    }
+
+    private func add(_ hosts: [String]) {
+        guard let delegate = AppDelegate.shared else { return }
+        busy = true
+        Task { @MainActor in
+            var failures: [String] = []
+            for host in hosts {
+                if let error = await delegate.tunnels.addServer(host: host) { failures.append("\(host): \(error)") }
+                servers = SSHRemote.load()
+            }
+            busy = false
+            if !failures.isEmpty {
+                let fail = NSAlert()
+                fail.messageText = "SSH deploy failed for \(failures.count) host\(failures.count == 1 ? "" : "s")"
+                fail.informativeText = failures.joined(separator: "\n")
+                fail.runModal()
+            }
+        }
     }
 
     /// Live tunnel state, not the stored enabled flag — that said "Connected"

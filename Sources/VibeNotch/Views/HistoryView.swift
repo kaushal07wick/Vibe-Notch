@@ -197,14 +197,13 @@ private struct HistoryRow: View {
             if SessionHistory.resume(entry) { close() }
         } label: {
             HStack(alignment: .center, spacing: 11) {
-                SessionGlyph(tint: SessionGlyph.tint(entry.folder))
+                AgentIcon(source: entry.source, size: 18)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.task)
                         .font(VNFont.ui(12))
                         .foregroundStyle(VNColor.text.opacity(0.92))
                         .lineLimit(1).truncationMode(.tail)
                     HStack(spacing: 5) {
-                        AgentIcon(source: entry.source, size: 11)
                         Text(entry.folder)
                             .font(VNFont.sysMono(10, .semibold))
                             .foregroundStyle(SessionGlyph.tint(entry.folder).opacity(0.9))
@@ -226,26 +225,18 @@ private struct HistoryRow: View {
     }
 }
 
-/// The resume control — pixel play triangle + mono label, house style.
-/// Dim glyph at rest, an amber `resume ▶` pill on hover (like the ^G pill).
+/// The resume control: a quiet arrow at rest, a filled pill on hover.
 private struct ResumeAffordance: View {
     let active: Bool
-    private static let amber = Color(hex: 0xF0B43C)
 
     var body: some View {
-        if active {
-            HStack(spacing: 5) {
-                Text("resume").font(VNFont.sysMono(9.5, .semibold))
-                Image(systemName: "play.fill").font(.system(size: 8))
-            }
-            .foregroundStyle(Self.amber)
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Self.amber.opacity(0.13), in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Self.amber.opacity(0.35)))
-        } else {
-            Image(systemName: "play.fill").font(.system(size: 8)).foregroundStyle(VNColor.paper.opacity(0.28))
-                .padding(.trailing, 3)
+        HStack(spacing: 5) {
+            if active { Text("Resume").font(VNFont.ui(10.5, .semibold)) }
+            Image(systemName: "arrow.uturn.forward").font(.system(size: 10, weight: .semibold))
         }
+        .foregroundStyle(active ? Color.black.opacity(0.85) : VNColor.paper.opacity(0.35))
+        .padding(.horizontal, active ? 10 : 6).padding(.vertical, 5)
+        .background(active ? VNColor.running : Color.white.opacity(0.06), in: Capsule())
     }
 }
 
