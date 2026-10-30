@@ -182,8 +182,17 @@ struct SessionRow: View {
     let s: SessionActivity
     var onDismiss: (String) -> Void = { _ in }
     @State private var hovering = false
+    @State private var replying = false
+    @State private var draft = ""
 
     var body: some View {
+        VStack(spacing: 0) {
+            rowContent
+            if replying { replyBar }
+        }
+    }
+
+    private var rowContent: some View {
         HStack(alignment: .center, spacing: 11) {
             Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]) } label: {
               HStack(spacing: 11) {
@@ -214,6 +223,7 @@ struct SessionRow: View {
             .buttonStyle(.plain)
                 HStack(spacing: 5) {
                     if let terminal = s.terminal { TerminalIcon(terminal: terminal) }
+                    if hovering || replying { replyButton }
                     interruptButton
                 }
         }
@@ -223,6 +233,45 @@ struct SessionRow: View {
         .accessibilityHint("Jumps to this session's terminal tab")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { hovering = $0 }
+    }
+
+    private var replyButton: some View {
+        Button { withAnimation(.easeOut(duration: 0.15)) { replying.toggle() } } label: {
+            Image(systemName: "arrowshape.turn.up.left.fill")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(replying ? VNColor.running : VNColor.paper.opacity(0.5))
+                .frame(width: 26, height: 26).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Reply to this agent")
+        .accessibilityLabel("Reply")
+    }
+
+    /// Quick reply: typed into the agent's terminal, no window-hopping.
+    private var replyBar: some View {
+        HStack(spacing: 6) {
+            TextField("Reply to \(agentName(s.source))…", text: $draft)
+                .textFieldStyle(.plain).font(VNFont.ui(11.5))
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color.white.opacity(0.06), in: Capsule())
+                .onSubmit { send(draft) }
+            ForEach(["continue", "yes", "no"], id: \.self) { chip in
+                Button { send(chip) } label: {
+                    Text(chip).font(VNFont.ui(10.5, .medium)).foregroundStyle(VNColor.paper.opacity(0.7))
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(Color.white.opacity(0.06), in: Capsule())
+                }
+                .buttonStyle(PressFeedback())
+            }
+        }
+        .padding(EdgeInsets(top: 0, leading: 49, bottom: 9, trailing: 18))
+    }
+
+    private func send(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        draft = ""; replying = false
+        Task { _ = await TerminalControl.send(t, to: s, allowActiveTab: true) }
     }
 
     private var interruptButton: some View {

@@ -24,6 +24,9 @@ struct ExpandedContent: View {
                 if showUsage && !usage.providers.isEmpty {
                     UsageChips(providers: usage.providers)
                 }
+                if let n = StatsLog.today()["sessions"], n > 0 {
+                    Text("\(n) today").font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.faint)
+                }
                 Spacer(minLength: 8)
                 // ⌘K palette — keyboard-only, no icon (header stays quiet)
                 Button("") { showPalette.toggle(); if showPalette { showHistory = false } }

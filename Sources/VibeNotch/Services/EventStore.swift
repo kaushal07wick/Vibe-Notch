@@ -197,7 +197,11 @@ final class EventStore: ObservableObject {
     /// Sessions active in the last 30 minutes, newest first.
     var activeSessions: [SessionActivity] {
         let cutoff = Date().addingTimeInterval(-1800)
-        return sessions.values.filter { $0.updatedAt > cutoff || liveIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }
+        return sessions.values.filter { $0.updatedAt > cutoff || liveIDs.contains($0.id) }.sorted {
+            // sessions waiting on you float to the top
+            let a = ["Notification", "PermissionRequest"].contains($0.event), b = ["Notification", "PermissionRequest"].contains($1.event)
+            return a != b ? a : $0.updatedAt > $1.updatedAt
+        }
     }
 
     var activeSession: SessionActivity? { activeSessions.first }

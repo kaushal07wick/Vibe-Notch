@@ -239,9 +239,15 @@ private struct QuestionPrompt: View {
     let questions: [VNQuestion]
     let submit: ([String]) -> Void
     @State private var picked: [Int: Set<String>] = [:]
+    @State private var typed: [Int: String] = [:]
 
     private var instant: Bool { questions.count == 1 && !questions[0].multiSelect }
-    private var complete: Bool { (0..<questions.count).allSatisfy { !(picked[$0] ?? []).isEmpty } }
+    private func answer(_ i: Int) -> String {
+        var parts = (picked[i] ?? []).sorted()
+        if let t = typed[i]?.trimmingCharacters(in: .whitespaces), !t.isEmpty { parts.append(t) }
+        return parts.joined(separator: ", ")
+    }
+    private var complete: Bool { (0..<questions.count).allSatisfy { !answer($0).isEmpty } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -263,6 +269,7 @@ private struct QuestionPrompt: View {
                             ForEach(q.options, id: \.label) { opt in
                                 optionRow(qi: qi, q: q, opt: opt)
                             }
+                            otherField(qi)
                         }
                     }
                 }
@@ -272,14 +279,24 @@ private struct QuestionPrompt: View {
             .scrollIndicators(.hidden)
             .frame(maxHeight: 300)
             .fixedSize(horizontal: false, vertical: true)
-            if !instant {
+            if !instant || !(typed[0] ?? "").isEmpty {
                 WideButton(title: "Answer", kind: .primary) {
-                    submit(questions.indices.map { (picked[$0] ?? []).sorted().joined(separator: ", ") })
+                    submit(questions.indices.map(answer))
                 }
                 .disabled(!complete)
                 .opacity(complete ? 1 : 0.4)
             }
         }
+    }
+
+    /// Free-text "something else" — the answer when none of the options fit.
+    private func otherField(_ qi: Int) -> some View {
+        TextField("Something else…", text: Binding(get: { typed[qi] ?? "" }, set: { typed[qi] = $0 }))
+            .textFieldStyle(.plain).font(VNFont.ui(11.8))
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color.white.opacity(0.05)))
+            .onSubmit { if complete { submit(questions.indices.map(answer)) } }
     }
 
     private func optionRow(qi: Int, q: VNQuestion, opt: VNQuestion.Option) -> some View {
