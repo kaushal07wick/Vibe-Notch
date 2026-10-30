@@ -111,17 +111,14 @@ final class NotchPanelController {
     private var hoverUntil = Date.distantPast
 
     private func refresh() {
-        if let id = store.controlSessionID, !store.activeSessions.contains(where: { $0.id == id }) {
-            store.controlSessionID = nil
-        }
-        let held = Date() < hoverUntil || store.controlSessionID != nil
+        let held = Date() < hoverUntil
         let wantHover = notch.isHovering || held
         if store.hovering != wantHover { store.hovering = wantHover } // drives brief→full
 
         // A decision just landed (clicked here OR answered in the terminal):
         // collapse immediately, even though the cursor still sits on the panel.
         let hasPending = !store.pending.isEmpty && !store.privacyHold
-        if lastPendingCount > 0 && !hasPending && store.controlSessionID == nil {
+        if lastPendingCount > 0 && !hasPending {
             lastPendingCount = 0
             needsHoverExit = true
             expanded = false
@@ -217,7 +214,6 @@ final class NotchPanelController {
 
     /// ESC — collapse immediately.
     func collapseNow() {
-        store.controlSessionID = nil
         hoverUntil = .distantPast
         dwellDeadline = nil
         dwellTask?.cancel()

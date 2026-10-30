@@ -54,14 +54,8 @@ struct ActivityCard: View {
                 }
                 Spacer(minLength: 8)
                 PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
-                if full {
-                    Button("Controls") { store.controlSessionID = s.id }
-                        .buttonStyle(.bordered).controlSize(.small)
-                }
             }
             SessionStatusLine(s: s, full: full)
-            if full, store.controlSessionID == s.id { SessionControls(store: store, session: s).id(s.id) }
-
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
         .frame(width: CGFloat(VNSettings.panelWidth) - 20, alignment: .leading)
@@ -74,14 +68,7 @@ struct ActivityCard: View {
             sessionsHeader
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
-                        SessionRow(s: s, onDismiss: onDismiss,
-                                   replying: store.controlSessionID == s.sessionId) { id in
-                            store.controlSessionID = store.controlSessionID == id ? nil : id
-                        }
-                        if store.controlSessionID == s.sessionId {
-                            SessionControls(store: store, session: s)
-                                .padding(.horizontal, 10).padding(.bottom, 8)
-                        }
+                        SessionRow(s: s, onDismiss: onDismiss)
                         if index < sessions.count - 1 {
                             Rectangle().fill(Color.white.opacity(0.055))
                                 .frame(height: 1).padding(.leading, 40)
@@ -223,17 +210,15 @@ struct TerminalBlock: View {
 
 // MARK: - Session row
 
-/// Stable row actions; selecting the main content opens this session’s controls.
+/// A compact row per session — tap to jump to its terminal; the bin dismisses it.
 struct SessionRow: View {
     let s: SessionActivity
     var onDismiss: (String) -> Void = { _ in }
-    var replying = false
-    var onReply: (String) -> Void = { _ in }
     @State private var hovering = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 11) {
-            Button { onReply(s.sessionId) } label: {
+            Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]) } label: {
               HStack(spacing: 11) {
                 AgentIcon(source: s.source, size: 20)
                 VStack(alignment: .leading, spacing: 2) {
@@ -263,7 +248,6 @@ struct SessionRow: View {
                     PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:],
                                 showJump: false)
                     Group {
-                        replyButton
                         JumpPill(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
                         binButton
                     }
@@ -272,18 +256,9 @@ struct SessionRow: View {
         .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
         .contentShape(Rectangle())
         .buttonStyle(.plain)
-        .accessibilityHint("Opens controls for this session")
+        .accessibilityHint("Jumps to this session's terminal tab")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { hovering = $0 }
-    }
-
-    private var replyButton: some View {
-        Button { onReply(s.sessionId) } label: {
-            Image(systemName: "slider.horizontal.3")
-                .foregroundStyle(replying ? VNColor.go : VNColor.muted)
-                .frame(width: 28, height: 28).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain).accessibilityLabel("Session controls").help("Reply, model, interrupt and resume")
     }
 
     private var binButton: some View {

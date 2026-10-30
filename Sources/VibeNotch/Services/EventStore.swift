@@ -45,8 +45,6 @@ final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var sessions: [String: SessionActivity] = [:]
     @Published var hovering = false
-    @Published var controlSessionID: String?
-    @Published var replyDrafts: [String: String] = [:]
 
     /// Sessions the user chose to Bypass — further requests auto-approve
     /// until the session ends or the app restarts.
