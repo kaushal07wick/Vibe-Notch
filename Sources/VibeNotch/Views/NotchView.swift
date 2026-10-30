@@ -26,7 +26,10 @@ struct ExpandedContent: View {
                     UsageChips(providers: usage.providers)
                 }
                 if let n = StatsLog.today()["sessions"], n > 0 {
-                    Text("\(n) today").font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.faint)
+                    Text("\(n) today").font(VNFont.ui(10.5, .medium)).foregroundStyle(VNColor.muted)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Color.white.opacity(0.07), in: Capsule())
+                        .help("Sessions today — see History")
                 }
                 Spacer(minLength: 8)
                 // ⌘K palette — keyboard-only, no icon (header stays quiet)
