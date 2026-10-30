@@ -16,7 +16,7 @@ from the one place your eyes already go.
 [![No Electron](https://img.shields.io/badge/Electron-0%20KB-2ea44f)](#privacy--security)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6FB982.svg)](#contributing)
 
-<img src="docs/assets/expand.gif" width="640" alt="The notch expanding on hover">
+<img src="docs/assets/expand.gif" width="640" alt="An approval arriving: the notch expands into the card, then settles back">
 
 </div>
 
@@ -44,13 +44,13 @@ you're already looking; one click (or `^A`) and the agent is moving again.
 
 <div align="center">
 
-**A permission, one glance away** — full command, risk-aware buttons, batch approve:
+**A permission, one glance away** — the real diff, risk-aware buttons, `^A` to allow:
 
-<img src="docs/assets/approval.png" width="640" alt="Approval card with Deny / Allow Once / Bypass">
+<img src="docs/assets/approval.png" width="640" alt="Approval card for an Edit, with a diff and Deny / Allow Once / Always Allow / Bypass">
 
-**Every session, live** — task, your last message, current tool, per-agent pixel marks:
+**Every session, live** — task, your last message, what it is running, waiting ones first:
 
-<img src="docs/assets/sessions.png" width="640" alt="Session list with two live Claude sessions">
+<img src="docs/assets/sessions.png" width="640" alt="Session list with Claude and Codex sessions, one waiting for input">
 
 </div>
 
@@ -107,14 +107,14 @@ scriptable CLI (`vibenotch list|approve|deny|send|interrupt`).
 
 ## Supported agents
 
-| Agent | Approvals | Activity | Config |
-|---|:--:|:--:|---|
-| Claude Code | ✅ | ✅ | `~/.claude/settings.json` |
-| Codex | ✅ | ✅ | `~/.codex` (hooks) |
-| OpenCode | ✅ | ✅ | plugin, `opencode.json` |
-| Qwen · Droid · Kimi | ✅ | ✅ | Claude-schema / TOML |
-| Cursor | — | ✅ | `~/.cursor/hooks.json` |
-| Gemini CLI | — | ✅ | `~/.gemini/settings.json` |
+| Agent | Approvals | Questions | Activity | Config |
+|---|:--:|:--:|:--:|---|
+| <img src="docs/assets/agents/claude.png" width="16" height="16" alt=""> Claude Code | ✅ | ✅ | ✅ | `~/.claude/settings.json` |
+| <img src="docs/assets/agents/codex.png" width="16" height="16" alt=""> Codex | ✅ | ✅ | ✅ | `~/.codex` (hooks) |
+| <img src="docs/assets/agents/opencode.png" width="16" height="16" alt=""> OpenCode | ✅ | — | ✅ | plugin, `opencode.json` |
+| <img src="docs/assets/agents/qwen.png" width="16" height="16" alt=""> Qwen · <img src="docs/assets/agents/droid.png" width="16" height="16" alt=""> Droid · <img src="docs/assets/agents/kimi.png" width="16" height="16" alt=""> Kimi | ✅ | — | ✅ | Claude-schema / TOML |
+| <img src="docs/assets/agents/cursor.png" width="16" height="16" alt=""> Cursor | — | — | ✅ | `~/.cursor/hooks.json` |
+| <img src="docs/assets/agents/gemini.png" width="16" height="16" alt=""> Gemini CLI | — | — | ✅ | `~/.gemini/settings.json` |
 
 On first launch a setup window shows the agents it found and connects them
 when you say so — nothing is written to an agent's config before that. After
