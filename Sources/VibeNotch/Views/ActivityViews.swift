@@ -43,7 +43,7 @@ struct ActivityCard: View {
                 AgentIcon(source: s.source, size: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(sessionTitle(folder: s.folder, task: s.task))
+                        Text(sessionTitle(folder: s.folder, task: s.customTitle ?? s.task))
                             .font(VNFont.ui(12.5, .semibold)).lineLimit(1).truncationMode(.tail)
                         GitChip(branch: s.gitBranch, dirty: s.gitDirty)
                     }
@@ -200,7 +200,7 @@ struct SessionRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         StatusGlyph(event: s.event)
-                        Text(sessionTitle(folder: s.folder, task: s.task))
+                        Text(sessionTitle(folder: s.folder, task: s.customTitle ?? s.task))
                             .font(VNFont.ui(13, .semibold)).lineLimit(1).truncationMode(.tail)
                     }
                     if let user = s.userMessage {

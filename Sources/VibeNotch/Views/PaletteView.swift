@@ -76,7 +76,7 @@ struct PaletteView: View {
         }
         for s in store.activeSessions {
             all.append(Hit(id: "jump-\(s.sessionId)", icon: "arrow.up.forward.square",
-                           title: sessionTitle(folder: s.folder, task: s.task),
+                           title: sessionTitle(folder: s.folder, task: s.customTitle ?? s.task),
                            subtitle: "jump · \(agentName(s.source))", tint: VNColor.running) {
                 TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]); close()
             })

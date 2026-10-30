@@ -15,6 +15,8 @@ struct SessionActivity: Identifiable, Codable {
     var source: String
     var cwd: String?
     var folder: String?
+    /// A name given inside the agent (/rename, Codex thread name); wins over the auto task text.
+    var customTitle: String?
     var task: String?
     var userMessage: String?
     var tool: String?     // the tool it's running right now (from PreToolUse)
@@ -97,7 +99,7 @@ final class EventStore: ObservableObject {
             Task { @MainActor in self.reapDead() }
         }
         questionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-            Task { @MainActor in self.pollCodexQuestions() }
+            Task { @MainActor in self.pollCodexQuestions(); self.pollTitles() }
         }
     }
 
@@ -105,6 +107,18 @@ final class EventStore: ObservableObject {
     private var liveIDs: Set<String> = []
     private var reapTimer: Timer?
     private var questionTimer: Timer?
+
+    private func pollTitles() {
+        let live = activeSessions.map { ($0.id, $0.source) }
+        guard !live.isEmpty else { return }
+        Task.detached {
+            let found = SessionTitles.titles(for: live.map { (id: $0.0, source: $0.1) })
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                for (id, title) in found where self.sessions[id]?.customTitle != title { self.sessions[id]?.customTitle = title }
+            }
+        }
+    }
 
     private func pollCodexQuestions() {
         guard sessions.values.contains(where: { $0.source == "codex" && liveIDs.contains($0.id) }) else {
