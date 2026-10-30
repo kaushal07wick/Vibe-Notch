@@ -138,11 +138,11 @@ struct HistoryList: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close history")
             }
-            .padding(.bottom, 6)
+            .padding(.horizontal, 20).padding(.bottom, 6)
             .overlay(alignment: .bottom) { Rectangle().fill(Color.white.opacity(0.055)).frame(height: 1) }
 
             // today's recap + lifetime mascot level
-            recap
+            recap.padding(.horizontal, 20)
 
             if entries.isEmpty {
                 Text("No past sessions found.")
@@ -150,7 +150,7 @@ struct HistoryList: View {
                     .padding(.vertical, 14)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(entries) { HistoryRow(entry: $0, close: close) }
                     }
                 }
@@ -160,7 +160,7 @@ struct HistoryList: View {
                 .padding(.top, 5)
             }
         }
-        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
+        .padding(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
         .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
     }
 }
@@ -176,7 +176,7 @@ extension HistoryList {
             today["replies"].map { "\($0) repl\($0 == 1 ? "y" : "ies")" },
         ].compactMap { $0 }
         return HStack(spacing: 8) {
-            OwlMark(px: 1.1)
+            PixelGhost(mood: .idle, px: 1.5)
             Text(bits.isEmpty ? "Quiet day so far." : "Today: " + bits.joined(separator: " · "))
                 .font(VNFont.sysMono(10, .medium)).foregroundStyle(VNColor.muted)
             Spacer(minLength: 8)
@@ -216,13 +216,11 @@ private struct HistoryRow: View {
                 Spacer(minLength: 8)
                 ResumeAffordance(active: hovering)
             }
-            .padding(EdgeInsets(top: 7, leading: 10, bottom: 7, trailing: 8))
+            .padding(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 20))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background(Color.white.opacity(hovering ? 0.055 : 0.028), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .strokeBorder(Color.white.opacity(hovering ? 0.1 : 0.04)))
+        .background(Color.white.opacity(hovering ? 0.055 : 0))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
         .help("\(entry.cwd)\n\(entry.source == "codex" ? "codex resume" : "claude --resume") \(entry.id)")
     }
@@ -238,14 +236,14 @@ private struct ResumeAffordance: View {
         if active {
             HStack(spacing: 5) {
                 Text("resume").font(VNFont.sysMono(9.5, .semibold))
-                PixelPlay(color: Self.amber, px: 1.6)
+                Image(systemName: "play.fill").font(.system(size: 8))
             }
             .foregroundStyle(Self.amber)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(Self.amber.opacity(0.13), in: RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Self.amber.opacity(0.35)))
         } else {
-            PixelPlay(color: VNColor.paper.opacity(0.28), px: 1.6)
+            Image(systemName: "play.fill").font(.system(size: 8)).foregroundStyle(VNColor.paper.opacity(0.28))
                 .padding(.trailing, 3)
         }
     }
@@ -293,31 +291,7 @@ struct SessionGlyph: View {
         return palette[Int(h % UInt32(palette.count))]
     }
 
-    // rounded speech bubble, two message lines cut in, tail bottom-left
-    private static let grid = [
-        ".ooooooo.",
-        "ooooooooo",
-        "obbbbbboo",
-        "ooooooooo",
-        "obbbboooo",
-        ".ooo.....",
-        "..o......",
-    ]
-
     var body: some View {
-        Canvas { c, _ in
-            let px: CGFloat = 2
-            for (y, row) in Self.grid.enumerated() {
-                for (x, ch) in row.enumerated() {
-                    let color: Color? = ch == "o" ? tint
-                        : ch == "b" ? Color(hex: 0x16161A) : nil
-                    if let color {
-                        c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
-                                           width: px, height: px)), with: .color(color))
-                    }
-                }
-            }
-        }
-        .frame(width: 18, height: 14)
+        Circle().fill(tint).frame(width: 8, height: 8).frame(width: 18)
     }
 }

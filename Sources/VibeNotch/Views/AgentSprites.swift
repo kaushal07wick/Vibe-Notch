@@ -229,32 +229,11 @@ struct AgentSpriteView: View {
             BrandMarkShape(unit: unit)
                 .fill(VNColor.agent(source))
                 .frame(width: size, height: size)
-        } else if let sprite = agentSprites[source] {
-            let cols = CGFloat(sprite.frameA[0].count)
-            let rows = CGFloat(sprite.frameA.count)
-            // Snap the cell to a whole device pixel (½pt on a 2× display).
-            // size/cols is usually fractional — 18/10 = 1.8 — so every cell
-            // straddled two pixels and the sprite blurred into a blob.
-            let px = max(1, (size / cols * 2).rounded() / 2)
-            TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
-                let useA = !animated || reduceMotion || sprite.frameB == nil
-                    || Int(ctx.date.timeIntervalSinceReferenceDate / 0.45) % 2 == 0
-                let grid = useA ? sprite.frameA : sprite.frameB!
-                Canvas { c, _ in
-                    for (y, row) in grid.enumerated() {
-                        for (x, ch) in row.enumerated() {
-                            guard let color = sprite.colors[ch] else { continue }
-                            c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px,
-                                               width: px, height: px)),
-                                   with: .color(color))
-                        }
-                    }
-                }
-                .frame(width: cols * px, height: rows * px)
-            }
-            .frame(width: size, height: size) // keep the row's rhythm regardless
         } else {
-            PixelInvader(color: VNColor.agent(source), px: max(1, (size / 11 * 2).rounded(.down) / 2))
+            Image(systemName: source == "claude" ? "asterisk" : "sparkle")
+                .font(.system(size: size * 0.82, weight: .bold))
+                .foregroundStyle(VNColor.agent(source))
+                .frame(width: size, height: size)
         }
     }
 }

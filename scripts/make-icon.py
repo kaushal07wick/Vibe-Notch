@@ -51,42 +51,37 @@ def _grid(d, size, rows, scale, cy_frac, colors):
                              x0 + (x + 1) * cell, y0 + (y + 1) * cell), fill=c)
 
 
+GHOST = [
+    "...oooooo...",
+    "..oblbbbbbo.",
+    ".oblbbbbbbbo",
+    ".obbbbbbbbbo",
+    ".obbWWbbWWbo",
+    ".obbkWbbkWbo",
+    ".obpbbbbbpbo",
+    ".obbbbbbbbdo",
+    ".obbbbbbbddo",
+    ".obbbbbbbddo",
+    ".obbobbobbo.",
+    "..oo.oo.oo..",
+]
+GHOST_COLORS = {"o": (42, 63, 122, 255), "b": (122, 167, 255, 255), "l": (185, 210, 255, 255),
+                "d": (79, 120, 216, 255), "p": (255, 159, 192, 255),
+                "W": (255, 255, 255, 255), "k": (16, 24, 48, 255)}
+
+
 def render(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     m = size * 0.09
-    r = size * 0.185
-
-    # warm paper squircle with a soft vertical gradient
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((m, m, size - m, size - m), radius=size * 0.185, fill=255)
     grad = Image.new("L", (1, 256))
     for y in range(256):
         grad.putpixel((0, y), 255 - y)
-    grad = grad.resize((size, size))
-    paper = Image.composite(
-        Image.new("RGBA", (size, size), PAPER_TOP),
-        Image.new("RGBA", (size, size), PAPER_BOTTOM), grad)
-    mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((m, m, size - m, size - m), radius=r, fill=255)
-    img.paste(paper, (0, 0), mask)
-    d = ImageDraw.Draw(img)
-
-    # the notch pill, floating near the top, soft shadow
-    pw, ph = size * 0.62, size * 0.30
-    px0, py0 = (size - pw) / 2, size * 0.14
-    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rounded_rectangle(
-        (px0, py0 + size * 0.015, px0 + pw, py0 + ph + size * 0.015),
-        radius=ph * 0.35, fill=(20, 15, 8, 80))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(size * 0.015))
-    img.alpha_composite(shadow)
-    d = ImageDraw.Draw(img)
-    d.rounded_rectangle((px0, py0, px0 + pw, py0 + ph), radius=ph * 0.35, fill=INK)
-
-    # the watching eye inside the pill
-    _grid(d, size, EYE, 0.30, py0 / size + (ph / size) / 2,
-          {"o": GREY, "W": WHITE, "k": BLUE})
-
-    # green approval check on the paper below
-    _grid(d, size, CHECK, 0.34, 0.68, {"o": GREEN})
+    bg = Image.composite(Image.new("RGBA", (size, size), (24, 28, 44, 255)),
+                         Image.new("RGBA", (size, size), (9, 10, 14, 255)), grad.resize((size, size)))
+    img.paste(bg, (0, 0), mask)
+    _grid(ImageDraw.Draw(img), size, GHOST, 0.56, 0.5, GHOST_COLORS)
     return img
 
 

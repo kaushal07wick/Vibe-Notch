@@ -27,7 +27,9 @@ enum SettingsWindow {
         w.titleVisibility = .hidden
         w.titlebarAppearsTransparent = true
         w.isReleasedWhenClosed = false
-        w.contentViewController = NSHostingController(rootView: SettingsRoot())
+        w.appearance = NSAppearance(named: .darkAqua)
+        w.backgroundColor = NSColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
+        w.contentViewController = NSHostingController(rootView: SettingsRoot().tint(VNColor.running).preferredColorScheme(.dark))
         w.center()
         window = w
         w.makeKeyAndOrderFront(nil)
@@ -206,7 +208,7 @@ struct SectionCard<Content: View>: View {
                     .tracking(0.6)
             }
             VStack(spacing: 0) { content }
-                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.5)
@@ -781,7 +783,7 @@ private struct SSHPane: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
 
         SectionCard(title: "Hosts") {
             if servers.isEmpty {
@@ -930,9 +932,7 @@ private struct AboutPane: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            if let icon = NSApp.applicationIconImage {
-                Image(nsImage: icon).resizable().frame(width: 72, height: 72)
-            }
+            PixelGhost(mood: .working, px: 6)
             Text("Vibe Notch").font(.system(size: 19, weight: .semibold))
             Text(version).font(VNFont.sysMono(11)).foregroundStyle(.secondary)
         }

@@ -32,7 +32,9 @@ enum Welcome {
         w.titleVisibility = .hidden
         w.titlebarAppearsTransparent = true
         w.isReleasedWhenClosed = false
-        w.contentViewController = NSHostingController(rootView: WelcomeView(close: close))
+        w.appearance = NSAppearance(named: .darkAqua)
+        w.backgroundColor = NSColor(red: 0.05, green: 0.05, blue: 0.06, alpha: 1)
+        w.contentViewController = NSHostingController(rootView: WelcomeView(close: close).preferredColorScheme(.dark))
         w.center()
         window = w
         w.makeKeyAndOrderFront(nil)
@@ -99,7 +101,7 @@ private struct WelcomeView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 14) {
-            OwlMark(px: 2.2)
+            PixelGhost(mood: .working, px: 4)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Vibe Notch").font(.system(size: 20, weight: .semibold))

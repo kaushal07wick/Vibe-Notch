@@ -23,7 +23,7 @@ struct ActivityCard: View {
 
     private var idlePill: some View {
         HStack(spacing: 12) {
-            EvolvedInvader(px: 2)
+            PixelGhost(mood: .idle, px: 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text("vibe-notch").font(VNFont.ui(13, .semibold))
                 Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
@@ -65,51 +65,18 @@ struct ActivityCard: View {
 
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sessionsHeader
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
                         SessionRow(s: s, onDismiss: onDismiss)
                         if index < sessions.count - 1 {
                             Rectangle().fill(Color.white.opacity(0.055))
-                                .frame(height: 1).padding(.leading, 40)
+                                .frame(height: 1)
                         }
                     }
                 }
-            .background(Color.white.opacity(0.035),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.06)))
-            .padding(.top, 6)
         }
-        .padding(EdgeInsets(top: 2, leading: 16, bottom: 10, trailing: 16))
+        .padding(EdgeInsets(top: 2, leading: 0, bottom: 8, trailing: 0))
         .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
-    }
-
-    private var sessionsHeader: some View {
-        HStack(spacing: 9) {
-            Text("LIVE AGENTS").font(VNFont.sysMono(10.5, .semibold)).tracking(1.4)
-                .foregroundStyle(VNColor.paper.opacity(0.55))
-            Spacer(minLength: 8)
-            ForEach(metrics, id: \.label) { metric in
-                HStack(spacing: 4) {
-                    if let color = metric.color { Circle().fill(color).frame(width: 5, height: 5) }
-                    Text(metric.label).font(VNFont.sysMono(9.5, .medium))
-                        .foregroundStyle(VNColor.paper.opacity(metric.color == nil ? 0.3 : 0.42))
-                }
-            }
-        }
-        .padding(.bottom, 2)
-    }
-
-    private var metrics: [(label: String, color: Color?)] {
-        let running = sessions.filter { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }.count
-        let waiting = sessions.filter { $0.event == "Notification" }.count
-        let done = sessions.filter { $0.event == "Stop" }.count
-        var out: [(String, Color?)] = [("\(sessions.count) agent\(sessions.count == 1 ? "" : "s")", nil)]
-        if waiting > 0 { out.append(("\(waiting) waiting", VNColor.amber)) }
-        if running > 0 { out.append(("\(running) running", VNColor.running)) }
-        if done > 0 { out.append(("\(done) done", VNColor.go)) }
-        return out
     }
 }
 
@@ -249,7 +216,7 @@ struct SessionRow: View {
                     interruptButton
                 }
         }
-        .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+        .padding(EdgeInsets(top: 9, leading: 18, bottom: 9, trailing: 18))
         .contentShape(Rectangle())
         .buttonStyle(.plain)
         .accessibilityHint("Jumps to this session's terminal tab")
