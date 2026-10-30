@@ -37,7 +37,7 @@ you're already looking; one click (or `^A`) and the agent is moving again.
 |---|---|
 | **Zero babysitting** | Cards pop the instant an agent needs you — and *only* when you're not already looking at its terminal. |
 | **Zero misclicks** | Dangerous commands (`rm -rf`, `sudo`, `curl \| sh`) are graded and flagged red before you click. Safe reads auto-approve silently. |
-| **Zero context loss** | Jump to the exact terminal tab, reply into the agent's pane, or `^C` a runaway command — from the notch. |
+| **Zero context loss** | Answer questions, jump to the exact terminal tab, reply into the agent's pane, or stop a runaway turn — from the notch. |
 | **Zero cloud** | Native Swift. Local socket. No accounts, no telemetry, no Electron. |
 
 ## See it
@@ -65,12 +65,27 @@ red — you see what you're waving through.
 message, what it's running right now, a rolling console mirror, git branch,
 and token usage.
 
-⚡ **Act without switching** — jump to the exact terminal tab (`^G`), type a
-reply straight into the agent's pane, or **panic-stop** a runaway command with
-a real `^C`.
+❓ **Answer questions in place** — Claude's `AskUserQuestion` and Codex's
+multiple-choice prompts (including the ones Codex queues behind `⇧←`) show up
+as cards. Click an option or press `⌘1`–`⌘9`; "Something else…" takes free text.
 
-🕘 **Session history** — click the clock, see past Claude sessions, click one:
-a terminal opens running `claude --resume <id>` for you.
+⚡ **Act without switching** — jump to the exact terminal tab (`^G`), send a
+quick reply ("continue", "yes", or your own text) straight into the agent's
+pane, or **stop** the current turn with the same `Esc` the CLI uses — the
+session stays alive.
+
+🏷️ **Session names** — renames show up immediately: Claude's `/rename` titles
+and Codex thread names replace the folder name in every row.
+
+🕘 **Session history** — click the clock for past Claude *and* Codex sessions;
+click one and a terminal opens running `claude --resume <id>` or
+`codex resume <id>` in the right folder.
+
+📁 **File tray** — drag a file toward the notch and the tray opens under your
+cursor; drop it in, drag it out anywhere later. Images preview inline.
+
+🎵 **Music & calendar** — what's playing (Music, Spotify, or a browser tab)
+with play/pause and skip, plus this week and your next event.
 
 🔍 **⌘K palette** — search across active sessions, history, and actions from
 one field.
@@ -84,9 +99,11 @@ a safe-list auto-approves harmless reads (`git status`, `ls`, …).
 unanswered requests re-chime, badge the menu bar, and (optionally) ping your
 phone via [ntfy](https://ntfy.sh).
 
-🧪 **Labs** — localhost web dashboard, notch-over-lock-screen, multi-Mac
-monitoring over SSH, and a scriptable CLI
-(`vibenotch list|approve|deny|send|interrupt`).
+🖥️ **Remote Macs** — Settings › SSH lists every `Host` in `~/.ssh/config`;
+pick one to watch its agents too.
+
+🧪 **Labs** — localhost web dashboard, notch-over-lock-screen, and a
+scriptable CLI (`vibenotch list|approve|deny|send|interrupt`).
 
 ## Supported agents
 
@@ -95,7 +112,7 @@ monitoring over SSH, and a scriptable CLI
 | Claude Code | ✅ | ✅ | `~/.claude/settings.json` |
 | Codex | ✅ | ✅ | `~/.codex` (hooks) |
 | OpenCode | ✅ | ✅ | plugin, `opencode.json` |
-| Qwen · Qoder · Droid · CodeBuddy · Kimi | ✅ | ✅ | Claude-schema / TOML |
+| Qwen · Droid · Kimi | ✅ | ✅ | Claude-schema / TOML |
 | Cursor | — | ✅ | `~/.cursor/hooks.json` |
 | Gemini CLI | — | ✅ | `~/.gemini/settings.json` |
 
@@ -110,7 +127,8 @@ backed up and reversible.
 ### Download
 
 Grab the latest `VibeNotch-x.y.z.dmg` from
-[Releases](https://github.com/kaushal07wick/Vibe-Notch/releases), open it, and
+[Releases](https://github.com/kaushal07wick/Vibe-Notch/releases) (the first
+public release is on its way — until then, build from source), open it, and
 drag **VibeNotch** to Applications.
 
 > **Not notarized yet** (no Apple Developer ID). macOS quarantines the
@@ -131,7 +149,7 @@ Requires macOS 14+, Apple Silicon, and the Swift 6 toolchain
 ```bash
 git clone https://github.com/kaushal07wick/Vibe-Notch.git
 cd Vibe-Notch
-./scripts/bundle.sh          # → .build/VibeNotch.app
+./scripts/bundle.sh release  # → .build/VibeNotch.app
 open .build/VibeNotch.app
 ```
 
@@ -169,6 +187,7 @@ Full architecture notes live in [`docs/specs/`](docs/specs/).
 |---|---|
 | `^A` | Approve the front card |
 | `^G` | Jump to the session's terminal tab |
+| `⌘1`–`⌘9` | Pick an option on a question card |
 | `⌘K` | Command palette (panel focused) |
 | `Esc` | Collapse the panel |
 
@@ -178,7 +197,7 @@ Full architecture notes live in [`docs/specs/`](docs/specs/).
 ~/.vibenotch/bin/vibenotch list                 # sessions + pending, as JSON
 ~/.vibenotch/bin/vibenotch approve              # approve the front card
 ~/.vibenotch/bin/vibenotch send <session> "hi"  # type into that session
-~/.vibenotch/bin/vibenotch interrupt <session>  # ^C its foreground process
+~/.vibenotch/bin/vibenotch interrupt <session>  # Esc: stop the turn, keep the session
 ```
 
 Scriptable from Raycast, cron, or another Mac over SSH.
@@ -192,6 +211,9 @@ Scriptable from Raycast, cron, or another Mac over SSH.
   under `~/.vibenotch/data` you can audit and edit.
 - Screen-share guard keeps commands and prompts off your screen while
   presenting.
+- Calendar and now-playing are read on your Mac and never leave it. macOS asks
+  once for Calendar access; local builds keep a stable signing identity so it
+  doesn't ask again after every rebuild.
 
 ## Uninstall
 
@@ -226,3 +248,8 @@ deliberately small (Swift package, three targets, no Xcode project).
   and [boring.notch](https://github.com/TheBoredTeam/boring.notch) for
   mechanism reference
 - Departure Mono for the terminal blocks
+- [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) for the
+  `/usr/bin/perl` technique that still reads system now-playing on macOS 15.4+
+
+The landing page lives in its own repo:
+[vibe-notch-site](https://github.com/kaushal07wick/vibe-notch-site).
