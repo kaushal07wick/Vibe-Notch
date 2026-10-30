@@ -13,6 +13,7 @@ struct PendingApproval: Identifiable {
 struct SessionActivity: Identifiable, Codable {
     let sessionId: String
     var source: String
+    var cwd: String?
     var folder: String?
     var task: String?
     var userMessage: String?
@@ -43,6 +44,8 @@ final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var sessions: [String: SessionActivity] = [:]
     @Published var hovering = false
+    @Published var controlSessionID: String?
+    @Published var replyDrafts: [String: String] = [:]
 
     /// Sessions the user chose to Bypass — further requests auto-approve
     /// until the session ends or the app restarts.
@@ -348,7 +351,7 @@ final class EventStore: ObservableObject {
         if sessions[sid] == nil { StatsLog.bump("sessions") }
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source
-        if let cwd = i.cwd { s.folder = (cwd as NSString).lastPathComponent }
+        if let cwd = i.cwd { s.cwd = cwd; s.folder = (cwd as NSString).lastPathComponent }
         if let t = i.title { s.task = t }
         if let u = i.userMessage { s.userMessage = u }
         s.tool = i.tool                 // nil clears the "running X" when the turn moves on

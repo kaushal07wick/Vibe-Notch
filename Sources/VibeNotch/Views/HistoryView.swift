@@ -98,26 +98,22 @@ enum SessionHistory {
         return ResumeEntry(id: id, source: source, cwd: cwd ?? NSHomeDirectory(), task: task, date: date)
     }
 
-    /// Open a terminal at the session's cwd and resume it in the right agent.
-    static func resume(_ entry: ResumeEntry) {
-        let resumeCmd = entry.source == "codex" ? "codex resume \(entry.id)" : "claude --resume \(entry.id)"
-        let cmd = "cd \(shellQuote(entry.cwd)) && \(resumeCmd)"
-        let script = """
+    /// Terminal accepts the resume command; agent startup remains visible there.
+    @MainActor @discardableResult
+    static func resume(_ entry: ResumeEntry) -> Bool {
+        guard let cmd = TerminalCommand.resume(source: entry.source, id: entry.id, cwd: entry.cwd) else { return false }
+        let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r")
+        return VNAppleScript.run("""
         tell application "Terminal"
             activate
-            do script "\(cmd.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))"
+            do script "\(escaped)"
         end tell
-        """
-        // Same consent wall as every other script we run — via osascript it
-        // used to fail with no trace at all.
-        Task { @MainActor in
-            VNAppleScript.run(script, purpose: "resuming the session in Terminal")
-        }
+        return "ok"
+        """, purpose: "resuming the session in Terminal") == "ok"
     }
 
-    private static func shellQuote(_ s: String) -> String {
-        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
 }
 
 /// The history panel — replaces the card area while open.
@@ -197,8 +193,7 @@ private struct HistoryRow: View {
 
     var body: some View {
         Button {
-            SessionHistory.resume(entry)
-            close()
+            if SessionHistory.resume(entry) { close() }
         } label: {
             HStack(alignment: .center, spacing: 11) {
                 SessionGlyph(tint: SessionGlyph.tint(entry.folder))

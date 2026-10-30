@@ -164,7 +164,7 @@ public struct InjectionPlan: Equatable, Sendable {
                               "--match", "id:\(window)", text + "\r"]]
             return plan
         }
-        guard let tty else { return plan }
+        guard let tty, TerminalCommand.validTTY(tty) else { return plan }
         let device = tty.hasPrefix("/dev/") ? tty : "/dev/\(tty)"
         // AppleScript string literals cannot span lines: an unescaped newline is a
         // compile error, so multi-line replies silently did nothing. Backslash

@@ -46,7 +46,7 @@ enum VNSettings {
     /// Hide the notch entirely when no agent is working/waiting (keeps it off
     /// fullscreen video). On by default.
     static var autoHideWhenIdle: Bool {
-        get { d.object(forKey: "autoHideWhenIdle") as? Bool ?? true }
+        get { d.object(forKey: "autoHideWhenIdle") as? Bool ?? false }
         set { d.set(newValue, forKey: "autoHideWhenIdle") }
     }
 

@@ -7,9 +7,9 @@ import Network
 @MainActor
 final class DashboardServer {
     private var listener: NWListener?
-    var stateProvider: @MainActor () -> String = { "{}" }
+    var stateProvider: @MainActor () async -> String = { "{}" }
     /// Handles /approve /deny /approve_all (phone taps via ntfy actions).
-    var actionHandler: @MainActor (String) -> String = { _ in #"{"ok":false}"# }
+    var actionHandler: @MainActor (String) async -> String = { _ in #"{"ok":false}"# }
 
     func start(port: UInt16) {
         stop()
@@ -24,7 +24,7 @@ final class DashboardServer {
             connection.start(queue: .main)
             connection.receive(minimumIncompleteLength: 1, maximumLength: 8192) { data, _, _, _ in
                 let request = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                Task { @MainActor in self?.respond(connection, request: request) }
+                Task { @MainActor in await self?.respond(connection, request: request) }
             }
         }
         listener.start(queue: .main)
@@ -57,16 +57,16 @@ final class DashboardServer {
         return nil
     }
 
-    private func respond(_ connection: NWConnection, request: String) {
+    private func respond(_ connection: NWConnection, request: String) async {
         let path = request.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
         let route = path.split(separator: "?").first.map(String.init) ?? "/"
         var status = "200 OK"
         let (body, type): (String, String)
         if route.hasPrefix("/state") {
-            (body, type) = (stateProvider(), "application/json")
+            (body, type) = (await stateProvider(), "application/json")
         } else if ["/approve", "/deny", "/approve_all", "/undo"].contains(route) {
             if query(path, "t") == token {
-                (body, type) = (actionHandler(String(route.dropFirst())), "application/json")
+                (body, type) = (await actionHandler(String(route.dropFirst())), "application/json")
             } else {
                 status = "403 Forbidden"
                 (body, type) = (#"{"ok":false,"error":"bad or missing token"}"#, "application/json")

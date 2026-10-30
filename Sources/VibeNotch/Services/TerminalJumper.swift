@@ -4,31 +4,32 @@ import VibeNotchCore
 /// Focuses the terminal an agent runs in. With a tty, selects the **exact
 /// tab/session** in iTerm2 or Terminal.app via AppleScript; otherwise (or for
 /// terminals without a scripting API, e.g. Ghostty) activates the app.
+@MainActor
 enum TerminalJumper {
     static func jump(terminal: String?, tty: String? = nil, meta: [String: String] = [:]) {
+        Task {
+            if !(await focus(terminal: terminal, tty: tty, meta: meta)) {
+                let alert = NSAlert()
+                alert.messageText = "Couldn’t reach the terminal"
+                alert.informativeText = "Check that this session’s terminal is open and that Vibe Notch has Automation permission."
+                alert.runModal()
+            }
+        }
+    }
+
+    static func focus(terminal: String?, tty: String? = nil, meta: [String: String] = [:]) async -> Bool {
         let plan = JumpPlan.make(terminal: terminal, tty: tty, meta: meta)
-        if let command = plan.command { runCommand(command) } // pane focus (tmux/wezterm/kitty)
-        if plan.useTTYScript, let terminal, let tty, jumpToTab(terminal: terminal, tty: tty) { return }
-        activate(bundleID: plan.bundleID, name: terminal)
+        if let command = plan.command, !(await TerminalCommand.run([command])) { return false }
+        if plan.useTTYScript, let terminal, let tty { return jumpToTab(terminal: terminal, tty: tty) }
+        return await activate(bundleID: plan.bundleID, name: terminal)
     }
 
-    /// Back-compat convenience.
-    static func jump(_ terminal: String?) { jump(terminal: terminal, tty: nil) }
-
-    /// Best-effort CLI focus (tmux switch-client / wezterm activate-pane / kitty focus).
-    private static func runCommand(_ argv: [String]) {
-        guard let exe = argv.first else { return }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: exe)
-        p.arguments = Array(argv.dropFirst())
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        try? p.run()
-    }
+    static func jump(_ terminal: String?) { jump(terminal: terminal) }
 
     // MARK: Exact tab via AppleScript
 
     private static func jumpToTab(terminal: String, tty: String) -> Bool {
+        guard TerminalCommand.validTTY(tty) else { return false }
         let device = tty.hasPrefix("/dev/") ? tty : "/dev/\(tty)"
         let script: String
         switch terminal {
@@ -75,13 +76,13 @@ enum TerminalJumper {
 
     // MARK: App activation fallback
 
-    private static func activate(bundleID: String?, name: String?) {
+    private static func activate(bundleID: String?, name: String?) async -> Bool {
         if let bundleID,
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
-            NSWorkspace.shared.openApplication(at: url, configuration: config)
-            return
+            do { _ = try await NSWorkspace.shared.openApplication(at: url, configuration: config); return true }
+            catch { return false }
         }
         // Unknown terminal — try activating a running app by name. Match both
         // directions: TERM_PROGRAM is often longer than the app's name
@@ -91,7 +92,8 @@ enum TerminalJumper {
             return appName.localizedCaseInsensitiveContains(name)
                 || (appName.count >= 3 && name.localizedCaseInsensitiveContains(appName))
         }) {
-            app.activate()
+            return app.activate()
         }
+        return false
     }
 }

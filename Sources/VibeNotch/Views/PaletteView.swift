@@ -77,14 +77,14 @@ struct PaletteView: View {
             all.append(Hit(id: "jump-\(s.sessionId)", icon: "arrow.up.forward.square",
                            title: sessionTitle(folder: s.folder, task: s.task),
                            subtitle: "jump · \(agentName(s.source))", tint: VNColor.running) {
-                TerminalJumper.jump(terminal: s.terminal, tty: s.tty); close()
+                TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]); close()
             })
         }
         for e in history {
             all.append(Hit(id: "res-\(e.id)", icon: "clock.arrow.circlepath",
                            title: "\(e.folder) · \(e.task)",
                            subtitle: "resume", tint: VNColor.muted) {
-                SessionHistory.resume(e); close()
+                if SessionHistory.resume(e) { close() }
             })
         }
         all.append(Hit(id: "act-settings", icon: "gearshape.fill", title: "Settings",

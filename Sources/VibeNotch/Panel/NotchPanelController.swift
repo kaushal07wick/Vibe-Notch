@@ -61,7 +61,12 @@ final class NotchPanelController {
         let wanted = VNSettings.notchDisplayID
         guard !wanted.isEmpty,
               let match = NSScreen.screens.first(where: { $0.vnDisplayID == wanted })
-        else { return NSScreen.main ?? NSScreen.screens[0] }
+        else {
+            // NSScreen.main follows keyboard focus, so with an external monitor
+            // the notch jumped there; prefer the display that has a real notch.
+            return NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+                ?? NSScreen.main ?? NSScreen.screens[0]
+        }
         return match
     }
 
@@ -71,7 +76,7 @@ final class NotchPanelController {
     }
 
     func toggle() {
-        Task { await notch.expand(on: targetScreen) }
+        open(seconds: 20)
     }
 
     /// Open the panel in its full (hovered) form without a pointer — the CLI's
@@ -88,14 +93,17 @@ final class NotchPanelController {
     private var hoverUntil = Date.distantPast
 
     private func refresh() {
-        let held = Date() < hoverUntil
+        if let id = store.controlSessionID, !store.activeSessions.contains(where: { $0.id == id }) {
+            store.controlSessionID = nil
+        }
+        let held = Date() < hoverUntil || store.controlSessionID != nil
         let wantHover = notch.isHovering || held
         if store.hovering != wantHover { store.hovering = wantHover } // drives brief→full
 
         // A decision just landed (clicked here OR answered in the terminal):
         // collapse immediately, even though the cursor still sits on the panel.
         let hasPending = !store.pending.isEmpty && !store.privacyHold
-        if lastPendingCount > 0 && !hasPending {
+        if lastPendingCount > 0 && !hasPending && store.controlSessionID == nil {
             lastPendingCount = 0
             needsHoverExit = true
             expanded = false
@@ -191,6 +199,7 @@ final class NotchPanelController {
 
     /// ESC — collapse immediately.
     func collapseNow() {
+        store.controlSessionID = nil
         hoverUntil = .distantPast
         dwellDeadline = nil
         dwellTask?.cancel()

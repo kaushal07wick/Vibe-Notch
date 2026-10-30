@@ -50,10 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         privacy.onChange = { [weak self] sharing in self?.store.privacyHold = sharing }
         privacy.start()
         dashboard.stateProvider = { [weak self] in
-            self?.handleControl(VNInbound(type: .control, source: "web", event: "list")) ?? "{}"
+            await self?.handleControl(VNInbound(type: .control, source: "web", event: "list")) ?? "{}"
         }
         dashboard.actionHandler = { [weak self] action in
-            self?.handleControl(VNInbound(type: .control, source: "web", event: action)) ?? "{}"
+            await self?.handleControl(VNInbound(type: .control, source: "web", event: action)) ?? "{}"
         }
         applyDashboardSetting()
         applyLockScreenSetting()
@@ -148,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onControl: { [weak self] cmd, reply in
                 Task { @MainActor in
-                    reply(self?.handleControl(cmd) ?? #"{"ok":false,"error":"shutting down"}"#)
+                    reply(await self?.handleControl(cmd) ?? #"{"ok":false,"error":"shutting down"}"#)
                 }
             }
         )

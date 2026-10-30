@@ -4,6 +4,7 @@ import VibeNotchCore
 /// Shows what active agent sessions are doing right now (or an idle pill).
 /// One session → detail card; several + hover → the SESSIONS list.
 struct ActivityCard: View {
+    @ObservedObject var store: EventStore
     let sessions: [SessionActivity]
     let full: Bool
     var onDismiss: (String) -> Void = { _ in }
@@ -52,11 +53,14 @@ struct ActivityCard: View {
                     }
                 }
                 Spacer(minLength: 8)
-                PillCluster(source: s.source, terminal: s.terminal, tty: s.tty)
-                if full, isRunning(s) { PanicButton(session: s) }
+                PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
+                if full {
+                    Button("Controls") { store.controlSessionID = s.id }
+                        .buttonStyle(.bordered).controlSize(.small)
+                }
             }
             SessionStatusLine(s: s, full: full)
-            if full, TerminalControl.canReply(to: s) { ReplyRow(session: s) }
+            if full, store.controlSessionID == s.id { SessionControls(store: store, session: s).id(s.id) }
 
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
@@ -64,14 +68,7 @@ struct ActivityCard: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
     }
 
-    private func isRunning(_ s: SessionActivity) -> Bool {
-        ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains(s.event)
-    }
-
     // MARK: Session list
-
-    /// Which row has its reply field open, if any.
-    @State private var replyingTo: String?
 
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -82,11 +79,11 @@ struct ActivityCard: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
                         SessionRow(s: s, onDismiss: onDismiss,
-                                   replying: replyingTo == s.sessionId) { id in
-                            replyingTo = replyingTo == id ? nil : id
+                                   replying: store.controlSessionID == s.sessionId) { id in
+                            store.controlSessionID = store.controlSessionID == id ? nil : id
                         }
-                        if replyingTo == s.sessionId {
-                            ReplyRow(session: s) { replyingTo = nil }
+                        if store.controlSessionID == s.sessionId {
+                            SessionControls(store: store, session: s)
                                 .padding(.horizontal, 10).padding(.bottom, 8)
                         }
                         if index < sessions.count - 1 {
@@ -219,6 +216,7 @@ struct TerminalBlock: View {
         Text(prompt ? "$ \(tail)" : tail)
             .font(.system(size: 10.5, design: .monospaced))
             .foregroundStyle(Color(hex: 0xC8CDD4))
+            .textSelection(.enabled)
             .lineLimit(lines).truncationMode(.tail)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -230,8 +228,7 @@ struct TerminalBlock: View {
 
 // MARK: - Session row
 
-/// A compact row per session in the multi-session list — tap to jump to its
-/// terminal. Hover highlights the row and reveals a bin button to dismiss it.
+/// Stable row actions; selecting the main content opens this session’s controls.
 struct SessionRow: View {
     let s: SessionActivity
     var onDismiss: (String) -> Void = { _ in }
@@ -240,8 +237,9 @@ struct SessionRow: View {
     @State private var hovering = false
 
     var body: some View {
-        Button { TerminalJumper.jump(terminal: s.terminal, tty: s.tty) } label: {
-            HStack(alignment: .center, spacing: 11) {
+        HStack(alignment: .center, spacing: 11) {
+            Button { onReply(s.sessionId) } label: {
+              HStack(spacing: 11) {
                 AgentIcon(source: s.source, size: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -256,39 +254,35 @@ struct SessionRow: View {
                     brief.font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 8)
+              }
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
                 HStack(spacing: 5) {
-                    // pills stay on hover; the age slot turns into jump + archive
-                    PillCluster(source: s.source, terminal: s.terminal, tty: s.tty,
-                                showJump: false, age: hovering ? nil : s.updatedAt)
-                    if hovering || replying {
+                    PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:],
+                                showJump: false)
+                    Group {
                         replyButton
-                        JumpPill(terminal: s.terminal, tty: s.tty)
+                        JumpPill(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
                         binButton
                     }
                 }
-            }
-            .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
-            .contentShape(Rectangle())
         }
+        .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
-        .accessibilityHint("Jumps to this session's terminal tab")
+        .accessibilityHint("Opens controls for this session")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
     }
 
-    @ViewBuilder private var replyButton: some View {
-        if TerminalControl.canReply(to: s) {
-            Button { onReply(s.sessionId) } label: {
-                Image(systemName: replying ? "arrowshape.turn.up.left.fill" : "arrowshape.turn.up.left")
-                    .font(VNFont.ui(11, .medium))
-                    .foregroundStyle(replying ? VNColor.go : VNColor.muted)
-                    .frame(width: 24, height: 20)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Reply to this agent")
-            .help("Type an instruction into this session")
+    private var replyButton: some View {
+        Button { onReply(s.sessionId) } label: {
+            Image(systemName: "slider.horizontal.3")
+                .foregroundStyle(replying ? VNColor.go : VNColor.muted)
+                .frame(width: 28, height: 28).contentShape(Rectangle())
         }
+        .buttonStyle(.plain).accessibilityLabel("Session controls").help("Reply, model, interrupt and resume")
     }
 
     private var binButton: some View {
@@ -296,7 +290,7 @@ struct SessionRow: View {
             Image(systemName: "archivebox")
                 .font(VNFont.ui(11, .medium))
                 .foregroundStyle(VNColor.muted)
-                .frame(width: 24, height: 20)
+                .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -343,85 +337,6 @@ struct GitChip: View {
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Color.white.opacity(0.05), in: Capsule())
         }
-    }
-}
-
-/// Red ^C — first click arms, second click sends SIGINT to the session's
-/// foreground process. Disarms itself after 2.5s.
-struct PanicButton: View {
-    let session: SessionActivity
-    @State private var armed = false
-
-    var body: some View {
-        Button {
-            if armed {
-                _ = TerminalControl.interrupt(session)
-                armed = false
-            } else {
-                armed = true
-                Task {
-                    try? await Task.sleep(for: .seconds(2.5))
-                    armed = false
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "octagon.fill").font(VNFont.ui(9))
-                Text(armed ? "sure?" : "^C").font(VNFont.sysMono(9.5, .semibold))
-            }
-            .foregroundStyle(armed ? .white : VNColor.stop)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(armed ? Color(hex: 0xB0413F) : VNColor.stop.opacity(0.12), in: Capsule())
-            .contentShape(Capsule())
-        }
-        .buttonStyle(PressFeedback())
-        .accessibilityLabel(armed ? "Confirm interrupt" : "Interrupt the running command")
-        .help("Interrupt the running command (^C)")
-        .animation(.easeOut(duration: 0.12), value: armed)
-    }
-}
-
-/// Reply straight into the session's terminal pane.
-struct ReplyRow: View {
-    let session: SessionActivity
-    /// Called after a successful send, so the list can close the row.
-    var onSent: () -> Void = {}
-    @State private var text = ""
-    @State private var sentNote = false
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "arrowshape.turn.up.left")
-                .font(VNFont.ui(10)).foregroundStyle(VNColor.faint)
-            TextField(sentNote ? "Sent — typed into \(session.terminal ?? "the terminal")"
-                               : "Tell \(agentName(session.source)) what to do…", text: $text)
-                .textFieldStyle(.plain)
-                .font(VNFont.ui(11.5))
-                .focused($focused)
-                .onSubmit(send)
-                .onAppear { focused = true }
-            if !text.isEmpty {
-                Button(action: send) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(VNFont.ui(14)).foregroundStyle(VNColor.go)
-                }
-                .buttonStyle(PressFeedback())
-                .accessibilityLabel("Send reply")
-            }
-        }
-        .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .strokeBorder(Color.white.opacity(focused ? 0.12 : 0.05)))
-    }
-
-    private func send() {
-        guard !text.trimmingCharacters(in: .whitespaces).isEmpty,
-              TerminalControl.send(text, to: session) else { return }
-        text = ""
-        sentNote = true
-        onSent()
     }
 }
 

@@ -80,7 +80,6 @@ struct ExpandedContent: View {
                     HistoryList(entries: history) { showHistory = false }
                 } else {
                     currentCard
-                        .id(stateKey)
                         .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
                                                 removal: .opacity))
                 }
@@ -105,9 +104,9 @@ struct ExpandedContent: View {
 
     @ViewBuilder private var currentCard: some View {
         if let approval = store.pending.first {
-            ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1)
+            ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1).id(approval.id)
         } else {
-            ActivityCard(sessions: store.activeSessions, full: store.hovering,
+            ActivityCard(store: store, sessions: store.activeSessions, full: store.hovering,
                          onDismiss: { store.dismiss(sessionId: $0) })
         }
     }
@@ -122,7 +121,8 @@ struct CompactLeading: View {
         HStack(spacing: 4) {
             // OUR mascot — the Owl — regardless of which brands are running
             // (per-agent marks live in the expanded rows)
-            OwlMark(px: 1.5, escalated: store.escalated)
+            PixelInvader(color: store.escalated ? VNColor.amber : VNColor.running,
+                         px: 1.5, animated: anyRunning)
             // activity is a dot beside the owl, not a second creature
             Circle()
                 .fill(store.escalated ? VNColor.amber : VNColor.running)

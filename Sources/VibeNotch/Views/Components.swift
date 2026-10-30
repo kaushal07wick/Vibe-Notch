@@ -37,14 +37,15 @@ struct SideBadge: View {
 struct JumpPill: View {
     let terminal: String?
     var tty: String?
+    var meta: [String: String] = [:]
     var body: some View {
-        Button { TerminalJumper.jump(terminal: terminal, tty: tty) } label: {
+        Button { TerminalJumper.jump(terminal: terminal, tty: tty, meta: meta) } label: {
             HStack(spacing: 3) {
                 Text("^G").font(VNFont.mono(9.5))
                 Image(systemName: "arrow.up.forward").font(VNFont.ui(8, .bold))
             }
             .foregroundStyle(Color(hex: 0x6FD3E0))
-            .padding(.horizontal, 6).padding(.vertical, 2.5)
+            .padding(.horizontal, 8).frame(minHeight: 28)
             .background(Color(hex: 0x123238), in: RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
@@ -98,6 +99,7 @@ struct PillCluster: View {
     let source: String
     var terminal: String?
     var tty: String?
+    var meta: [String: String] = [:]
     var showJump = true
     var age: Date?
 
@@ -105,7 +107,7 @@ struct PillCluster: View {
         HStack(spacing: 5) {
             AgentPill(source: source)
             if let terminal { TerminalIcon(terminal: terminal) }
-            if showJump { JumpPill(terminal: terminal, tty: tty) }
+            if showJump { JumpPill(terminal: terminal, tty: tty, meta: meta) }
             if let age {
                 Text(ageString(age)).font(VNFont.sysMono(10.5, .medium))
                     .foregroundStyle(VNColor.paper.opacity(0.45))
@@ -204,44 +206,30 @@ struct AgentIcon: View {
     }
 }
 
-/// Radar sweep — a fat rotating wedge on a 7×7 grid. No walls: just a bright
-/// dish and a solid beam slice with fading ghosts. Owl-eye amber.
-/// Dual-ring loader: two rounded arcs counter-rotating at different radii,
-/// with a soft glow. Smooth (60fps), not pixel-stepped.
+/// Eight discrete pixels, eight frames per second. No blur or continuous spin.
 struct PixelRingSpinner: View {
     var color: Color
-    var px: CGFloat = 1.7          // kept for call-site compatibility; scales size
+    var px: CGFloat = 1.7
     var active = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var side: CGFloat { max(15, px * 8) }
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        TimelineView(.animation(paused: !active || reduceMotion)) { timeline in
-            Canvas { ctx, size in
-                let s = min(size.width, size.height)
-                let c = CGPoint(x: size.width / 2, y: size.height / 2)
-                let t = active && !reduceMotion ? timeline.date.timeIntervalSinceReferenceDate : 0
-                ctx.addFilter(.shadow(color: color.opacity(0.55), radius: s * 0.09))
-
-                arc(ctx, c, radius: s * 0.34, from: t * 1.79, sweep: 0.62,
-                    width: max(1.6, s * 0.11), color: color.opacity(active ? 1 : 0.4))
-                arc(ctx, c, radius: s * 0.19, from: -t * 2.38, sweep: 0.50,
-                    width: max(1.6, s * 0.11), color: color.opacity(active ? 0.55 : 0.25))
+        TimelineView(.animation(minimumInterval: 0.125, paused: !active || reduceMotion)) { timeline in
+            let cell = max(1, (px * displayScale).rounded() / displayScale)
+            let phase = active && !reduceMotion ? Int(timeline.date.timeIntervalSinceReferenceDate * 8) % 8 : 0
+            Canvas { context, _ in
+                let points = [(2, 0), (4, 0), (6, 2), (6, 4), (4, 6), (2, 6), (0, 4), (0, 2)]
+                for (index, point) in points.enumerated() {
+                    let age = (index - phase + 8) % 8
+                    let opacity = active ? max(0.18, 1 - Double(age) * 0.13) : 0.25
+                    context.fill(Path(CGRect(x: CGFloat(point.0) * cell, y: CGFloat(point.1) * cell,
+                                             width: cell, height: cell)), with: .color(color.opacity(opacity)))
+                }
             }
-            .frame(width: side, height: side)
+            .frame(width: cell * 7, height: cell * 7)
         }
         .accessibilityHidden(true)
-    }
-
-    private func arc(_ ctx: GraphicsContext, _ c: CGPoint, radius: CGFloat,
-                     from start: Double, sweep: Double, width: CGFloat, color: Color) {
-        var path = Path()
-        path.addArc(center: c, radius: radius,
-                    startAngle: .radians(start),
-                    endAngle: .radians(start + .pi * 2 * sweep), clockwise: false)
-        ctx.stroke(path, with: .color(color),
-                   style: StrokeStyle(lineWidth: width, lineCap: .round))
     }
 }
 
@@ -284,7 +272,7 @@ struct PixelInvader: View {
     var body: some View {
         // Whole-device-pixel cells; a fractional px blurs pixel art.
         let px = max(1, (self.px * 2).rounded() / 2)
-        TimelineView(.periodic(from: .now, by: 0.45)) { ctx in
+        TimelineView(.animation(minimumInterval: 0.4, paused: !animated || reduceMotion)) { ctx in
             let useA = !animated || reduceMotion || Int(ctx.date.timeIntervalSinceReferenceDate / 0.4) % 2 == 0
             let f = cells(useA ? Self.frameA : Self.frameB)
             Canvas { c, _ in

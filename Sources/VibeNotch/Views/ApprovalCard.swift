@@ -85,7 +85,7 @@ struct ApprovalCard: View {
                 }
             }
             Spacer(minLength: 8)
-            PillCluster(source: i.source, terminal: i.terminal, tty: i.tty)
+            PillCluster(source: i.source, terminal: i.terminal, tty: i.tty, meta: i.termMeta ?? [:])
         }
     }
 

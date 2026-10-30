@@ -5,7 +5,7 @@ import VibeNotchCore
 // actions. One JSON line in, one out.
 extension AppDelegate {
     /// CLI/dashboard command dispatch. Replies one JSON line.
-    func handleControl(_ cmd: VNInbound) -> String {
+    func handleControl(_ cmd: VNInbound) async -> String {
         func fail(_ error: String) -> String { #"{"ok":false,"error":"\#(error)"}"# }
         func session(for target: String?) -> SessionActivity? {
             guard let target, !target.isEmpty else { return store.activeSession }
@@ -47,10 +47,10 @@ extension AppDelegate {
             return #"{"ok":true}"#
         case "send":
             guard let s = session(for: cmd.sessionId), let text = cmd.detail else { return fail("no such session") }
-            return TerminalControl.send(text, to: s) ? #"{"ok":true}"# : fail("terminal not injectable")
+            return await TerminalControl.send(text, to: s) ? #"{"ok":true}"# : fail("terminal not injectable")
         case "model":
             guard let s = session(for: cmd.sessionId) else { return fail("no such session") }
-            return TerminalControl.switchModel(cmd.detail ?? "", in: s) ? #"{"ok":true}"# : fail("terminal not injectable")
+            return await TerminalControl.switchModel(cmd.detail ?? "", in: s) ? #"{"ok":true}"# : fail("terminal not injectable")
         case "interrupt":
             guard let s = session(for: cmd.sessionId) else { return fail("no such session") }
             return TerminalControl.interrupt(s) ? #"{"ok":true}"# : fail("no foreground process")

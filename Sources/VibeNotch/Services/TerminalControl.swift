@@ -5,104 +5,81 @@ import VibeNotchCore
 /// interrupt (^C) the foreground process. Local sessions only.
 @MainActor
 enum TerminalControl {
-    /// Whether reply-from-notch can reach this session's terminal.
-    ///
-    /// Direct injection covers tmux, WezTerm, kitty, iTerm and Terminal. Every
-    /// other terminal — Wave, Ghostty, Warp, Alacritty… — had no path at all,
-    /// so the reply field never appeared and `vibenotch send` was a no-op. The
-    /// keystroke fallback covers them as long as we can bring the app forward.
-    static func canReply(to s: SessionActivity) -> Bool {
-        guard s.host == nil else { return false }
-        if InjectionPlan.make(terminal: s.terminal, tty: s.tty,
-                              meta: s.termMeta ?? [:], text: "x").isSupported { return true }
-        return JumpPlan.make(terminal: s.terminal, tty: s.tty,
-                             meta: s.termMeta ?? [:]).bundleID != nil
+    private static var sending: Set<String> = []
+    static func hasExactTarget(_ s: SessionActivity) -> Bool {
+        s.host == nil && InjectionPlan.make(terminal: s.terminal, tty: s.tty,
+                                            meta: s.termMeta ?? [:], text: "x").isSupported
     }
 
-    /// Type `text` + Enter into the session's terminal. Returns false when the
-    /// terminal has no injection path (UI should disable the reply field).
-    @discardableResult
-    static func send(_ text: String, to s: SessionActivity) -> Bool {
+    static func canReply(to s: SessionActivity) -> Bool {
+        s.host == nil && (hasExactTarget(s) || JumpPlan.make(terminal: s.terminal,
+            tty: s.tty, meta: s.termMeta ?? [:]).bundleID != nil)
+    }
+
+    /// Completion means the terminal accepted the input, not that the agent finished it.
+    static func send(_ text: String, to s: SessionActivity, allowActiveTab: Bool = false) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, s.host == nil else { return false }
+        guard !trimmed.isEmpty, !trimmed.contains("\0"), s.host == nil else { return false }
+        guard sending.insert(s.id).inserted else { return false }
+        defer { sending.remove(s.id) }
         let plan = InjectionPlan.make(terminal: s.terminal, tty: s.tty,
                                       meta: s.termMeta ?? [:], text: trimmed)
-        guard plan.isSupported else { return sendByTyping(trimmed, to: s) }
-        for argv in plan.commands { run(argv) }
-        if let script = plan.appleScript {
-            VNAppleScript.run(script, purpose: "typing a reply into \(s.terminal ?? "the terminal")")
+        if plan.isSupported {
+            if !plan.commands.isEmpty, !(await TerminalCommand.run(plan.commands)) { return false }
+            if let script = plan.appleScript,
+               VNAppleScript.run(script, purpose: "sending to the session") != "ok" { return false }
+        } else {
+            // ponytail: app-only terminals cannot identify a pane. Require an explicit
+            // active-tab choice; add their pane APIs when available.
+            guard allowActiveTab, await sendByTyping(trimmed, to: s) else { return false }
         }
         StatsLog.bump("replies")
         return true
     }
 
-    /// Fallback for terminals with no scripting API: focus the session's tab,
-    /// wait for the app to actually come forward, then type.
-    ///
-    /// The frontmost check is the safety: if the jump didn't land, we abort
-    /// rather than type someone's prompt into whatever window happens to be
-    /// under the keyboard.
-    @MainActor
-    private static func sendByTyping(_ text: String, to s: SessionActivity) -> Bool {
+    private static func sendByTyping(_ text: String, to s: SessionActivity) async -> Bool {
         let plan = JumpPlan.make(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
-        guard let bundleID = plan.bundleID else { return false }
-
-        TerminalJumper.jump(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
-        Task { @MainActor in
-            for _ in 0..<20 { // up to ~2s for the terminal to take focus
-                if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID { break }
-                try? await Task.sleep(for: .milliseconds(100))
-            }
-            guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID else {
-                NSLog("VibeNotch: reply aborted — \(bundleID) never came forward")
-                return
-            }
-            let escaped = text
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "\"", with: "\\\"")
-                .replacingOccurrences(of: "\n", with: " ")
-            VNAppleScript.run("""
-                tell application "System Events"
-                    keystroke "\(escaped)"
-                    key code 36
-                end tell
-                """, purpose: "typing a reply into \(s.terminal ?? "the terminal")")
-            StatsLog.bump("replies")
+        guard let bundleID = plan.bundleID,
+              await TerminalJumper.focus(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]) else { return false }
+        for _ in 0..<20 {
+            if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID { break }
+            try? await Task.sleep(for: .milliseconds(100))
         }
-        return true
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID else { return false }
+        let escaped = text.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r", with: " ").replacingOccurrences(of: "\n", with: " ")
+        return VNAppleScript.run("""
+            tell application "System Events"
+                if bundle identifier of first application process whose frontmost is true is not "\(bundleID)" then return "miss"
+                keystroke "\(escaped)"
+                key code 36
+            end tell
+            return "ok"
+            """, purpose: "typing into the active terminal tab") == "ok"
     }
 
-    /// Switch the agent's model by typing its slash command into the pane.
-    /// Claude/forks take `/model <name>`; Codex's `/model` opens its own picker.
-    @discardableResult
-    static func switchModel(_ model: String, in s: SessionActivity) -> Bool {
-        let cmd = model.isEmpty ? "/model" : "/model \(model)"
-        return send(cmd, to: s)
+    static func switchModel(_ model: String, in s: SessionActivity, allowActiveTab: Bool = false) async -> Bool {
+        guard ["claude", "codex"].contains(s.source),
+              !model.contains(where: { $0.isNewline || $0.asciiValue == 0 }) else { return false }
+        let name = model.trimmingCharacters(in: .whitespaces)
+        return await send(name.isEmpty ? "/model" : "/model \(name)", to: s, allowActiveTab: allowActiveTab)
     }
 
     /// Panic button: SIGINT the foreground process group on the session's tty —
     /// exactly what ^C in that terminal would do.
     @discardableResult
     static func interrupt(_ s: SessionActivity) -> Bool {
-        guard s.host == nil, let tty = s.tty else { return false }
+        guard s.host == nil, let tty = s.tty, TerminalCommand.validTTY(tty) else { return false }
         let name = tty.replacingOccurrences(of: "/dev/", with: "")
         guard let out = output("/bin/ps", ["-t", name, "-o", "tpgid="]),
               let pgid = ProcessGroup.foregroundPGID(fromPS: out) else { return false }
+        guard pgid != getpgrp(), kill(-pgid, SIGINT) == 0 else { return false }
         StatsLog.bump("interrupts")
-        return kill(-pgid, SIGINT) == 0
+        return true
     }
 
     // MARK: helpers
-
-    private static func run(_ argv: [String]) {
-        guard let exe = argv.first else { return }
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: exe)
-        p.arguments = Array(argv.dropFirst())
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        try? p.run()
-    }
 
     private static func output(_ exe: String, _ args: [String]) -> String? {
         let p = Process()
@@ -114,6 +91,7 @@ enum TerminalControl {
         guard (try? p.run()) != nil else { return nil }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
+        guard p.terminationStatus == 0 else { return nil }
         return String(data: data, encoding: .utf8)
     }
 }

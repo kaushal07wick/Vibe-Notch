@@ -40,14 +40,16 @@ final class ShortcutMonitor {
                 return true
             }
             // .jump — the card's terminal if one is waiting, else the live session's
-            let target = store.pending.first.map { ($0.inbound.terminal, $0.inbound.tty) }
-                ?? store.activeSession.map { ($0.terminal, $0.tty) }
+            let target = store.pending.first.map { ($0.inbound.terminal, $0.inbound.tty, $0.inbound.termMeta ?? [:]) }
+                ?? store.activeSession.map { ($0.terminal, $0.tty, $0.termMeta ?? [:]) }
             guard let target else { return false }
-            TerminalJumper.jump(terminal: target.0, tty: target.1)
+            TerminalJumper.jump(terminal: target.0, tty: target.1, meta: target.2)
             return true
         }
         if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { event in
-            handle(event) ? nil : event
+            guard let panel = panelWindow(), event.window === panel else { return event }
+            if panel.firstResponder is NSTextView, VNShortcuts.action(for: event) != .collapse { return event }
+            return handle(event) ? nil : event
         }) { monitors.append(local) }
         if let global = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: { event in
             _ = handle(event)
