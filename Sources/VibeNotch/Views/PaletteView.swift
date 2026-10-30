@@ -43,6 +43,7 @@ struct PaletteView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
             .frame(maxHeight: 280)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 5)

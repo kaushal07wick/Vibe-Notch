@@ -199,6 +199,7 @@ struct ApprovalCard: View {
                 .padding(10)
                 .textSelection(.enabled)
         }
+        .scrollIndicators(.hidden)
         .frame(maxHeight: 230)
         .background(VNColor.ink2, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(VNColor.hair))
@@ -262,6 +263,7 @@ private struct QuestionPrompt: View {
                 .padding(.trailing, 2)
             }
             // Cap it and let it scroll — the Answer button has to stay reachable.
+            .scrollIndicators(.hidden)
             .frame(maxHeight: 300)
             .fixedSize(horizontal: false, vertical: true)
             if !instant {

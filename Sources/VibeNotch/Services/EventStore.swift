@@ -86,6 +86,70 @@ final class EventStore: ObservableObject {
         escalationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in self.checkEscalation() }
         }
+        reapTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { _ in
+            Task { @MainActor in self.reapDead() }
+        }
+    }
+
+    /// Sessions whose agent process is verifiably still running on their tty.
+    private var liveIDs: Set<String> = []
+    private var reapTimer: Timer?
+
+    /// A session is a live agent only while claude/codex is still on its tty.
+    /// Agents that exit without a SessionEnd (Codex has none, ^C, closed tab)
+    /// move to history instead of lingering as "sessions" for half an hour.
+    /// ponytail: one `ps` per tty every 8s; sessions with no tty (SSH, simulated)
+    /// keep the old time-based rule.
+    private func reapDead() {
+        let all = Array(sessions.values)
+        // one tty hosts one agent: only its newest session is live, older ids are history
+        let byTTY = Dictionary(grouping: all.filter { $0.tty != nil }, by: { $0.tty! })
+            .mapValues { $0.sorted { $0.updatedAt > $1.updatedAt } }
+        let orphans = all.filter { $0.source == "codex" && $0.tty == nil && $0.cwd == nil && $0.host == nil }.map(\.id)
+        // Codex runs its hooks from a daemon with no tty, so match those by cwd.
+        let codexByCwd = Dictionary(grouping: all.filter { $0.source == "codex" && $0.tty == nil && $0.host == nil && $0.cwd != nil },
+                                    by: { $0.cwd! })
+        guard !byTTY.isEmpty || !codexByCwd.isEmpty || !orphans.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            func run(_ exe: String, _ args: [String]) -> String {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: exe)
+                p.arguments = args
+                let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
+                guard (try? p.run()) != nil else { return "" }
+                let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                p.waitUntilExit()
+                return out
+            }
+            var live: Set<String> = [], dead: Set<String> = []
+            dead.formUnion(orphans)
+            for (tty, group) in byTTY {
+                let out = run("/bin/ps", ["-t", tty, "-o", "command="]).lowercased()
+                let up = out.contains("claude") || out.contains("codex")
+                for (n, s) in group.enumerated() { if up && n == 0 { live.insert(s.id) } else { dead.insert(s.id) } }
+            }
+            if !codexByCwd.isEmpty {
+                // running codex CLIs (they sit on a tty; the daemon does not) → their cwds
+                let pids = run("/bin/ps", ["-axo", "pid=,tty=,comm="]).split(separator: "\n").compactMap { line -> String? in
+                    let f = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+                    return f.count == 3 && f[1] != "??" && f[2].hasSuffix("/codex") ? String(f[0]) : nil
+                }
+                var procs: [String: Int] = [:]   // cwd → running codex count
+                if !pids.isEmpty {
+                    for line in run("/usr/sbin/lsof", ["-a", "-d", "cwd", "-Fn", "-p", pids.joined(separator: ",")]).split(separator: "\n")
+                    where line.hasPrefix("n") { procs[String(line.dropFirst()), default: 0] += 1 }
+                }
+                for (cwd, group) in codexByCwd {
+                    let keep = group.sorted { $0.updatedAt > $1.updatedAt }
+                    for (n, s) in keep.enumerated() { if n < procs[cwd, default: 0] { live.insert(s.id) } else { dead.insert(s.id) } }
+                }
+            }
+            await MainActor.run { [live, dead] in
+                self.liveIDs = live
+                for id in dead { if let s = self.sessions.removeValue(forKey: id) { self.archive(s) } }
+                if !dead.isEmpty { self.saveSessions() }
+            }
+        }
     }
 
     private func checkEscalation() {
@@ -134,7 +198,7 @@ final class EventStore: ObservableObject {
     /// Sessions active in the last 30 minutes, newest first.
     var activeSessions: [SessionActivity] {
         let cutoff = Date().addingTimeInterval(-1800)
-        return sessions.values.filter { $0.updatedAt > cutoff }.sorted { $0.updatedAt > $1.updatedAt }
+        return sessions.values.filter { $0.updatedAt > cutoff || liveIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }
     }
 
     var activeSession: SessionActivity? { activeSessions.first }
@@ -428,7 +492,7 @@ final class EventStore: ObservableObject {
 
     private func pruneStale() {
         let cutoff = Date().addingTimeInterval(-3600)
-        for (key, s) in sessions where s.updatedAt <= cutoff {
+        for (key, s) in sessions where s.updatedAt <= cutoff && !liveIDs.contains(key) {
             archive(s)
             sessions.removeValue(forKey: key)
         }

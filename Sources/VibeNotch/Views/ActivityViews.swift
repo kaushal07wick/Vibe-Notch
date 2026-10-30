@@ -65,17 +65,13 @@ struct ActivityCard: View {
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
         .frame(width: CGFloat(VNSettings.panelWidth) - 20, alignment: .leading)
-        .animation(.spring(response: 0.34, dampingFraction: 0.82), value: full)
-    }
+            }
 
     // MARK: Session list
 
     private var listCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             sessionsHeader
-            // height follows content, capped so long lists scroll instead of
-            // taking over the screen (VI behavior)
-            ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
                         SessionRow(s: s, onDismiss: onDismiss,
@@ -92,9 +88,6 @@ struct ActivityCard: View {
                         }
                     }
                 }
-            }
-            .frame(maxHeight: 360)
-            .fixedSize(horizontal: false, vertical: true)
             .background(Color.white.opacity(0.035),
                         in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -107,7 +100,7 @@ struct ActivityCard: View {
 
     private var sessionsHeader: some View {
         HStack(spacing: 9) {
-            Text("SESSIONS").font(VNFont.sysMono(10.5, .semibold)).tracking(1.4)
+            Text("LIVE AGENTS").font(VNFont.sysMono(10.5, .semibold)).tracking(1.4)
                 .foregroundStyle(VNColor.paper.opacity(0.55))
             Spacer(minLength: 8)
             ForEach(metrics, id: \.label) { metric in
@@ -125,7 +118,7 @@ struct ActivityCard: View {
         let running = sessions.filter { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }.count
         let waiting = sessions.filter { $0.event == "Notification" }.count
         let done = sessions.filter { $0.event == "Stop" }.count
-        var out: [(String, Color?)] = [("\(sessions.count) Sessions", nil)]
+        var out: [(String, Color?)] = [("\(sessions.count) agent\(sessions.count == 1 ? "" : "s")", nil)]
         if waiting > 0 { out.append(("\(waiting) waiting", VNColor.amber)) }
         if running > 0 { out.append(("\(running) running", VNColor.running)) }
         if done > 0 { out.append(("\(done) done", VNColor.go)) }
@@ -281,7 +274,7 @@ struct SessionRow: View {
         .buttonStyle(.plain)
         .accessibilityHint("Opens controls for this session")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
-        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovering = h } }
+        .onHover { hovering = $0 }
     }
 
     private var replyButton: some View {

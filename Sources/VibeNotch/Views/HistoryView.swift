@@ -154,6 +154,7 @@ struct HistoryList: View {
                         ForEach(entries) { HistoryRow(entry: $0, close: close) }
                     }
                 }
+                .scrollIndicators(.hidden)
                 .frame(maxHeight: 300)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 5)
