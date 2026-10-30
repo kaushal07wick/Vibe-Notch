@@ -454,7 +454,10 @@ final class EventStore: ObservableObject {
         // ponytail: matched on tool name — the payloads carry no tool_use_id, so
         // two concurrent calls to the SAME tool still can't be told apart. Match
         // on the id instead if the agents ever start sending one.
-        let turnMoved = ["Stop", "StopFailure", "UserPromptSubmit", "Notification"].contains(i.event)
+        // Notification is NOT a trigger either: Claude fires it right as a question or
+        // permission dialog opens ("needs your attention"), which dropped the live card
+        // and sent the user back to the terminal to answer.
+        let turnMoved = ["Stop", "StopFailure", "UserPromptSubmit"].contains(i.event)
         let ranThisTool = ["PostToolUse", "PostToolUseFailure"].contains(i.event)
         if turnMoved || ranThisTool {
             let isStale: (PendingApproval) -> Bool = { card in
