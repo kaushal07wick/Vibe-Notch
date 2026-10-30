@@ -226,16 +226,9 @@ struct SessionRow: View {
     }
 
     private var interruptButton: some View {
-        Button { Task { _ = await TerminalControl.interrupt(s) } } label: {
-            Image(systemName: "stop.fill")
-                .font(VNFont.ui(11, .medium))
-                .foregroundStyle(VNColor.muted)
-                .frame(width: 28, height: 28)
-                .contentShape(Rectangle())
+        InterruptButton(running: ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains(s.event)) {
+            Task { _ = await TerminalControl.interrupt(s) }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Interrupt agent")
-        .help("Interrupt (^C)")
     }
 
     /// Activity line — tool name in blue, arguments/reply in grey (inspo style).
@@ -306,5 +299,31 @@ struct TodoList: View {
                 }
             }
         }
+    }
+}
+
+/// Round stop control: a ring with a rounded square inside. Quiet until hovered,
+/// then red; brighter while the agent is actually working.
+private struct InterruptButton: View {
+    let running: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        let tint = hovering ? VNColor.stop : VNColor.paper.opacity(running ? 0.6 : 0.3)
+        Button(action: action) {
+            ZStack {
+                Circle().strokeBorder(tint, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(tint).frame(width: 8, height: 8)
+            }
+            .frame(width: 22, height: 22)
+            .background(hovering ? VNColor.stop.opacity(0.14) : .clear, in: Circle())
+            .frame(width: 30, height: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityLabel("Interrupt agent")
+        .help("Interrupt (Esc)")
     }
 }
