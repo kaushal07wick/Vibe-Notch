@@ -1,3 +1,4 @@
+import SwiftUI
 import AppKit
 import Combine
 import VibeNotchCore
@@ -170,10 +171,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(
-            systemSymbolName: "sparkles",
-            accessibilityDescription: "Vibe Notch"
-        )
+        let renderer = ImageRenderer(content: PixelGhost(mood: .working, px: 1.5).frame(width: 18, height: 18))
+        renderer.scale = 4
+        if let image = renderer.nsImage {
+            image.isTemplate = false
+            image.accessibilityDescription = "Vibe Notch"
+            statusItem.button?.image = image
+        }
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu

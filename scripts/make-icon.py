@@ -74,14 +74,29 @@ def render(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     m = size * 0.09
     mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((m, m, size - m, size - m), radius=size * 0.185, fill=255)
-    grad = Image.new("L", (1, 256))
-    for y in range(256):
-        grad.putpixel((0, y), 255 - y)
-    bg = Image.composite(Image.new("RGBA", (size, size), (24, 28, 44, 255)),
-                         Image.new("RGBA", (size, size), (9, 10, 14, 255)), grad.resize((size, size)))
+    ImageDraw.Draw(mask).rounded_rectangle((m, m, size - m, size - m), radius=size * 0.225, fill=255)
+
+    # deep ink ground with a blue glow rising from behind the ghost
+    bg = Image.new("RGBA", (size, size), (8, 9, 13, 255))
+    glow = Image.radial_gradient("L").resize((size, size))
+    glow = glow.point(lambda v: max(0, 150 - v))
+    blue = Image.new("RGBA", (size, size), (70, 110, 240, 255))
+    bg = Image.composite(blue, bg, glow.filter(ImageFilter.GaussianBlur(size * 0.02)).point(lambda v: v * 0.55))
     img.paste(bg, (0, 0), mask)
-    _grid(ImageDraw.Draw(img), size, GHOST, 0.56, 0.5, GHOST_COLORS)
+
+    # the notch, cut into the top edge
+    d = ImageDraw.Draw(img)
+    nw, nh = size * 0.34, size * 0.085
+    d.rounded_rectangle(((size - nw) / 2, m - nh, (size + nw) / 2, m + nh), radius=nh * 0.9, fill=(0, 0, 0, 255))
+    clip = Image.new("L", (size, size), 0)
+    clip.paste(mask)
+    img.putalpha(Image.composite(img.getchannel("A"), Image.new("L", (size, size), 0), mask))
+
+    # ghost with a soft shadow
+    shadow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    _grid(ImageDraw.Draw(shadow), size, GHOST, 0.58, 0.55, {k: (0, 0, 0, 170) for k in GHOST_COLORS})
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(size * 0.025)))
+    _grid(ImageDraw.Draw(img), size, GHOST, 0.58, 0.53, GHOST_COLORS)
     return img
 
 

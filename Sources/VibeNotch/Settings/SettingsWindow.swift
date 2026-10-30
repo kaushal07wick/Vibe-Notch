@@ -19,7 +19,7 @@ enum SettingsWindow {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 740, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 600),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
@@ -111,26 +111,61 @@ private struct SettingsRoot: View {
     @State private var selected: Pane = .general
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: Binding(get: { selected }, set: { selected = $0 ?? .general })) {
-                ForEach(Pane.setup) { SidebarRow(pane: $0) }
-                Section("Advanced") { ForEach(Pane.advanced) { SidebarRow(pane: $0) } }
-                Section("Vibe Notch") { ForEach(Pane.app) { SidebarRow(pane: $0) } }
-            }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(196)
-            .toolbar(removing: .sidebarToggle)
-        } detail: {
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: 208)
+                .background(Color(hex: 0x09090B).ignoresSafeArea())
+            Rectangle().fill(Color.white.opacity(0.06)).frame(width: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     PaneHeader(pane: selected)
                     pane(selected)
                 }
-                .padding(22)
+                .padding(EdgeInsets(top: 14, leading: 26, bottom: 26, trailing: 26))
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollIndicators(.hidden)
+            .background(VNColor.ink.ignoresSafeArea())
         }
-        .frame(width: 740, height: 580)
+        .frame(width: 760, height: 600)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 9) {
+                PixelGhost(mood: .working, px: 1.5)
+                Text("Vibe Notch").font(.system(size: 14, weight: .semibold))
+            }
+            .padding(EdgeInsets(top: 14, leading: 14, bottom: 14, trailing: 14))
+            group(Pane.setup)
+            label("ADVANCED"); group(Pane.advanced)
+            label("APP"); group(Pane.app)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func label(_ t: String) -> some View {
+        Text(t).font(VNFont.sysMono(9.5, .semibold)).tracking(1.2)
+            .foregroundStyle(VNColor.faint)
+            .padding(EdgeInsets(top: 14, leading: 8, bottom: 4, trailing: 8))
+    }
+
+    private func group(_ panes: [Pane]) -> some View {
+        ForEach(panes) { p in
+            Button { selected = p } label: {
+                HStack(spacing: 9) {
+                    IconTile(pane: p, size: 20)
+                    Text(p.rawValue).font(.system(size: 12.5, weight: selected == p ? .semibold : .regular))
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .foregroundStyle(selected == p ? VNColor.paper : VNColor.muted)
+                .background(Color.white.opacity(selected == p ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     @ViewBuilder private func pane(_ p: Pane) -> some View {

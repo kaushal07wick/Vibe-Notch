@@ -117,7 +117,7 @@ private struct WelcomeView: View {
         SectionCard(title: "Where to find it") {
             SettingRow(label: "The notch is the window",
                        caption: "There's no Dock icon. Move the pointer over the notch and the panel opens.") { EmptyView() }
-            SettingRow(label: "✦ in the menu bar",
+            SettingRow(label: "The ghost in the menu bar",
                        caption: "Quick actions, Settings, and the count of agents waiting on you.",
                        divider: false) { EmptyView() }
         }
@@ -140,9 +140,7 @@ private struct WelcomeView: View {
                                caption: AgentHookInstaller(spec).isConnected || connected.contains(spec.id)
                                    ? "Connected" : "Found, not connected yet",
                                divider: index < detected.count - 1) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(VNColor.agent(spec.id).opacity(0.9))
-                            .frame(width: 8, height: 8)
+                        AgentIcon(source: spec.id, size: 20)
                     }
                 }
             }
