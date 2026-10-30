@@ -46,8 +46,6 @@ struct ApprovalCard: View {
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
         .frame(width: CGFloat(VNSettings.panelWidth))
         .background(riskTint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .strokeBorder(riskBorder, lineWidth: risk == .high ? 1.2 : 0.8))
         .padding(.horizontal, 4)
     }
 
@@ -56,14 +54,6 @@ struct ApprovalCard: View {
         switch risk {
         case .high: VNColor.stop.opacity(0.07)
         case .medium: VNColor.amber.opacity(0.035)
-        case .low: .clear
-        }
-    }
-
-    private var riskBorder: Color {
-        switch risk {
-        case .high: VNColor.stop.opacity(0.55)
-        case .medium: VNColor.amber.opacity(0.28)
         case .low: .clear
         }
     }
