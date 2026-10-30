@@ -72,12 +72,19 @@ enum TerminalControl {
     /// session's focused terminal tab.
     @discardableResult
     static func interrupt(_ s: SessionActivity) async -> Bool {
+        guard await press(tmux: "Escape", keyCode: 53, in: s, purpose: "interrupting the agent") else { return false }
+        StatsLog.bump("interrupts")
+        return true
+    }
+
+    /// One special key into the session: tmux send-keys when it lives in tmux, otherwise
+    /// focus its terminal tab and press the key there.
+    static func press(tmux key: String, keyCode: Int, shift: Bool = false, in s: SessionActivity, purpose: String) async -> Bool {
         guard s.host == nil else { return false }
         let meta = s.termMeta ?? [:]
         if let pane = meta["TMUX_PANE"], let tmux = meta["TMUX"] {
             let socket = tmux.split(separator: ",").first.map(String.init) ?? ""
-            guard await TerminalCommand.run([["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "Escape"]]) else { return false }
-            StatsLog.bump("interrupts"); return true
+            return await TerminalCommand.run([["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, key]])
         }
         let plan = JumpPlan.make(terminal: s.terminal, tty: s.tty, meta: meta)
         guard let bundleID = plan.bundleID,
@@ -86,15 +93,13 @@ enum TerminalControl {
             if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID { break }
             try? await Task.sleep(for: .milliseconds(100))
         }
-        guard VNAppleScript.run("""
+        return VNAppleScript.run("""
             tell application "System Events"
                 if bundle identifier of first application process whose frontmost is true is not "\(bundleID)" then return "miss"
-                key code 53
+                key code \(keyCode)\(shift ? " using shift down" : "")
             end tell
             return "ok"
-            """, purpose: "interrupting the agent") == "ok" else { return false }
-        StatsLog.bump("interrupts")
-        return true
+            """, purpose: purpose) == "ok"
     }
 
     // MARK: helpers

@@ -8,6 +8,8 @@ struct CodexQuestion: Equatable, Identifiable {
     let id: String          // call_id
     let cwd: String
     let items: [Item]
+    /// `request_user_input_async`: queued in the TUI ("⇧← to answer") instead of shown at once.
+    var async = false
 }
 
 enum CodexQuestionWatcher {
@@ -42,15 +44,25 @@ enum CodexQuestionWatcher {
         try? handle.seek(toOffset: size > window ? size - window : 0)
         guard let data = try? handle.readToEnd() else { return nil }
 
-        var calls: [(id: String, items: [CodexQuestion.Item])] = []
+        var calls: [(id: String, items: [CodexQuestion.Item], async: Bool)] = []
         var answered = Set<String>()
         for line in data.split(separator: 0x0A) {
+            // async questions get an instant {"accepted":true} output; the real answer
+            // arrives later as a user message quoting the call id
+            if line.range(of: Data("send_user_message_question_reply".utf8)) != nil {
+                let text = String(decoding: line, as: UTF8.self)
+                for m in text.matches(of: /call_[A-Za-z0-9]+/) { answered.insert(String(m.output)) }
+                continue
+            }
             let isCall = line.range(of: Data("request_user_input".utf8)) != nil
             let isOut = line.range(of: Data("function_call_output".utf8)) != nil
             guard isCall || isOut,
                   let obj = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
                   let p = obj["payload"] as? [String: Any], let callID = p["call_id"] as? String else { continue }
-            if p["type"] as? String == "function_call_output" { answered.insert(callID); continue }
+            if p["type"] as? String == "function_call_output" {
+                if !calls.contains(where: { $0.id == callID && $0.async }) { answered.insert(callID) }
+                continue
+            }
             guard (p["name"] as? String)?.hasPrefix("request_user_input") == true,
                   let args = (p["arguments"] as? String)?.data(using: .utf8),
                   let parsed = try? JSONSerialization.jsonObject(with: args) as? [String: Any],
@@ -60,10 +72,10 @@ enum CodexQuestionWatcher {
                 let opts = (q["options"] as? [String]) ?? (q["options"] as? [[String: Any]])?.compactMap { $0["label"] as? String } ?? []
                 return .init(title: title, options: opts)
             }
-            if !items.isEmpty { calls.append((callID, items)) }
+            if !items.isEmpty { calls.append((callID, items, p["name"] as? String == "request_user_input_async")) }
         }
         guard let last = calls.last(where: { !answered.contains($0.id) }), let cwd = cwd(of: url) else { return nil }
-        return CodexQuestion(id: last.id, cwd: cwd, items: last.items)
+        return CodexQuestion(id: last.id, cwd: cwd, items: last.items, async: last.async)
     }
 
     private static func cwd(of url: URL) -> String? {

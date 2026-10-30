@@ -146,7 +146,12 @@ final class EventStore: ObservableObject {
     /// Types the choice into Codex's own prompt, then moves to the next question (or hides the card).
     func answerCodex(_ q: CodexQuestion, option index: Int, text: String? = nil) {
         guard let session = codexSession(for: q) else { return }
+        let openFirst = q.async && codexQuestionStep == 0
         Task {
+            if openFirst {   // async questions wait behind "⇧← to answer"
+                _ = await TerminalControl.press(tmux: "S-Left", keyCode: 123, shift: true, in: session, purpose: "opening Codex's question")
+                try? await Task.sleep(for: .milliseconds(350))
+            }
             _ = await TerminalControl.send("\(index + 1)", to: session, allowActiveTab: true)
             if let text, !text.isEmpty {
                 try? await Task.sleep(for: .milliseconds(450))

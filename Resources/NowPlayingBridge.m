@@ -26,4 +26,5 @@ void vn_cmd(void *a, void *b) {
   const char *c = getenv("VN_CMD"); if (!c) return;
   SendCmd f = (SendCmd)dlsym(mr(), "MRMediaRemoteSendCommand");
   f(atoi(c), nil);   // 2 toggle play/pause, 4 next, 5 previous
+  CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.5, false); // let the XPC send go out before exit
 }

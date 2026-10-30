@@ -9,7 +9,7 @@ final class TerminalCommandTests: XCTestCase {
         let failed = await TerminalCommand.run([["/usr/bin/false"], touch])
         XCTAssertFalse(failed)
         XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path), "Never submit Enter after failed input")
-        let succeeded = await TerminalCommand.run([touch, ["/usr/bin/test", "-f", marker.path]])
+        let succeeded = await TerminalCommand.run([touch, ["/bin/test", "-f", marker.path]])
         XCTAssertTrue(succeeded, "Later steps must see earlier steps completed")
         let timedOut = await TerminalCommand.run([["/bin/sleep", "5"]], timeout: 0.05)
         XCTAssertFalse(timedOut)
