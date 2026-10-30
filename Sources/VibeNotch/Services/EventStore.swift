@@ -45,6 +45,8 @@ final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var sessions: [String: SessionActivity] = [:]
     @Published var hovering = false
+    /// The file tray is open — it holds the panel up (you're dragging things in and out).
+    @Published var showTray = false
 
     /// Sessions the user chose to Bypass — further requests auto-approve
     /// until the session ends or the app restarts.

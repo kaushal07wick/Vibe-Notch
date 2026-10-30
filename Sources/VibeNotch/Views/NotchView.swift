@@ -33,10 +33,16 @@ struct ExpandedContent: View {
                     .keyboardShortcut("k", modifiers: .command)
                     .frame(width: 0, height: 0).opacity(0)
                     .accessibilityHidden(true) // invisible shortcut host, not a control
+                HeaderIconButton(symbol: store.showTray ? "tray.full.fill" : "tray",
+                                 tint: store.showTray ? VNColor.running : .white.opacity(0.62),
+                                 label: "File tray") {
+                    store.showTray.toggle()
+                    if store.showTray { showHistory = false; showPalette = false }
+                }
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62),
                                  label: "Session history") {
-                    if !showHistory { history = SessionHistory.load() }
+                    if !showHistory { history = SessionHistory.load(); store.showTray = false }
                     showHistory.toggle()
                     if showHistory { showPalette = false }
                 }
@@ -79,6 +85,8 @@ struct ExpandedContent: View {
             ZStack {
                 if showPalette {
                     PaletteView(store: store) { showPalette = false }
+                } else if store.showTray && store.pending.isEmpty {
+                    TrayView()
                 } else if showHistory && store.pending.isEmpty {
                     HistoryList(entries: history) { showHistory = false }
                 } else {
@@ -148,6 +156,7 @@ struct CompactLeading: View {
         }
         // mirror-width flanks keep the shape centred on the physical notch
         .frame(width: 38)
+        .onDrop(of: [.fileURL], isTargeted: nil) { TrayStore.handleDrop($0) { store.showTray = true } }
         .padding(.horizontal, 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(mood == .waiting ? "Vibe Notch, something is waiting for you"
@@ -209,6 +218,7 @@ struct CompactTrailing: View {
         }
         // mirror of CompactLeading — equal width keeps the notch split evenly
         .frame(width: 32)
+        .onDrop(of: [.fileURL], isTargeted: nil) { TrayStore.handleDrop($0) { store.showTray = true } }
         .padding(.horizontal, 2)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }

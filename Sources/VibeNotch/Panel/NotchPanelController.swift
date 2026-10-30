@@ -55,7 +55,7 @@ final class NotchPanelController {
         // collapsing it would just re-open it on the next refresh.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.expanded == true, self.store.pending.isEmpty else { return }
+                guard let self, self.expanded == true, self.store.pending.isEmpty, !self.store.showTray else { return }
                 self.collapseNow()
             }
         }
@@ -111,7 +111,7 @@ final class NotchPanelController {
     private var hoverUntil = Date.distantPast
 
     private func refresh() {
-        let held = Date() < hoverUntil
+        let held = Date() < hoverUntil || store.showTray
         let wantHover = notch.isHovering || held
         if store.hovering != wantHover { store.hovering = wantHover } // drives brief→full
 
@@ -214,6 +214,7 @@ final class NotchPanelController {
 
     /// ESC — collapse immediately.
     func collapseNow() {
+        store.showTray = false
         hoverUntil = .distantPast
         dwellDeadline = nil
         dwellTask?.cancel()
