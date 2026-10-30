@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vibe Notch — your coding agents, in the notch</title>
+<meta name="description" content="Approve, answer and watch Claude Code, Codex and more from your MacBook's notch. Native, local, open source.">
+<meta property="og:title" content="Vibe Notch">
+<meta property="og:description" content="Mission control for your AI coding agents — right in the notch.">
+<meta property="og:image" content="assets/icon.png">
+<link rel="icon" href="assets/icon.png">
+<style>
+  :root { --bg:#08080b; --panel:#101015; --line:#1f2028; --fg:#f1ead9; --mute:#9a9aa6; --faint:#62636f;
+          --blue:#7aa7ff; --green:#6fb982; --amber:#e7a762; --red:#f4a4a4; --max:1080px;
+          --ease:cubic-bezier(.22,1.18,.36,1); }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 -apple-system,"SF Pro Text","Inter",system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration:none; }
+  .wrap { max-width:var(--max); margin:0 auto; padding:0 20px; }
+  .mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+
+  /* nav */
+  nav { position:sticky; top:0; z-index:20; backdrop-filter:blur(14px); background:rgba(8,8,11,.7); border-bottom:1px solid rgba(255,255,255,.05); }
+  nav .wrap { display:flex; align-items:center; justify-content:space-between; height:58px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:-.01em; }
+  .brand img { width:26px; height:26px; border-radius:7px; }
+  .links { display:flex; gap:22px; align-items:center; font-size:14px; color:var(--mute); }
+  .links a:hover { color:var(--fg); }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:999px; font-weight:600; font-size:15px; transition:transform .15s, background .15s, border-color .15s; }
+  .btn:active { transform:scale(.97); }
+  .btn.primary { background:var(--fg); color:#14120c; } .btn.primary:hover { background:#fff; }
+  .btn.ghost { border:1px solid #2c2d38; color:var(--fg); } .btn.ghost:hover { border-color:#4a4c5c; }
+  .btn.sm { padding:7px 15px; font-size:13.5px; }
+
+  /* hero */
+  .hero { padding:76px 0 30px; text-align:center; position:relative; overflow:hidden; }
+  .hero::before { content:""; position:absolute; left:50%; top:-120px; width:900px; height:520px; transform:translateX(-50%);
+                  background:radial-gradient(closest-side, rgba(122,167,255,.22), transparent); pointer-events:none; }
+  .pill { display:inline-flex; gap:8px; align-items:center; font-size:12.5px; color:var(--mute); border:1px solid var(--line); border-radius:999px; padding:5px 13px; background:rgba(255,255,255,.02); }
+  .pill b { color:var(--green); font-weight:600; }
+  h1 { font-size:clamp(38px,7vw,70px); line-height:1.04; letter-spacing:-.035em; margin:22px 0 18px; font-weight:800; }
+  h1 em { font-style:normal; background:linear-gradient(100deg,#9bc0ff,#c3a6ff 60%,#ffb0c8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .lead { max-width:640px; margin:0 auto 30px; color:var(--mute); font-size:clamp(16px,2.2vw,19px); }
+  .cta { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .fine { margin-top:16px; font-size:12.5px; color:var(--faint); }
+
+  /* the demo screen */
+  .stage { margin:46px auto 0; max-width:980px; }
+  .controls { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:14px; }
+  .controls button { background:#14151b; color:var(--mute); border:1px solid var(--line); border-radius:999px; padding:6px 14px; font:inherit; font-size:13px; cursor:pointer; transition:.15s; }
+  .controls button:hover { color:var(--fg); }
+  .controls button[aria-pressed="true"] { background:var(--blue); color:#0a1226; border-color:var(--blue); font-weight:600; }
+  .mac { position:relative; aspect-ratio:16/10; border-radius:18px; overflow:hidden; text-align:left;
+         background:radial-gradient(120% 90% at 78% 18%, #ffb36b 0%, rgba(255,140,90,0) 55%), radial-gradient(90% 80% at 12% 90%, #6a3fa0 0%, rgba(80,40,140,0) 60%), linear-gradient(160deg,#ef6a50 0%,#d9485a 40%,#4b2a7a 100%);
+         box-shadow:0 0 0 1px #2a2c35, 0 40px 100px rgba(0,0,0,.65), 0 0 120px rgba(122,167,255,.08); }
+  .menubar { position:absolute; inset:0 0 auto 0; height:26px; background:rgba(0,0,0,.28); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:space-between; padding:0 14px; font-size:12px; color:rgba(255,255,255,.92); }
+  .menubar .l, .menubar .r { display:flex; gap:15px; } .menubar b { font-weight:700; }
+  .term { position:absolute; left:9%; top:24%; width:56%; height:60%; border-radius:12px; background:rgba(18,18,24,.85); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08);
+          box-shadow:0 24px 60px rgba(0,0,0,.45); padding:34px 18px 14px; font:12px/1.75 ui-monospace,Menlo,monospace; color:#d6d8e2; overflow:hidden; }
+  .term::before { content:""; position:absolute; left:13px; top:13px; width:10px; height:10px; border-radius:50%; background:#ff5f57; box-shadow:16px 0 #febc2e,32px 0 #28c840; }
+  .term i { color:#7a7f91; font-style:normal; } .term .ok { color:var(--green); } .term .wait { color:var(--amber); }
+
+  .notch { position:absolute; left:50%; top:0; z-index:5; background:#000; color:var(--fg); width:var(--w); height:var(--h); transform:translate(-50%,-100%);
+           border-radius:0 0 22px 22px; overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.45);
+           transition:width .55s var(--ease), height .55s var(--ease), transform .8s var(--ease); }
+  .notch.in { transform:translate(-50%,0); }
+  .compact { position:absolute; inset:0 0 auto 0; height:32px; display:flex; align-items:center; gap:8px; padding:0 14px; }
+  .compact canvas { width:24px; height:24px; image-rendering:pixelated; flex:none; }
+  .compact .dot { width:6px; height:6px; border-radius:50%; background:var(--blue); box-shadow:0 0 8px var(--blue); animation:pulse 1.6s ease-in-out infinite; }
+  .compact .cnt { margin-left:auto; font:600 12px ui-monospace,Menlo,monospace; }
+  .compact .need { margin-left:auto; display:none; font:700 10.5px ui-monospace,Menlo,monospace; background:var(--amber); color:#241200; border-radius:999px; padding:1px 8px; }
+  .wait .compact .cnt { display:none; } .wait .compact .need { display:block; animation:bump .5s var(--ease); } .wait .compact .dot { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+  @keyframes pulse { 50% { opacity:.35; transform:scale(.8); } } @keyframes bump { from { transform:scale(.4); } }
+  .body { position:absolute; left:0; right:0; top:32px; padding:2px 16px 14px; opacity:0; transform:translateY(-6px); transition:opacity .25s, transform .4s var(--ease); pointer-events:none; }
+  .notch.open .body { opacity:1; transform:none; transition-delay:.12s; pointer-events:auto; }
+  .view { display:none; } .s-sessions .v-sessions, .s-approval .v-approval, .s-question .v-question, .s-tray .v-tray { display:block; }
+  .view > * { animation:rise .5s var(--ease) both; } .view > *:nth-child(2) { animation-delay:.05s; } .view > *:nth-child(3) { animation-delay:.1s; } .view > *:nth-child(4) { animation-delay:.15s; }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } }
+  .usage { display:flex; gap:9px; align-items:center; font:600 11.5px ui-monospace,Menlo,monospace; padding:2px 0 7px; color:var(--fg); } .usage .g { color:var(--green); } .usage .m { color:var(--faint); font-weight:500; }
+  .row { display:flex; align-items:center; gap:11px; padding:8px 0; border-top:1px solid rgba(255,255,255,.055); }
+  .row img { width:22px; height:22px; flex:none; border-radius:5px; } .row .t { min-width:0; flex:1; }
+  .row b { display:block; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .row span { display:block; font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .row em { font-style:normal; color:var(--blue); }
+  .stop { width:22px; height:22px; border-radius:50%; border:1.5px solid rgba(241,234,217,.45); display:grid; place-items:center; flex:none; } .stop::after { content:""; width:7px; height:7px; border-radius:2px; background:rgba(241,234,217,.45); }
+  .cap { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; padding:2px 0 8px; } .cap .tag { font:700 9px ui-monospace,Menlo,monospace; letter-spacing:.08em; color:var(--faint); background:rgba(255,255,255,.07); padding:1px 6px; border-radius:999px; }
+  .diff { border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.35); font:11px/1.55 ui-monospace,Menlo,monospace; }
+  .diff .h { display:flex; align-items:center; gap:8px; padding:6px 11px; background:rgba(255,255,255,.04); } .diff .h .f { flex:1; font-weight:600; color:rgba(241,234,217,.85); }
+  .chip { font:600 10px ui-monospace,Menlo,monospace; padding:1px 6px; border-radius:999px; } .chip.a { color:var(--green); background:rgba(111,185,130,.14); } .chip.d { color:var(--red); background:rgba(244,164,164,.14); }
+  .diff .l { padding:1px 11px; display:flex; gap:8px; white-space:pre; } .diff .l.d { background:rgba(244,164,164,.13); } .diff .l.a { background:rgba(111,185,130,.13); }
+  .diff .l s { text-decoration:none; width:10px; font-weight:700; } .diff .l.d s { color:var(--red); } .diff .l.a s { color:var(--green); }
+  .btns { display:flex; gap:7px; margin-top:9px; } .btns button { flex:1; border:0; border-radius:9px; padding:8px 0; font:600 12px inherit; color:var(--fg); background:rgba(255,255,255,.08); cursor:pointer; transition:.12s; }
+  .btns button:hover { background:rgba(255,255,255,.15); } .btns .allow { background:var(--green); color:#07200f; } .btns .deny { color:var(--red); }
+  .q { font-size:12px; color:var(--blue); margin:0 0 7px; }
+  .opt { display:flex; align-items:center; gap:9px; padding:6px 10px; margin-bottom:4px; border-radius:8px; background:rgba(255,255,255,.06); font-size:12px; font-weight:500; cursor:pointer; transition:.12s; } .opt:hover { background:rgba(255,255,255,.12); }
+  .opt kbd { font:600 10px ui-monospace,Menlo,monospace; color:var(--blue); background:rgba(255,255,255,.07); border-radius:5px; padding:1px 6px; }
+  .tray { display:flex; gap:9px; border:1.2px dashed rgba(255,255,255,.2); border-radius:12px; padding:9px; background:rgba(255,255,255,.03); }
+  .tile { width:64px; text-align:center; font-size:10px; color:var(--mute); background:rgba(255,255,255,.05); border-radius:9px; padding:6px 2px; } .tile i { display:block; height:36px; border-radius:6px; margin-bottom:3px; background:linear-gradient(135deg,#ffd1a1,#ef7a6a); } .tile:nth-child(2) i { background:linear-gradient(135deg,#9bc0ff,#6a4fc0); } .tile:nth-child(3) i { background:linear-gradient(135deg,#8fe3b0,#2a8a72); }
+
+  /* sections */
+  section.block { padding:96px 0 0; }
+  .kicker { font:600 12px ui-monospace,Menlo,monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--blue); }
+  h2 { font-size:clamp(28px,4.4vw,44px); line-height:1.1; letter-spacing:-.03em; margin:10px 0 14px; font-weight:800; }
+  .sec-lead { color:var(--mute); max-width:620px; font-size:17px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:38px; }
+  .card { background:linear-gradient(180deg,#121218,#0d0d11); border:1px solid var(--line); border-radius:18px; padding:22px; transition:transform .25s var(--ease), border-color .2s; }
+  .card:hover { transform:translateY(-3px); border-color:#33344a; }
+  .card .ic { width:38px; height:38px; border-radius:11px; display:grid; place-items:center; font-size:19px; margin-bottom:14px; background:rgba(122,167,255,.12); }
+  .card h3 { margin:0 0 6px; font-size:17px; letter-spacing:-.01em; } .card p { margin:0; color:var(--mute); font-size:14.5px; }
+  .agents { display:flex; flex-wrap:wrap; gap:12px; margin-top:34px; }
+  .agent { display:flex; align-items:center; gap:10px; padding:10px 16px 10px 12px; border:1px solid var(--line); border-radius:14px; background:#0d0d11; font-weight:600; font-size:14.5px; }
+  .agent img { width:24px; height:24px; border-radius:6px; }
+  .steps { counter-reset:s; display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:38px; }
+  .step { position:relative; padding:24px 22px; border:1px solid var(--line); border-radius:18px; background:#0d0d11; }
+  .step::before { counter-increment:s; content:counter(s); position:absolute; top:-14px; left:20px; width:28px; height:28px; border-radius:50%; background:var(--blue); color:#0a1226; font-weight:800; display:grid; place-items:center; font-size:14px; }
+  .step h3 { margin:6px 0 6px; font-size:17px; } .step p { margin:0; color:var(--mute); font-size:14.5px; }
+  pre { margin:22px 0 0; padding:18px 20px; background:#0b0b0f; border:1px solid var(--line); border-radius:14px; overflow-x:auto; font:13.5px/1.7 ui-monospace,Menlo,monospace; color:#d6d8e2; }
+  pre .c { color:var(--faint); } pre .k { color:var(--blue); }
+  details { border-top:1px solid var(--line); padding:18px 0; } details:last-child { border-bottom:1px solid var(--line); }
+  summary { cursor:pointer; font-weight:600; font-size:16.5px; list-style:none; display:flex; justify-content:space-between; } summary::after { content:"+"; color:var(--faint); font-size:20px; line-height:1; } details[open] summary::after { content:"–"; }
+  details p { color:var(--mute); margin:10px 0 0; max-width:720px; font-size:15px; }
+  .cta-band { margin:100px 0 0; padding:56px 24px; text-align:center; border:1px solid var(--line); border-radius:26px; background:radial-gradient(70% 120% at 50% 0%, rgba(122,167,255,.16), transparent), #0d0d11; }
+  .cta-band img { width:72px; height:72px; border-radius:18px; box-shadow:0 14px 40px rgba(122,167,255,.25); }
+  footer { padding:56px 0 48px; color:var(--faint); font-size:13.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  footer a:hover { color:var(--fg); }
+
+  @media (max-width:860px) { .grid, .steps { grid-template-columns:1fr; } .links a.hide-sm { display:none; } .term { font-size:10px; } }
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition-duration:.01s !important; } html { scroll-behavior:auto; } }
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="#"><img src="assets/icon.png" alt="">Vibe Notch</a>
+  <div class="links">
+    <a class="hide-sm" href="#features">Features</a><a class="hide-sm" href="#agents">Agents</a><a class="hide-sm" href="#install">Install</a><a class="hide-sm" href="#faq">FAQ</a>
+    <a class="btn ghost sm" href="https://github.com/kaushal07wick/Vibe-Notch">GitHub ↗</a>
+    <a class="btn primary sm" href="https://github.com/kaushal07wick/Vibe-Notch/releases/latest">Download</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <span class="pill"><b>●</b> Native macOS · open source · 100% local</span>
+  <h1>Your coding agents,<br><em>in the notch.</em></h1>
+  <p class="lead">Approve commands, answer questions and watch every Claude Code, Codex and Gemini session from the one place your eyes already are — without hunting through terminal tabs.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/kaushal07wick/Vibe-Notch/releases/latest">Download for macOS</a>
+    <a class="btn ghost" href="#install">Build from source</a>
+  </div>
+  <p class="fine">macOS 14+ · Apple Silicon · Free &amp; GPL-3.0</p>
+
+  <div class="stage">
+    <div class="controls" id="controls"></div>
+    <div class="mac" id="mac" style="--w:190px;--h:32px">
+      <div class="menubar"><div class="l"><span></span><b>Terminal</b><span>Shell</span><span>Edit</span><span>View</span><span>Window</span></div><div class="r"><span>Wi-Fi</span><span>Fri 6:24 PM</span></div></div>
+      <div class="term"><i>~/app</i> $ claude<br><span class="ok">●</span> Reading Sources/NotchView.swift<br><span class="ok">●</span> Editing ApprovalCard.swift<br><span class="wait">●</span> Waiting for your approval…<br><br><i>(you're in the browser, reading docs — the notch tells you)</i></div>
+      <div class="notch" id="notch">
+        <div class="compact"><canvas id="ghost" width="12" height="12"></canvas><span class="dot"></span><span class="cnt">2</span><span class="need">1 needs you</span></div>
+        <div class="body">
+          <section class="view v-sessions">
+            <div class="usage"><span style="color:#d97742">✳</span><span>5h</span><span class="g">28%</span><span class="m">1h40m</span><span class="m">|</span><span>7d</span><span class="g">4%</span><span class="m">6d1h</span></div>
+            <div class="row"><img src="assets/agents/claude.png" alt=""><div class="t"><b>app · refactor the parser</b><span><em>Edit</em> Sources/Parser.swift</span></div><div class="stop"></div></div>
+            <div class="row"><img src="assets/agents/codex.png" alt="" style="background:rgba(255,255,255,.1);padding:2px"><div class="t"><b>api · fix the retry logic</b><span>Thinking…</span></div><div class="stop"></div></div>
+          </section>
+          <section class="view v-approval">
+            <div class="cap"><span style="color:var(--amber)">⚠ Edit</span><span class="tag">Claude · app</span></div>
+            <div class="diff"><div class="h"><span>▤</span><span class="f">Views/NotchView.swift</span><span class="chip a">+2</span><span class="chip d">−3</span></div>
+              <div class="l d"><s>−</s>let a = 1</div><div class="l d"><s>−</s>let b = 2</div><div class="l d"><s>−</s>return a + b</div>
+              <div class="l a"><s>+</s>let total = [1, 2].reduce(0, +)</div><div class="l a"><s>+</s>return total</div></div>
+            <div class="btns"><button class="deny">Deny</button><button>Allow Once</button><button>Always</button><button class="allow">Bypass</button></div>
+          </section>
+          <section class="view v-question">
+            <div class="cap"><span style="color:var(--blue)">◎ Codex is asking</span><span class="tag">1 of 2</span></div>
+            <p class="q">Is the replacement box on the office switch, or a separate camera-only switch?</p>
+            <div class="opt"><kbd>1</kbd>Office / shared network switch</div><div class="opt"><kbd>2</kbd>Separate camera-only switch</div><div class="opt"><kbd>3</kbd>Other…</div>
+          </section>
+          <section class="view v-tray">
+            <div class="cap"><span>Tray</span><span class="tag">drag out to any app</span></div>
+            <div class="tray"><div class="tile"><i></i>shot-1.png</div><div class="tile"><i></i>design.png</div><div class="tile"><i></i>logo.png</div></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></header>
+
+<section class="block" id="features"><div class="wrap">
+  <div class="kicker">What it does</div>
+  <h2>Stop babysitting terminals.</h2>
+  <p class="sec-lead">Agents stall on a prompt you can't see. Vibe Notch puts every prompt in front of you and lets you answer in one click.</p>
+  <div class="grid">
+    <div class="card"><div class="ic">✅</div><h3>Approve from anywhere</h3><p>Deny, allow once, always allow or bypass — with Claude's own "always" rules offered as one-tap buttons. Risky commands get flagged.</p></div>
+    <div class="card"><div class="ic">±</div><h3>Diffs you can actually read</h3><p>Edits and new files show as a proper diff: file header, +/− counts and full-width tinted rows. Review before you approve.</p></div>
+    <div class="card"><div class="ic">❓</div><h3>Answer questions in place</h3><p>Multiple-choice and plan-review prompts from Claude and Codex appear in the notch. Pick an option, or type your own answer.</p></div>
+    <div class="card"><div class="ic">👻</div><h3>Only the live agents</h3><p>An exact count of agents running right now, waiting ones first. Finished sessions move to history, where you can resume them.</p></div>
+    <div class="card"><div class="ic">⏹</div><h3>Interrupt &amp; reply</h3><p>Stop an agent's turn without killing it, or send "continue" from the row. Click a row to jump to that exact terminal tab.</p></div>
+    <div class="card"><div class="ic">🗂</div><h3>Tray, music &amp; calendar</h3><p>Drag files onto the notch to park them, drag them back out anywhere. Now-playing controls and a week at a glance, built in.</p></div>
+  </div>
+</div></section>
+
+<section class="block" id="agents"><div class="wrap">
+  <div class="kicker">Works with</div>
+  <h2>One notch for every agent.</h2>
+  <p class="sec-lead">Hooks go in through each agent's own config — backed up first, and removed cleanly whenever you like.</p>
+  <div class="agents">
+    <div class="agent"><img src="assets/agents/claude.png" alt="">Claude Code</div>
+    <div class="agent"><img src="assets/agents/codex.png" alt="" style="background:rgba(255,255,255,.1);padding:3px">Codex</div>
+    <div class="agent"><img src="assets/agents/gemini.png" alt="">Gemini CLI</div>
+    <div class="agent"><img src="assets/agents/opencode.png" alt="">OpenCode</div>
+    <div class="agent"><img src="assets/agents/cursor.png" alt="">Cursor</div>
+    <div class="agent"><img src="assets/agents/qwen.png" alt="">Qwen Code</div>
+    <div class="agent"><img src="assets/agents/droid.png" alt="">Droid</div>
+    <div class="agent"><img src="assets/agents/kimi.png" alt="">Kimi Code</div>
+  </div>
+</div></section>
+
+<section class="block" id="install"><div class="wrap">
+  <div class="kicker">Get started</div>
+  <h2>Up in a minute.</h2>
+  <div class="steps">
+    <div class="step"><h3>Install</h3><p>Download the app, or build it from source with one command.</p></div>
+    <div class="step"><h3>It finds your agents</h3><p>The setup guide detects the CLIs you have and wires their hooks, with a backup of every config.</p></div>
+    <div class="step"><h3>Work as usual</h3><p>Hover the notch when you want details. Prompts pop up on their own when an agent needs you.</p></div>
+  </div>
+  <pre><span class="c"># build from source (needs Xcode command line tools, macOS 14+)</span>
+git clone https://github.com/kaushal07wick/Vibe-Notch
+cd Vibe-Notch
+<span class="k">./scripts/bundle.sh release</span>
+open .build/VibeNotch.app</pre>
+</div></section>
+
+<section class="block" id="faq"><div class="wrap">
+  <div class="kicker">Questions</div>
+  <h2>Good to know.</h2>
+  <div style="margin-top:30px">
+    <details><summary>Do I need a MacBook with a notch?</summary><p>It's designed around the notch, but on Macs without one it shows as a small floating pill at the top of the screen. Hover opens it just the same.</p></details>
+    <details><summary>Is my code or data sent anywhere?</summary><p>No. Agents talk to the app over a local Unix socket on your machine. There's no account, no server and no telemetry.</p></details>
+    <details><summary>Will it change my agent configs?</summary><p>It adds its own hook entries and backs up each config once before the first edit. "Disconnect all agents" in Settings removes only what it added.</p></details>
+    <details><summary>Which agents are supported?</summary><p>Claude Code and Codex have the deepest support: approvals, questions, diffs, history. Gemini CLI, OpenCode, Cursor and the Claude-schema forks (Qwen, Droid, Kimi) are wired through their hook systems and get the activity view.</p></details>
+    <details><summary>Is it free?</summary><p>Yes — open source under GPL-3.0. Star it on GitHub if it saves you a few terminal tabs.</p></details>
+  </div>
+  <div class="cta-band">
+    <img src="assets/icon.png" alt="">
+    <h2 style="margin-top:18px">Meet your new favourite notch.</h2>
+    <p class="sec-lead" style="margin:0 auto 24px">Free, native and open source.</p>
+    <div class="cta"><a class="btn primary" href="https://github.com/kaushal07wick/Vibe-Notch/releases/latest">Download for macOS</a><a class="btn ghost" href="https://github.com/kaushal07wick/Vibe-Notch">Star on GitHub ↗</a></div>
+  </div>
+</div></section>
+
+<div class="wrap"><footer>
+  <span>© Vibe Notch · GPL-3.0</span>
+  <span><a href="https://github.com/kaushal07wick/Vibe-Notch">GitHub</a> · <a href="https://github.com/kaushal07wick/Vibe-Notch/issues">Report a bug</a> · <a href="https://github.com/kaushal07wick/Vibe-Notch/blob/master/LICENSE">License</a></span>
+</footer></div>
+
+<script>
+const $ = s => document.querySelector(s), mac = $('#mac'), notch = $('#notch');
+const SIZE = { closed:[190,32], sessions:[430,192], approval:[450,246], question:[450,232], tray:[430,150] };
+let state = 'closed', locked = false, timer;
+function setState(s) {
+  state = s;
+  const open = s !== 'closed';
+  notch.className = 'notch in s-' + s + (open ? ' open' : '') + (s === 'approval' || s === 'question' ? ' wait' : '');
+  mac.style.setProperty('--w', SIZE[s][0] + 'px'); mac.style.setProperty('--h', SIZE[s][1] + 'px');
+  [...$('#controls').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
+}
+[['closed','Closed'],['sessions','Hover'],['approval','Approval'],['question','Question'],['tray','Tray']].forEach(([s, label]) => {
+  const b = document.createElement('button'); b.textContent = label; b.dataset.s = s;
+  b.onclick = () => { locked = true; clearTimeout(timer); setState(s); };
+  $('#controls').append(b);
+});
+notch.addEventListener('mouseenter', () => { if (state === 'closed') { locked = true; setState('sessions'); } });
+notch.addEventListener('mouseleave', () => { if (state === 'sessions') setTimeout(() => state === 'sessions' && setState('closed'), 600); });
+notch.addEventListener('click', e => { if (e.target.closest('.opt,.btns button')) setState('closed'); });
+
+// autoplay tour until the visitor touches it
+const tour = ['closed','sessions','approval','question','tray'];
+let i = 0;
+setState('closed');
+setTimeout(() => notch.classList.add('in'), 300);
+function next() { if (locked) return; i = (i + 1) % tour.length; setState(tour[i]); timer = setTimeout(next, tour[i] === 'closed' ? 1800 : 3600); }
+timer = setTimeout(next, 2200);
+
+// pixel ghost, same sprite as the app
+const rows = ["...oooooo...","..oblbbbbbo.",".oblbbbbbbbo",".obbbbbbbbbo",".obbEEbbEEbo",".obbeebbeebo",".obpbbbbbpbo",".obbbbbbbbdo",".obbbbbbbddo",".obbbbbbbddo"];
+const hem = [[".obbobbobbo.","..oo.oo.oo.."],[".obobbobbob.","..o.oo.oo.o."]];
+const blue = {b:'#7aa7ff',l:'#b9d2ff',d:'#4f78d8',o:'#2a3f7a',p:'#ff9fc0',w:'#fff',k:'#101830'};
+const amber = {...blue,b:'#ffbf3c',l:'#ffe08a',d:'#d89a10',o:'#6b4a05'};
+const ctx = $('#ghost').getContext('2d'), still = matchMedia('(prefers-reduced-motion:reduce)').matches;
+function ghost(t) {
+  const wait = state === 'approval' || state === 'question', pal = wait ? amber : blue, beat = Math.floor(t / 400), look = (beat >> 1) % 2;
+  const blink = !wait && (t % 3200) < 150, grid = rows.concat(hem[still ? 0 : beat % 2]);
+  ctx.clearRect(0, 0, 12, 12);
+  const dx = wait && !still ? (Math.floor(t / 70) % 2 ? 1 : 0) : 0, dy = !wait && !still && (t % 800) < 200 ? -1 : 0;
+  grid.forEach((r, y) => [...r].forEach((c, x) => {
+    if (c === '.') return; let col;
+    if (c === 'E' || c === 'e') { const second = r[x - 1] === c;
+      if (blink) col = c === 'E' ? pal.b : pal.o; else if (wait) col = (c === 'E' && !second) ? pal.w : pal.k; else col = c === 'E' ? pal.w : ((second ? 1 : 0) === look ? pal.k : pal.w);
+    } else col = pal[c];
+    ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1);
+  }));
+  requestAnimationFrame(ghost);
+}
+requestAnimationFrame(ghost);
+</script>
+</body>
+</html>
