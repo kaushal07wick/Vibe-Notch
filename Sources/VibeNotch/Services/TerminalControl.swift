@@ -66,15 +66,33 @@ enum TerminalControl {
         return await send(name.isEmpty ? "/model" : "/model \(name)", to: s, allowActiveTab: allowActiveTab)
     }
 
-    /// Panic button: SIGINT the foreground process group on the session's tty —
-    /// exactly what ^C in that terminal would do.
+    /// Stops the agent's current turn without exiting it: sends Esc (what Claude and
+    /// Codex treat as "interrupt"). A SIGINT would kill the CLI, and macOS refuses
+    /// TIOCSTI, so tmux gets send-keys and everything else gets Esc typed into the
+    /// session's focused terminal tab.
     @discardableResult
-    static func interrupt(_ s: SessionActivity) -> Bool {
-        guard s.host == nil, let tty = s.tty, TerminalCommand.validTTY(tty) else { return false }
-        let name = tty.replacingOccurrences(of: "/dev/", with: "")
-        guard let out = output("/bin/ps", ["-t", name, "-o", "tpgid="]),
-              let pgid = ProcessGroup.foregroundPGID(fromPS: out) else { return false }
-        guard pgid != getpgrp(), kill(-pgid, SIGINT) == 0 else { return false }
+    static func interrupt(_ s: SessionActivity) async -> Bool {
+        guard s.host == nil else { return false }
+        let meta = s.termMeta ?? [:]
+        if let pane = meta["TMUX_PANE"], let tmux = meta["TMUX"] {
+            let socket = tmux.split(separator: ",").first.map(String.init) ?? ""
+            guard await TerminalCommand.run([["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "Escape"]]) else { return false }
+            StatsLog.bump("interrupts"); return true
+        }
+        let plan = JumpPlan.make(terminal: s.terminal, tty: s.tty, meta: meta)
+        guard let bundleID = plan.bundleID,
+              await TerminalJumper.focus(terminal: s.terminal, tty: s.tty, meta: meta) else { return false }
+        for _ in 0..<20 {
+            if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == bundleID { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard VNAppleScript.run("""
+            tell application "System Events"
+                if bundle identifier of first application process whose frontmost is true is not "\(bundleID)" then return "miss"
+                key code 53
+            end tell
+            return "ok"
+            """, purpose: "interrupting the agent") == "ok" else { return false }
         StatsLog.bump("interrupts")
         return true
     }

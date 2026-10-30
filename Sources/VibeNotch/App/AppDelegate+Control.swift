@@ -53,7 +53,7 @@ extension AppDelegate {
             return await TerminalControl.switchModel(cmd.detail ?? "", in: s) ? #"{"ok":true}"# : fail("terminal not injectable")
         case "interrupt":
             guard let s = session(for: cmd.sessionId) else { return fail("no such session") }
-            return TerminalControl.interrupt(s) ? #"{"ok":true}"# : fail("no foreground process")
+            return await TerminalControl.interrupt(s) ? #"{"ok":true}"# : fail("no foreground process")
         default:
             return fail("unknown action")
         }

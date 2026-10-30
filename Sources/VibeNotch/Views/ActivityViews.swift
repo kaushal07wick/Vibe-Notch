@@ -245,8 +245,7 @@ struct SessionRow: View {
             }
             .buttonStyle(.plain)
                 HStack(spacing: 5) {
-                    PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:],
-                                showJump: false)
+                    if let terminal = s.terminal { TerminalIcon(terminal: terminal) }
                     interruptButton
                 }
         }
@@ -259,7 +258,7 @@ struct SessionRow: View {
     }
 
     private var interruptButton: some View {
-        Button { _ = TerminalControl.interrupt(s) } label: {
+        Button { Task { _ = await TerminalControl.interrupt(s) } } label: {
             Image(systemName: "stop.fill")
                 .font(VNFont.ui(11, .medium))
                 .foregroundStyle(VNColor.muted)
