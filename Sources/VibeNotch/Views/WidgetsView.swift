@@ -6,10 +6,12 @@ struct WidgetsView: View {
     @ObservedObject private var calendar = CalendarModel.shared
 
     var body: some View {
+        // both cards share one height: the row sizes to the taller card, each card fills it
         HStack(alignment: .top, spacing: 10) {
-            player.frame(maxWidth: .infinity)
-            self.calendarCard.frame(maxWidth: .infinity)
+            player.frame(maxWidth: .infinity, maxHeight: .infinity)
+            self.calendarCard.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
         .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
         .onAppear { music.start(); calendar.load() }
@@ -31,8 +33,8 @@ struct WidgetsView: View {
                     }
                 }
             }
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(width: 76, height: 76)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
             VStack(alignment: .leading, spacing: 2) {
                 if music.app == nil {
@@ -60,8 +62,8 @@ struct WidgetsView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(card)
     }
 
@@ -121,8 +123,8 @@ struct WidgetsView: View {
                     .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
             }
         }
-        .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(card)
     }
 

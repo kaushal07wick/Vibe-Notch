@@ -54,11 +54,12 @@ final class NotchPanelController {
             return event
         }
         // A click anywhere else (another app, the desktop) dismisses an open panel. Clicks
-        // inside it are local events, so this only sees outside ones. An approval stays up:
+        // inside it are local events, so this only sees outside ones — widgets and tray included.
+        // An approval or a Codex question stays up:
         // collapsing it would just re-open it on the next refresh.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.expanded == true, self.store.pending.isEmpty, !self.store.showTray, !self.store.showWidgets else { return }
+                guard let self, self.expanded == true, self.store.pending.isEmpty, self.store.codexQuestion == nil else { return }
                 self.collapseNow()
             }
         }
