@@ -40,7 +40,7 @@ else
   # Ad-hoc can't carry a secure timestamp, and entitlements are meaningless
   # without a real identity — sign plainly so the local build still runs.
   for helper in "$APP/Contents/Helpers/"*; do codesign --force --sign - "$helper"; done
-  codesign --force --sign - "$APP"
+  codesign --force --sign - --requirements '=designated => identifier "com.kaushalchoudhary.vibenotch"' "$APP"
 fi
 
 mkdir -p "$DIST"

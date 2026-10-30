@@ -1,8 +1,9 @@
 import AppKit
 
-/// What Music or Spotify is playing, and the transport controls. macOS 15.4 closed the
-/// system-wide now-playing API to third-party apps, so this asks the two players directly
-/// (only if they're already running — it never launches one).
+/// What's playing, and the transport controls. macOS 15.4 closed the system-wide now-playing
+/// API to third-party apps, but still serves Apple's own /usr/bin/perl — so a tiny bridge
+/// dylib (Resources/NowPlayingBridge.m) is loaded through perl to read any source, browsers
+/// included. If that fails, Music and Spotify are asked directly over AppleScript.
 @MainActor
 final class NowPlaying: ObservableObject {
     static let shared = NowPlaying()
@@ -10,7 +11,7 @@ final class NowPlaying: ObservableObject {
     @Published var artist = ""
     @Published var playing = false
     @Published var artwork: NSImage?
-    @Published var app: String?          // "Music" | "Spotify"
+    @Published var app: String?          // "System" (bridge) | "Music" | "Spotify"
     private var lastTrack = ""
     private var timer: Timer?
 
@@ -27,7 +28,42 @@ final class NowPlaying: ObservableObject {
         !NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundles[name]!).isEmpty
     }
 
+    /// Run one bridge entry point under /usr/bin/perl. Blocking — call off the main actor.
+    nonisolated static func bridge(_ symbol: String, cmd: Int? = nil) -> Data? {
+        let base = Bundle.main.bundleURL.appendingPathComponent("Contents")
+        let lib = base.appendingPathComponent("Helpers/libvnnowplaying.dylib").path
+        let pl = base.appendingPathComponent("Resources/nowplaying.pl").path
+        guard FileManager.default.fileExists(atPath: lib) else { return nil }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        p.arguments = [pl, lib, symbol]
+        if let cmd { p.environment = ["VN_CMD": String(cmd)] }
+        let pipe = Pipe(); p.standardOutput = pipe; p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return data
+    }
+
     func refresh() {
+        Task.detached {
+            let data = NowPlaying.bridge("vn_get")
+            await MainActor.run { self.apply(data) }
+        }
+    }
+
+    private func apply(_ data: Data?) {
+        guard let data, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let t = j["title"] as? String, !t.isEmpty else { refreshScripted(); return }
+        let a = j["artist"] as? String ?? ""
+        app = "System"; title = t; artist = a; playing = (j["playing"] as? Bool) ?? ((j["playing"] as? Int) == 1)
+        if "System|\(t)|\(a)" != lastTrack {
+            lastTrack = "System|\(t)|\(a)"
+            artwork = (j["art"] as? String).flatMap { Data(base64Encoded: $0) }.flatMap(NSImage.init(data:))
+        }
+    }
+
+    private func refreshScripted() {
         // prefer whichever is actually playing, else whichever is open
         var found: (String, String, String, Bool)?
         for name in ["Spotify", "Music"] where running(name) {
@@ -80,6 +116,15 @@ final class NowPlaying: ObservableObject {
     enum Command: String { case playpause, next = "next track", previous = "previous track" }
     func send(_ command: Command) {
         guard let app else { return }
+        if app == "System" {
+            let code = command == .playpause ? 2 : command == .next ? 4 : 5
+            Task.detached {
+                _ = NowPlaying.bridge("vn_cmd", cmd: code)
+                try? await Task.sleep(for: .milliseconds(300))
+                await MainActor.run { self.refresh() }
+            }
+            return
+        }
         VNAppleScript.run("tell application \"\(app)\" to \(command.rawValue)", purpose: "controlling playback")
         Task { try? await Task.sleep(for: .milliseconds(250)); refresh() }
     }

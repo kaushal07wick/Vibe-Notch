@@ -30,8 +30,16 @@ mkdir -p "$APP/Contents/Resources/AgentIcons"
 cp "$ROOT/Resources/AgentIcons/"*.png "$APP/Contents/Resources/AgentIcons/" 2>/dev/null || true
 cp "$ROOT/Resources/"*.js "$APP/Contents/Resources/" 2>/dev/null || true
 cp "$ROOT/Resources/"*.py "$APP/Contents/Resources/" 2>/dev/null || true
+cp "$ROOT/Resources/nowplaying.pl" "$APP/Contents/Resources/"
+# now-playing bridge: loaded by /usr/bin/perl, which macOS still lets read system media
+clang -dynamiclib -fobjc-arc -O2 -framework Foundation "$ROOT/Resources/NowPlayingBridge.m" \
+  -o "$APP/Contents/Helpers/libvnnowplaying.dylib"
 
-# Ad-hoc sign so Gatekeeper/TCC treats it as a stable, signed app.
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || echo "warning: codesign failed (unsigned build)"
+# Ad-hoc sign with a designated requirement pinned to the bundle id. Plain ad-hoc signing
+# makes the requirement a cdhash, which changes every build, so macOS privacy (TCC) saw
+# each rebuild as a new app and re-asked for Calendar, Accessibility and Automation.
+codesign --force --deep --sign - \
+  --requirements '=designated => identifier "com.kaushalchoudhary.vibenotch"' \
+  "$APP" >/dev/null 2>&1 || echo "warning: codesign failed (unsigned build)"
 
 echo "Built $APP"
