@@ -105,7 +105,6 @@ struct PillCluster: View {
 
     var body: some View {
         HStack(spacing: 5) {
-            AgentPill(source: source)
             if let terminal { TerminalIcon(terminal: terminal) }
             if showJump { JumpPill(terminal: terminal, tty: tty, meta: meta) }
             if let age {
@@ -306,40 +305,61 @@ func sessionTitle(folder: String?, task: String?) -> String {
 /// The notch mascot: a little ghost. Eyes glance side to side and the hem ripples
 /// while agents work; asleep (eyes shut) when idle. X body, W eye white, P pupil.
 struct PixelGhost: View {
-    var color: Color
+    enum Mood { case idle, working, waiting }
+    var mood: Mood
     var px: CGFloat = 1.5
-    var awake = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // b body · l highlight · d shade · o outline · p cheek · E/e eye (2x2: top/bottom)
     private static let top = [
-        "...XXXXX...",
-        "..XXXXXXX..",
-        ".XXXXXXXXX.",
+        "...oooooo...", "..oblbbbbbo.", ".oblbbbbbbbo", ".obbbbbbbbbo",
+        ".obbEEbbEEbo", ".obbeebbeebo", ".obpbbbbbpbo",
+        ".obbbbbbbbdo", ".obbbbbbbddo", ".obbbbbbbddo",
     ]
-    private static let lookRight = [".XXWWXWWXX.", ".XXWPXWPXX."]
-    private static let lookLeft  = [".XXWWXWWXX.", ".XXPWXPWXX."]
-    private static let asleep    = [".XXXXXXXXX.", ".XXPPXPPXX."]
-    private static let body = [".XXXXXXXXX.", ".XXXXXXXXX."]
-    private static let hemA = ".XX.XXX.XX."
-    private static let hemB = ".X.XXX.XXX."
+    private static let hemA = [".obbobbobbo.", "..oo.oo.oo.."]
+    private static let hemB = [".obobbobbob.", "..o.oo.oo.o."]
+
+    private static let blue: [Character: Color] = [
+        "b": Color(red: 0.48, green: 0.65, blue: 1), "l": Color(red: 0.73, green: 0.82, blue: 1),
+        "d": Color(red: 0.31, green: 0.47, blue: 0.85), "o": Color(red: 0.16, green: 0.25, blue: 0.48),
+        "p": Color(red: 1, green: 0.62, blue: 0.75),
+    ]
+    private static let amber: [Character: Color] = [
+        "b": Color(red: 1, green: 0.75, blue: 0.24), "l": Color(red: 1, green: 0.88, blue: 0.54),
+        "d": Color(red: 0.85, green: 0.6, blue: 0.06), "o": Color(red: 0.42, green: 0.29, blue: 0.02),
+        "p": Color(red: 1, green: 0.62, blue: 0.75),
+    ]
 
     var body: some View {
         let px = max(1, (self.px * 2).rounded() / 2)
-        TimelineView(.animation(minimumInterval: 0.4, paused: !awake || reduceMotion)) { ctx in
-            let beat = Int(ctx.date.timeIntervalSinceReferenceDate / 0.4)
-            let moving = awake && !reduceMotion
-            let eyes = !awake ? Self.asleep : (moving && beat % 4 >= 2 ? Self.lookLeft : Self.lookRight)
-            let rows = Self.top + eyes + Self.body + [moving && beat % 2 == 1 ? Self.hemB : Self.hemA]
+        let moving = mood != .idle && !reduceMotion
+        TimelineView(.animation(minimumInterval: 0.2, paused: !moving)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            let beat = Int(t / 0.4)
+            let blink = moving && mood == .working && t.truncatingRemainder(dividingBy: 3.2) < 0.15
+            let look = beat / 2 % 2
+            let rows = (Self.top + (moving && beat % 2 == 1 ? Self.hemB : Self.hemA)).map { row -> [Character] in
+                var idx = 0
+                return row.enumerated().map { i, ch -> Character in
+                    guard ch == "E" || ch == "e" else { idx = 0; return ch }
+                    let prev = i > 0 && Array(row)[i - 1] == ch
+                    idx = prev ? 1 : 0
+                    if mood == .idle || blink { return ch == "E" ? "b" : "o" }
+                    if mood == .waiting { return ch == "E" && idx == 0 ? "w" : "k" }
+                    return ch == "E" ? "w" : (idx == look ? "k" : "w")
+                }
+            }
+            let pal = mood == .waiting ? Self.amber : Self.blue
             Canvas { c, _ in
                 for (y, row) in rows.enumerated() {
                     for (x, ch) in row.enumerated() where ch != "." {
-                        let fill: Color = ch == "W" ? .white : ch == "P" ? .black : color
+                        let fill: Color = ch == "w" ? .white : ch == "k" ? Color(red: 0.06, green: 0.09, blue: 0.19) : pal[ch] ?? .clear
                         c.fill(Path(CGRect(x: CGFloat(x) * px, y: CGFloat(y) * px, width: px, height: px)),
                                with: .color(fill))
                     }
                 }
             }
-            .frame(width: 11 * px, height: CGFloat(rows.count) * px)
+            .frame(width: 12 * px, height: 12 * px)
         }
         .accessibilityHidden(true)
     }
