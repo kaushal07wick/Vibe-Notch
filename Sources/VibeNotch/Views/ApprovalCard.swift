@@ -171,7 +171,9 @@ struct ApprovalCard: View {
 
     private func diffLines(_ text: String, prefix: String, color: Color) -> some View {
         let lines = text.components(separatedBy: "\n")
-        let shown = lines.prefix(6)
+        // a brand-new file (Write: no old text) gets a longer preview than an edit hunk
+        let cap = (i.diffOld ?? "").isEmpty ? 14 : 6
+        let shown = lines.prefix(cap)
         return VStack(alignment: .leading, spacing: 1) {
             ForEach(Array(shown.enumerated()), id: \.offset) { _, line in
                 Text("\(prefix) \(line)")
@@ -179,8 +181,8 @@ struct ApprovalCard: View {
                     .foregroundStyle(color.opacity(0.9))
                     .lineLimit(1).truncationMode(.tail)
             }
-            if lines.count > 6 {
-                Text("\(prefix) +\(lines.count - 6) lines").font(VNFont.ui(10))
+            if lines.count > cap {
+                Text("\(prefix) +\(lines.count - cap) lines").font(VNFont.ui(10))
                     .foregroundStyle(color.opacity(0.5))
             }
         }
