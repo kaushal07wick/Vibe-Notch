@@ -117,25 +117,42 @@ struct ExpandedContent: View {
 /// One animated pixel invader per active agent, in its brand color.
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private enum Mood { case idle, working, waiting }
+    private var mood: Mood {
+        if store.escalated || needsYou { return .waiting }
+        return anyRunning ? .working : .idle
+    }
+
     var body: some View {
-        HStack(spacing: 4) {
-            // OUR mascot — the Owl — regardless of which brands are running
-            // (per-agent marks live in the expanded rows)
-            PixelInvader(color: store.escalated ? VNColor.amber : VNColor.running,
-                         px: 1.5, animated: anyRunning)
-            // activity is a dot beside the owl, not a second creature
-            Circle()
-                .fill(store.escalated ? VNColor.amber : VNColor.running)
-                .frame(width: 4, height: 4)
-                .opacity(anyRunning ? 1 : 0)
-                .animation(.easeOut(duration: 0.2), value: anyRunning)
+        // Pixel-snapped motion only (1pt steps), so the sprite never blurs:
+        // working hops on the beat, waiting shakes for attention, idle just breathes.
+        TimelineView(.animation(minimumInterval: 0.15, paused: mood == .idle && reduceMotion)) { ctx in
+            let tick = Int(ctx.date.timeIntervalSinceReferenceDate / 0.15)
+            let still = reduceMotion
+            let dy: CGFloat = mood == .working && !still && tick % 4 < 2 ? -1 : 0
+            let dx: CGFloat = mood == .waiting && !still ? (tick % 2 == 0 ? -1 : 1) : 0
+            let breathe = mood == .idle ? (0.45 + 0.2 * (tick / 6 % 2 == 0 ? 1 : 0)) : 1
+            let color = mood == .waiting ? VNColor.amber : VNColor.running
+            HStack(spacing: 4) {
+                PixelInvader(color: color, px: 1.5, animated: mood != .idle)
+                    .offset(x: dx, y: dy)
+                    .opacity(breathe)
+                Circle().fill(color).frame(width: 4, height: 4)
+                    .opacity(mood == .idle ? 0 : (mood == .working && !still && tick % 8 >= 4 ? 0.35 : 1))
+            }
         }
         // mirror-width flanks keep the shape centred on the physical notch
         .frame(width: 38)
         .padding(.horizontal, 2)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(store.escalated ? "Vibe Notch, a permission is waiting"
-                                            : anyRunning ? "Vibe Notch, agents working" : "Vibe Notch, idle")
+        .accessibilityLabel(mood == .waiting ? "Vibe Notch, something is waiting for you"
+                                             : mood == .working ? "Vibe Notch, agents working" : "Vibe Notch, idle")
+    }
+
+    private var needsYou: Bool {
+        !store.pending.isEmpty || store.activeSessions.contains { $0.event == "Notification" }
     }
 
     private var anyRunning: Bool {

@@ -104,6 +104,9 @@ struct ApprovalCard: View {
         return VStack(alignment: .leading, spacing: 6) {
             (Text("$ ").foregroundStyle(VNColor.amber) + Text(shown).foregroundStyle(VNColor.paper.opacity(0.82)))
                 .font(VNFont.uiMono(11.5, .semibold))
+                // newline count alone isn't enough: one 3000-char line wraps to 40 rows and
+                // pushes Deny/Allow off the panel. Cap what is *drawn*.
+                .lineLimit(10).truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if overflow > 0 {
