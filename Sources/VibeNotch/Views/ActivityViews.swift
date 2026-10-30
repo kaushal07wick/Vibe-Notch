@@ -247,10 +247,7 @@ struct SessionRow: View {
                 HStack(spacing: 5) {
                     PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:],
                                 showJump: false)
-                    Group {
-                        JumpPill(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
-                        binButton
-                    }
+                    interruptButton
                 }
         }
         .padding(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
@@ -261,17 +258,17 @@ struct SessionRow: View {
         .onHover { hovering = $0 }
     }
 
-    private var binButton: some View {
-        Button { onDismiss(s.sessionId) } label: {
-            Image(systemName: "archivebox")
+    private var interruptButton: some View {
+        Button { _ = TerminalControl.interrupt(s) } label: {
+            Image(systemName: "stop.fill")
                 .font(VNFont.ui(11, .medium))
                 .foregroundStyle(VNColor.muted)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Archive session")
-        .help("Archive session")
+        .accessibilityLabel("Interrupt agent")
+        .help("Interrupt (^C)")
     }
 
     /// Activity line — tool name in blue, arguments/reply in grey (inspo style).
