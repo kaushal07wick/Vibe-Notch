@@ -159,6 +159,7 @@ struct SessionStatusLine: View {
                         .foregroundStyle(VNColor.paper.opacity(0.35))
                 }
             }
+            if full, let todos = s.todos, !todos.isEmpty { TodoList(todos: todos) }
             // full view shows the rolling console mirror (real commands +
             // output tails); brief keeps just the latest detail
             if full, !s.console.isEmpty {
@@ -173,7 +174,7 @@ struct SessionStatusLine: View {
 
     @ViewBuilder private var icon: some View {
         switch s.event {
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit": PixelRingSpinner(color: VNColor.running)
+        case "PreToolUse", "PostToolUse", "UserPromptSubmit", "PreCompact": PixelRingSpinner(color: VNColor.running)
         case "Notification": Image(systemName: "hourglass").font(VNFont.ui(10)).foregroundStyle(VNColor.amber)
         case "Stop": Image(systemName: "checkmark.circle.fill").font(VNFont.ui(10)).foregroundStyle(VNColor.go)
         case "PostToolUseFailure", "StopFailure":
@@ -191,6 +192,7 @@ struct SessionStatusLine: View {
         case "Notification": return s.detail ?? "Waiting for input"
         case "Stop": return "Finished"
         case "UserPromptSubmit": return "Thinking…"
+        case "PreCompact": return "Compacting context…"
         default: return "Working…"
         }
     }
@@ -250,6 +252,12 @@ struct SessionRow: View {
                     if let user = s.userMessage {
                         Text("You: \(user)").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
                             .lineLimit(1).truncationMode(.tail)
+                    }
+                    if let todos = s.todos, !todos.isEmpty {
+                        let done = todos.filter { $0.status == "completed" }.count
+                        let now = todos.first { $0.status == "in_progress" }?.content
+                        Text("☑ \(done)/\(todos.count)" + (now.map { " · \($0)" } ?? ""))
+                            .font(VNFont.ui(11)).foregroundStyle(VNColor.running).lineLimit(1).truncationMode(.tail)
                     }
                     brief.font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
                 }
@@ -345,4 +353,26 @@ func kFmt(_ n: Int) -> String {
     if n < 1000 { return "\(n)" }
     if n < 1_000_000 { return "\(n / 1000)k" }
     return String(format: "%.1fM", Double(n) / 1_000_000)
+}
+
+/// Claude's TodoWrite checklist: "3/7" progress plus each step.
+struct TodoList: View {
+    let todos: [VNTodo]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("TASKS  \(todos.filter { $0.status == "completed" }.count)/\(todos.count)")
+                .font(VNFont.sysMono(9.5, .semibold)).foregroundStyle(VNColor.faint)
+            ForEach(Array(todos.prefix(8).enumerated()), id: \.offset) { _, t in
+                HStack(spacing: 6) {
+                    Image(systemName: t.status == "completed" ? "checkmark.circle.fill"
+                                    : t.status == "in_progress" ? "circle.dotted" : "circle")
+                        .font(VNFont.ui(9.5))
+                        .foregroundStyle(t.status == "completed" ? VNColor.go
+                                       : t.status == "in_progress" ? VNColor.running : VNColor.faint)
+                    Text(t.content).font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
+                        .foregroundStyle(t.status == "completed" ? VNColor.muted : VNColor.text)
+                }
+            }
+        }
+    }
 }

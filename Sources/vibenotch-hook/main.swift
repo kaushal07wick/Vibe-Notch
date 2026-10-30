@@ -239,6 +239,7 @@ let msg = VNInbound(type: .notify, source: source, event: event,
                     termMeta: termMeta.isEmpty ? nil : termMeta,
                     model: lastAssistantModel(transcript),
                     gitBranch: git.0, gitDirty: git.1,
-                    tokensIn: usage.0, tokensOut: usage.1, sessionId: sessionId)
+                    tokensIn: usage.0, tokensOut: usage.1, sessionId: sessionId,
+                    todos: tool == "TodoWrite" ? parseTodos(toolInput) : nil)
 _ = IPCClient.send(msg)
 exit(0)

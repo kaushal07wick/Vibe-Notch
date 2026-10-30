@@ -32,6 +32,7 @@ struct SessionActivity: Identifiable, Codable {
     var tokensOut: Int = 0
     var console: [String] = []  // rolling terminal mirror (commands + output tails)
     var imagePath: String?      // last image a tool touched
+    var todos: [VNTodo]?        // latest TodoWrite checklist
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -365,6 +366,7 @@ final class EventStore: ObservableObject {
         if let branch = i.gitBranch { s.gitBranch = branch }
         if let dirty = i.gitDirty { s.gitDirty = dirty }
         if let img = i.imagePath { s.imagePath = img }
+        if let todos = i.todos { s.todos = todos }
         s.tokensIn += i.tokensIn ?? 0
         s.tokensOut += i.tokensOut ?? 0
         appendConsole(&s, from: i)

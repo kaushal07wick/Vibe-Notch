@@ -48,6 +48,7 @@ public struct VNInbound: Codable, Sendable {
     public var tokensIn: Int?              // input tokens of the latest turn
     public var tokensOut: Int?             // output tokens of the latest turn
     public var sessionId: String?
+    public var todos: [VNTodo]?            // Claude's TodoWrite checklist (full list each time)
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
@@ -58,7 +59,7 @@ public struct VNInbound: Codable, Sendable {
                 termMeta: [String: String]? = nil,
                 model: String? = nil, host: String? = nil,
                 gitBranch: String? = nil, gitDirty: Bool? = nil,
-                tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil) {
+                tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil, todos: [VNTodo]? = nil) {
         self.v = VNProtocol.version
         self.hookVersion = VNProtocol.build
         self.type = type
@@ -85,7 +86,15 @@ public struct VNInbound: Codable, Sendable {
         self.tokensIn = tokensIn
         self.tokensOut = tokensOut
         self.sessionId = sessionId
+        self.todos = todos
     }
+}
+
+/// One TodoWrite item. `status` is pending | in_progress | completed.
+public struct VNTodo: Codable, Sendable {
+    public var content: String
+    public var status: String
+    public init(content: String, status: String) { self.content = content; self.status = status }
 }
 
 public enum VNDecision: String, Codable, Sendable {

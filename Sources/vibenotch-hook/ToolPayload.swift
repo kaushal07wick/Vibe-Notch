@@ -70,3 +70,11 @@ func gitInfo(_ cwd: String?) -> (branch: String?, dirty: Bool?) {
     let porcelain = shell("/usr/bin/git", ["-C", cwd, "status", "--porcelain", "--untracked-files=no"])
     return (branch, porcelain.map { !$0.isEmpty })
 }
+
+/// TodoWrite's checklist, if this tool call is one.
+func parseTodos(_ input: [String: Any]?) -> [VNTodo]? {
+    (input?["todos"] as? [[String: Any]])?.compactMap {
+        guard let content = $0["content"] as? String else { return nil }
+        return VNTodo(content: content, status: $0["status"] as? String ?? "pending")
+    }
+}
