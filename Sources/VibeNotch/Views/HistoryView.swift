@@ -51,8 +51,9 @@ enum SessionHistory {
             }
             return out
         }
-        return (recent(claude, "claude") + recent(codex, "codex"))
-            .sorted { $0.date > $1.date }
+        let merged = (recent(claude, "claude") + recent(codex, "codex")).sorted { $0.date > $1.date }
+        saveCache()
+        return merged
     }
 
     private static func mtime(_ url: URL) -> Date {
@@ -105,10 +106,41 @@ enum SessionHistory {
         return String(clean.prefix(90))
     }
 
-    /// cwd + first real user message of a transcript (both schemas).
+    // Parsing means streaming into big transcripts, so remember the result per file (keyed by
+    // modification time, misses included). Re-opening History is then nearly free.
+    private struct CachedRow: Codable { var mtime: Double; var id, source, cwd, task: String? }
+    private static let cacheLock = NSLock()
+    nonisolated(unsafe) private static var cache: [String: CachedRow] = {
+        let url = VNPaths.data.appendingPathComponent("history-cache.json")
+        return (try? JSONDecoder().decode([String: CachedRow].self, from: Data(contentsOf: url))) ?? [:]
+    }()
+
     private static func parse(_ url: URL, date: Date, source: String) -> ResumeEntry? {
+        let key = url.path, stamp = date.timeIntervalSince1970
+        cacheLock.lock(); let hit = cache[key]; cacheLock.unlock()
+        if let hit, hit.mtime == stamp {
+            guard let id = hit.id, let src = hit.source, let cwd = hit.cwd, let task = hit.task else { return nil }
+            return ResumeEntry(id: id, source: src, cwd: cwd, task: task, date: date)
+        }
+        let entry = parseUncached(url, date: date, source: source)
+        cacheLock.lock()
+        cache[key] = CachedRow(mtime: stamp, id: entry?.id, source: entry?.source, cwd: entry?.cwd, task: entry?.task)
+        cacheLock.unlock()
+        return entry
+    }
+
+    private static func saveCache() {
+        cacheLock.lock(); let snapshot = cache; cacheLock.unlock()
+        try? VNPaths.ensure()
+        if let data = try? JSONEncoder().encode(snapshot) {
+            try? data.write(to: VNPaths.data.appendingPathComponent("history-cache.json"), options: .atomic)
+        }
+    }
+
+    /// cwd + first real user message of a transcript (both schemas).
+    private static func parseUncached(_ url: URL, date: Date, source: String) -> ResumeEntry? {
         var cwd: String?, task: String?
-        forEachLine(url, maxBytes: source == "codex" ? 32_000_000 : 1_000_000) { line in
+        forEachLine(url, maxBytes: source == "codex" ? 6_000_000 : 1_000_000) { line in
             // Cheap filter: only JSON-parse lines that can matter (huge preamble lines don't).
             let mayHaveCWD = cwd == nil && line.range(of: Data("\"cwd\"".utf8)) != nil
             let mayBePrompt = task == nil && (line.range(of: Data("\"user".utf8)) != nil)
