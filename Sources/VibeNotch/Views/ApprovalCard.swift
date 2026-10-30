@@ -137,8 +137,11 @@ struct ApprovalCard: View {
         HStack(spacing: 8) {
             WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
             WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
-            // Always Allow only when the agent offers a rule (backend seam:
-            // VNInbound.permissionSuggestions — requested on the board)
+            // the app persists the rule itself (PermissionRules), so no agent suggestion is needed;
+            // not offered for remote sessions, which the store refuses anyway
+            if i.host == nil {
+                WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
+            }
             WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
         }
     }
