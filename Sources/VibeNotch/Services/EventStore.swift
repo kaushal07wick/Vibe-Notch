@@ -47,6 +47,10 @@ final class EventStore: ObservableObject {
     @Published var hovering = false
     /// The file tray is open — it holds the panel up (you're dragging things in and out).
     @Published var showTray = false
+    /// An open multiple-choice question in a live Codex session, and which of its questions is next.
+    @Published var codexQuestion: CodexQuestion?
+    @Published var codexQuestionStep = 0
+    private var hiddenCodexCalls: Set<String> = []
 
     /// Sessions the user chose to Bypass — further requests auto-approve
     /// until the session ends or the app restarts.
@@ -90,11 +94,57 @@ final class EventStore: ObservableObject {
         reapTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: true) { _ in
             Task { @MainActor in self.reapDead() }
         }
+        questionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+            Task { @MainActor in self.pollCodexQuestions() }
+        }
     }
 
     /// Sessions whose agent process is verifiably still running on their tty.
     private var liveIDs: Set<String> = []
     private var reapTimer: Timer?
+    private var questionTimer: Timer?
+
+    private func pollCodexQuestions() {
+        guard sessions.values.contains(where: { $0.source == "codex" && liveIDs.contains($0.id) }) else {
+            if codexQuestion != nil { codexQuestion = nil }
+            return
+        }
+        Task.detached {
+            let found = CodexQuestionWatcher.scan()
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                let live = self.sessions.values.filter { $0.source == "codex" && self.liveIDs.contains($0.id) }
+                let match = found.first { q in !self.hiddenCodexCalls.contains(q.id) && live.contains { $0.cwd == q.cwd } }
+                if match?.id != self.codexQuestion?.id { self.codexQuestionStep = 0 }
+                if self.codexQuestion != match { self.codexQuestion = match }
+            }
+        }
+    }
+
+    /// The live Codex session a question belongs to (matched by working directory).
+    func codexSession(for q: CodexQuestion) -> SessionActivity? {
+        sessions.values.filter { $0.source == "codex" && $0.cwd == q.cwd && liveIDs.contains($0.id) }
+            .max { $0.updatedAt < $1.updatedAt }
+    }
+
+    /// Types the choice into Codex's own prompt, then moves to the next question (or hides the card).
+    func answerCodex(_ q: CodexQuestion, option index: Int, text: String? = nil) {
+        guard let session = codexSession(for: q) else { return }
+        Task {
+            _ = await TerminalControl.send("\(index + 1)", to: session, allowActiveTab: true)
+            if let text, !text.isEmpty {
+                try? await Task.sleep(for: .milliseconds(450))
+                _ = await TerminalControl.send(text, to: session, allowActiveTab: true)
+            }
+        }
+        codexQuestionStep += 1
+        if codexQuestionStep >= q.items.count { hideCodexQuestion(q) }
+    }
+
+    func hideCodexQuestion(_ q: CodexQuestion) {
+        hiddenCodexCalls.insert(q.id)
+        codexQuestion = nil
+    }
 
     /// A session is a live agent only while claude/codex is still on its tty.
     /// Agents that exit without a SessionEnd (Codex has none, ^C, closed tab)

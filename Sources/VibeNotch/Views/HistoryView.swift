@@ -144,6 +144,7 @@ enum SessionHistory {
 /// The history panel — replaces the card area while open.
 struct HistoryList: View {
     let entries: [ResumeEntry]
+    var loading = false
     let close: () -> Void
 
     var body: some View {
@@ -170,7 +171,7 @@ struct HistoryList: View {
             recap.padding(.horizontal, 20)
 
             if entries.isEmpty {
-                Text("No past sessions found.")
+                Text(loading ? "Loading sessions…" : "No past sessions found.")
                     .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
                     .padding(.vertical, 14)
             } else {

@@ -336,3 +336,79 @@ private struct QuestionPrompt: View {
             .strokeBorder(isOn ? VNColor.invader.opacity(0.5) : Color.white.opacity(0.05)))
     }
 }
+
+/// Codex's own multiple-choice prompt, mirrored: pick a numbered option and the number is
+/// typed into Codex's terminal (what you'd otherwise do with the arrow keys).
+struct CodexQuestionCard: View {
+    @ObservedObject var store: EventStore
+    let question: CodexQuestion
+    @State private var other = ""
+
+    private var step: Int { min(store.codexQuestionStep, question.items.count - 1) }
+    private var item: CodexQuestion.Item { question.items[step] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                AgentIcon(source: "codex", size: 18)
+                Text("Codex is asking").font(VNFont.ui(12.5, .semibold)).foregroundStyle(VNColor.running)
+                if question.items.count > 1 {
+                    Text("\(step + 1) of \(question.items.count)").font(VNFont.sysMono(10, .semibold))
+                        .foregroundStyle(VNColor.faint)
+                }
+                Spacer(minLength: 8)
+                Button { store.hideCodexQuestion(question) } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(VNColor.muted).frame(width: 20, height: 20)
+                        .background(Color.white.opacity(0.07), in: Circle())
+                }
+                .buttonStyle(.plain).help("Hide — answer in the terminal instead")
+            }
+            Text(item.title).font(VNFont.ui(12)).foregroundStyle(VNColor.running)
+                .fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                VStack(spacing: 5) {
+                    ForEach(Array(item.options.enumerated()), id: \.offset) { i, option in
+                        row(number: i + 1, label: option) { store.answerCodex(question, option: i) }
+                    }
+                    HStack(spacing: 8) {
+                        Text("\(item.options.count + 1)").font(VNFont.sysMono(11, .semibold)).foregroundStyle(VNColor.faint)
+                        TextField("Other…", text: $other).textFieldStyle(.plain).font(VNFont.ui(11.8))
+                            .onSubmit { send(other) }
+                        if !other.isEmpty {
+                            Button("Send") { send(other) }.buttonStyle(.plain)
+                                .font(VNFont.ui(11, .semibold)).foregroundStyle(VNColor.running)
+                        }
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+            }
+            .scrollIndicators(.hidden).frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
+        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+    }
+
+    private func send(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        store.answerCodex(question, option: item.options.count, text: t)
+    }
+
+    private func row(number: Int, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text("\(number)").font(VNFont.sysMono(11, .semibold)).foregroundStyle(VNColor.running)
+                Text(label).font(VNFont.ui(11.8, .medium)).foregroundStyle(VNColor.text)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressFeedback())
+    }
+}

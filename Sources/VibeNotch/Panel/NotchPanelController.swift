@@ -117,7 +117,7 @@ final class NotchPanelController {
 
         // A decision just landed (clicked here OR answered in the terminal):
         // collapse immediately, even though the cursor still sits on the panel.
-        let hasPending = !store.pending.isEmpty && !store.privacyHold
+        let hasPending = (!store.pending.isEmpty || store.codexQuestion != nil) && !store.privacyHold
         if lastPendingCount > 0 && !hasPending {
             lastPendingCount = 0
             needsHoverExit = true

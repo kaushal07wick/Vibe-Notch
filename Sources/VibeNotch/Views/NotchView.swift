@@ -16,6 +16,7 @@ struct ExpandedContent: View {
     @State private var showHistory = false
     @State private var showPalette = false
     @State private var history: [ResumeEntry] = []
+    @State private var historyLoading = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +43,14 @@ struct ExpandedContent: View {
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62),
                                  label: "Session history") {
-                    if !showHistory { history = SessionHistory.load(); store.showTray = false }
+                    if !showHistory {
+                        store.showTray = false
+                        historyLoading = true
+                        Task.detached {
+                            let loaded = SessionHistory.load()
+                            await MainActor.run { history = loaded; historyLoading = false }
+                        }
+                    }
                     showHistory.toggle()
                     if showHistory { showPalette = false }
                 }
@@ -88,7 +96,7 @@ struct ExpandedContent: View {
                 } else if store.showTray && store.pending.isEmpty {
                     TrayView()
                 } else if showHistory && store.pending.isEmpty {
-                    HistoryList(entries: history) { showHistory = false }
+                    HistoryList(entries: history, loading: historyLoading) { showHistory = false }
                 } else {
                     currentCard
                         .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
@@ -116,6 +124,8 @@ struct ExpandedContent: View {
     @ViewBuilder private var currentCard: some View {
         if let approval = store.pending.first {
             ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1).id(approval.id)
+        } else if let question = store.codexQuestion {
+            CodexQuestionCard(store: store, question: question).id("\(question.id)-\(store.codexQuestionStep)")
         } else {
             ActivityCard(store: store, sessions: store.activeSessions, full: store.hovering,
                          onDismiss: { store.dismiss(sessionId: $0) })
