@@ -6,7 +6,7 @@ struct WidgetsView: View {
     @ObservedObject private var calendar = CalendarModel.shared
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 10) {
             player.frame(maxWidth: .infinity)
             self.calendarCard.frame(maxWidth: .infinity)
         }
@@ -24,30 +24,64 @@ struct WidgetsView: View {
                 if let art = music.artwork {
                     Image(nsImage: art).resizable().scaledToFill()
                 } else {
-                    ZStack { Color.white.opacity(0.07); Image(systemName: "music.note").foregroundStyle(VNColor.faint) }
+                    ZStack {
+                        LinearGradient(colors: [Color(hex: 0x3B3F6B), Color(hex: 0x1C1E36)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        Image(systemName: "music.note").font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                    }
                 }
             }
-            .frame(width: 72, height: 72)
+            .frame(width: 64, height: 64)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
+            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
+            VStack(alignment: .leading, spacing: 2) {
                 if music.app == nil {
-                    Text("Nothing playing").font(VNFont.ui(12.5, .semibold))
-                    Text("Open Music or Spotify").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
+                    Text("Not playing").font(VNFont.ui(12.5, .semibold))
+                    HStack(spacing: 6) {
+                        launch("Music", bundle: "com.apple.Music")
+                        launch("Spotify", bundle: "com.spotify.client")
+                    }
+                    .padding(.top, 4)
                 } else {
                     Text(music.title).font(VNFont.ui(12.5, .semibold)).lineLimit(1)
                     Text(music.artist).font(VNFont.ui(11)).foregroundStyle(VNColor.muted).lineLimit(1)
-                    HStack(spacing: 14) {
+                    HStack(spacing: 10) {
                         control("backward.fill") { music.send(.previous) }
-                        control(music.playing ? "pause.fill" : "play.fill", size: 14) { music.send(.playpause) }
+                        Button { music.send(.playpause) } label: {
+                            Image(systemName: music.playing ? "pause.fill" : "play.fill")
+                                .font(.system(size: 12, weight: .bold)).foregroundStyle(.black)
+                                .frame(width: 28, height: 28).background(Color.white.opacity(0.92), in: Circle())
+                        }
+                        .buttonStyle(PressFeedback())
                         control("forward.fill") { music.send(.next) }
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 3)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(card)
+    }
+
+    private func launch(_ name: String, bundle: String) -> some View {
+        Button {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) {
+                NSWorkspace.shared.openApplication(at: url, configuration: .init())
+            }
+        } label: {
+            Text(name).font(VNFont.ui(10.5, .medium)).foregroundStyle(VNColor.paper.opacity(0.8))
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(Color.white.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(PressFeedback())
+    }
+
+    private var card: some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(LinearGradient(colors: [Color.white.opacity(0.075), Color.white.opacity(0.035)], startPoint: .top, endPoint: .bottom))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
     }
 
     private func control(_ symbol: String, size: CGFloat = 11, action: @escaping () -> Void) -> some View {
@@ -63,7 +97,7 @@ struct WidgetsView: View {
     private var calendarCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(Date.now.formatted(.dateTime.month(.abbreviated))).font(VNFont.ui(20, .semibold))
+                Text(Date.now.formatted(.dateTime.month(.wide))).font(VNFont.ui(14, .semibold))
                 Text(Date.now.formatted(.dateTime.year())).font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
                 Spacer(minLength: 0)
             }
@@ -83,12 +117,13 @@ struct WidgetsView: View {
                     }
                 }
             } else {
-                Text("Nothing more today").font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
+                Label("Clear for the rest of today", systemImage: "checkmark.circle")
+                    .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
             }
         }
         .padding(10)
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(card)
     }
 
     private var weekStrip: some View {

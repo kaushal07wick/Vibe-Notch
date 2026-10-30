@@ -55,23 +55,34 @@ struct TrayView: View {
                         .buttonStyle(.plain).font(VNFont.ui(10.5, .medium)).foregroundStyle(VNColor.muted)
                 }
             }
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(tray.items, id: \.self) { TrayTile(url: $0) }
-                    if tray.items.isEmpty {
-                        Text("Drag files onto the notch — they stay here until you remove them.")
-                            .font(VNFont.ui(11)).foregroundStyle(VNColor.faint)
-                            .frame(maxWidth: .infinity, minHeight: 64)
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(targeted ? 0.09 : 0.035))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(targeted ? VNColor.running : Color.white.opacity(0.16),
+                                  style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
+                if tray.items.isEmpty {
+                    HStack(spacing: 12) {
+                        Image(systemName: "tray.and.arrow.down.fill").font(.system(size: 22))
+                            .foregroundStyle(targeted ? VNColor.running : VNColor.faint)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(targeted ? "Release to add" : "Drop files here").font(VNFont.ui(12.5, .semibold))
+                            Text("or drag them onto the notch — they stay until you remove them")
+                                .font(VNFont.ui(10.5)).foregroundStyle(VNColor.muted)
+                        }
                     }
+                } else {
+                    ScrollView(.horizontal) {
+                        HStack(alignment: .top, spacing: 8) {
+                            ForEach(tray.items, id: \.self) { TrayTile(url: $0) }
+                        }
+                        .padding(8)
+                    }
+                    .scrollIndicators(.hidden)
                 }
-                .padding(2)
             }
-            .scrollIndicators(.hidden)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .padding(8)
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(targeted ? 0.45 : 0.14),
-                              style: StrokeStyle(lineWidth: 1.2, dash: [5, 4])))
+            .frame(maxWidth: .infinity, minHeight: 92)
+            .animation(.easeOut(duration: 0.12), value: targeted)
             .onDrop(of: [.fileURL], isTargeted: $targeted) { TrayStore.handleDrop($0) }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
@@ -92,7 +103,7 @@ private struct TrayTile: View {
                 .lineLimit(2).multilineTextAlignment(.center).frame(width: 66)
         }
         .padding(6)
-        .background(Color.white.opacity(hovering ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(Color.white.opacity(hovering ? 0.11 : 0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .overlay(alignment: .topTrailing) {
             if hovering {
                 Button { TrayStore.shared.remove(url) } label: {
