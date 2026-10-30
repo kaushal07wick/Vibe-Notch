@@ -149,41 +149,70 @@ struct ApprovalCard: View {
         }
     }
 
-    /// Side-by-side minus/plus block for Edit/Write approvals.
+    /// Edit/Write approvals as a diff card: file header with +/- counts, then full-width tinted rows.
     private var diffBlock: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            if let old = i.diffOld, !old.isEmpty {
-                diffLines(old, prefix: "-", color: VNColor.stop)
+        let old = (i.diffOld ?? "").isEmpty ? [] : (i.diffOld ?? "").components(separatedBy: "\n")
+        let new = (i.diffNew ?? "").isEmpty ? [] : (i.diffNew ?? "").components(separatedBy: "\n")
+        let isNewFile = old.isEmpty
+        let cap = isNewFile ? 14 : 7
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                Image(systemName: isNewFile ? "doc.badge.plus" : "doc.text").font(VNFont.ui(10.5))
+                    .foregroundStyle(VNColor.paper.opacity(0.55))
+                Text(shortPath(i.detail)).font(VNFont.uiMono(11, .semibold))
+                    .foregroundStyle(VNColor.paper.opacity(0.85)).lineLimit(1).truncationMode(.head)
+                Spacer(minLength: 8)
+                if !new.isEmpty { countChip("+\(new.count)", VNColor.go) }
+                if !old.isEmpty { countChip("−\(old.count)", VNColor.stop) }
             }
-            if let new = i.diffNew, !new.isEmpty {
-                diffLines(new, prefix: "+", color: VNColor.go)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color.white.opacity(0.04))
+            VStack(alignment: .leading, spacing: 0) {
+                diffRows(old, sign: "−", color: VNColor.stop, cap: cap)
+                diffRows(new, sign: "+", color: VNColor.go, cap: cap)
             }
+            .padding(.vertical, 3)
             if let desc = i.commandDescription {
                 Text(desc).font(VNFont.ui(11, .medium))
-                    .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1).padding(.top, 3)
+                    .foregroundStyle(VNColor.paper.opacity(0.5)).lineLimit(1)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.06)))
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.08)))
     }
 
-    private func diffLines(_ text: String, prefix: String, color: Color) -> some View {
-        let lines = text.components(separatedBy: "\n")
-        // a brand-new file (Write: no old text) gets a longer preview than an edit hunk
-        let cap = (i.diffOld ?? "").isEmpty ? 14 : 6
-        let shown = lines.prefix(cap)
-        return VStack(alignment: .leading, spacing: 1) {
-            ForEach(Array(shown.enumerated()), id: \.offset) { _, line in
-                Text("\(prefix) \(line)")
-                    .font(VNFont.uiMono(11, .medium))
-                    .foregroundStyle(color.opacity(0.9))
-                    .lineLimit(1).truncationMode(.tail)
+    private func countChip(_ text: String, _ color: Color) -> some View {
+        Text(text).font(VNFont.sysMono(10, .semibold)).foregroundStyle(color)
+            .padding(.horizontal, 6).padding(.vertical, 1.5)
+            .background(color.opacity(0.14), in: Capsule())
+    }
+
+    private func shortPath(_ path: String?) -> String {
+        guard let path, !path.isEmpty else { return i.tool ?? "file" }
+        let parts = path.split(separator: "/")
+        return parts.suffix(2).joined(separator: "/")
+    }
+
+    private func diffRows(_ lines: [String], sign: String, color: Color, cap: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.prefix(cap).enumerated()), id: \.offset) { _, line in
+                HStack(alignment: .top, spacing: 8) {
+                    Text(sign).font(VNFont.uiMono(11, .bold)).foregroundStyle(color.opacity(0.9)).frame(width: 10)
+                    Text(line.isEmpty ? " " : line).font(VNFont.uiMono(11, .medium))
+                        .foregroundStyle(VNColor.paper.opacity(0.88)).lineLimit(1).truncationMode(.tail)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 1.5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(color.opacity(0.13))
             }
             if lines.count > cap {
-                Text("\(prefix) +\(lines.count - cap) lines").font(VNFont.ui(10))
-                    .foregroundStyle(color.opacity(0.5))
+                Text("\(sign) \(lines.count - cap) more line\(lines.count - cap == 1 ? "" : "s")")
+                    .font(VNFont.ui(10)).foregroundStyle(color.opacity(0.6))
+                    .padding(.horizontal, 12).padding(.vertical, 3)
             }
         }
     }
@@ -314,10 +343,11 @@ private struct QuestionPrompt: View {
             picked[qi] = set
         } label: {
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .font(VNFont.ui(11))
+                Text("⌘\(q.options.firstIndex(where: { $0.label == opt.label }).map { $0 + 1 } ?? 0)")
+                    .font(VNFont.sysMono(9.5, .semibold))
                     .foregroundStyle(isOn ? VNColor.invader : VNColor.faint)
-                    .padding(.top, 1)
+                    .frame(width: 24, height: 18)
+                    .background(Color.white.opacity(isOn ? 0.12 : 0.06), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(opt.label).font(VNFont.ui(11.8, .medium)).foregroundStyle(VNColor.text)
                     if let d = opt.description, !d.isEmpty {
@@ -331,6 +361,7 @@ private struct QuestionPrompt: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .cmdDigit((q.options.firstIndex(where: { $0.label == opt.label }) ?? 0) + 1)
         .background(Color.white.opacity(isOn ? 0.07 : 0.035), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
             .strokeBorder(isOn ? VNColor.invader.opacity(0.5) : Color.white.opacity(0.05)))
@@ -410,5 +441,12 @@ struct CodexQuestionCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressFeedback())
+    }
+}
+
+private extension View {
+    /// ⌘1…⌘9 pick the matching option; later options simply have no shortcut.
+    @ViewBuilder func cmdDigit(_ n: Int) -> some View {
+        if (1...9).contains(n) { keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: .command) } else { self }
     }
 }
