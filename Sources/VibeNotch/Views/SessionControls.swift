@@ -30,6 +30,13 @@ struct SessionControls: View {
                 toolbar.labelStyle(.iconOnly)
             }
 
+            if let reply = session.detail, ["Stop", "Notification"].contains(session.event), !reply.isEmpty {
+                Text(reply).font(VNFont.ui(11.5)).foregroundStyle(VNColor.text)
+                    .textSelection(.enabled).lineLimit(30)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 8))
+            }
             if let model = session.model {
                 Text("Current model · \(model)").foregroundStyle(VNColor.muted).lineLimit(1)
             }

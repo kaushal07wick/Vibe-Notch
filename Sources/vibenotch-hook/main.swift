@@ -152,8 +152,13 @@ let sessionId = obj["session_id"] as? String
 
 /// Emit the PermissionRequest decision in the agent's dialect. Answers
 /// (AskUserQuestion) ride along as updatedInput for Claude-schema agents.
-func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String: Any]?) {
+func emitDecision(_ behavior: String, answers: [String]?, originalInput: [String: Any]?, permissions: [String]? = nil) {
     var decision: [String: Any] = ["behavior": behavior]
+    if source != "codex", let permissions {
+        decision["updatedPermissions"] = permissions.compactMap {
+            try? JSONSerialization.jsonObject(with: Data($0.utf8))
+        }
+    }
     if source != "codex", let answers, var input = originalInput {
         input["answers"] = answers.map { [$0] } // one selected label per question
         decision["updatedInput"] = input
@@ -185,7 +190,8 @@ if event == "PermissionRequest" {
                         termMeta: termMeta.isEmpty ? nil : termMeta,
                         model: lastAssistantModel(transcript),
                         gitBranch: permGit.branch, gitDirty: permGit.dirty,
-                        sessionId: sessionId)
+                        sessionId: sessionId,
+                        suggestions: parseSuggestions(obj))
     let reply = IPCClient.send(msg)
     if reply == nil, ProcessInfo.processInfo.environment["VIBENOTCH_SOCKET"] == nil {
         // Evidence trail for "the notch missed a permission": app unreachable
@@ -208,7 +214,7 @@ if event == "PermissionRequest" {
         }
     }
     switch reply?.decision.agentBehavior {
-    case .allow: emitDecision("allow", answers: reply?.answers, originalInput: toolInput)
+    case .allow: emitDecision("allow", answers: reply?.answers, originalInput: toolInput, permissions: reply?.permissions)
     case .deny: emitDecision("deny", answers: nil, originalInput: nil)
     default: break // no output → defer to the agent's own permission flow (fail-open)
     }
@@ -225,7 +231,7 @@ case "PreToolUse":            activityDetail = summarize(toolInput)
 case "PostToolUse",
      "PostToolUseFailure":    activityDetail = toolOutput(obj).map { String($0.prefix(1200)) }
 case "Notification":          activityDetail = obj["message"] as? String
-case "Stop", "StopFailure":   activityDetail = lastAssistantText(transcript).map { String($0.prefix(1200)) }
+case "Stop", "StopFailure":   activityDetail = lastAssistantText(transcript).map { String($0.prefix(6000)) }
 case "SessionStart", "UserPromptSubmit", "SessionEnd",
      "SubagentStart", "SubagentStop", "PreCompact": activityDetail = nil
 default:                      exit(0) // ignore anything else

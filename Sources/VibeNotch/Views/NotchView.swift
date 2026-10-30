@@ -170,6 +170,13 @@ struct CompactTrailing: View {
                 // shared screen: a lock instead of the count — no info leaked
                 Image(systemName: "lock.fill").font(VNFont.ui(8))
                     .foregroundStyle(VNColor.amber)
+            } else if needsYou > 0 {
+                // something is waiting on you — amber, and the number is what's waiting
+                Text("\(needsYou)")
+                    .font(VNFont.ui(10.5, .bold)).monospacedDigit()
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 5).background(VNColor.amber, in: Capsule())
+                    .accessibilityLabel("\(needsYou) waiting for you")
             } else if count > 0 {
                 Text("\(count)")
                     .font(VNFont.ui(10.5, .semibold))
@@ -185,6 +192,7 @@ struct CompactTrailing: View {
         .padding(.horizontal, 2)
     }
     private var count: Int { max(store.pending.count, store.activeSessions.count) }
+    private var needsYou: Int { store.pending.count + store.activeSessions.filter { $0.event == "Notification" }.count }
 }
 
 /// Tiny live mic-level meter for the dictation pill.

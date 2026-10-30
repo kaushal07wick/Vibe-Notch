@@ -56,6 +56,7 @@ final class EventStore: ObservableObject {
     struct PendingUndo {
         let approval: PendingApproval
         let decision: VNDecision
+        var permissions: [String]? = nil
         let task: Task<Void, Never>
     }
     @Published var undo: PendingUndo?
@@ -263,22 +264,22 @@ final class EventStore: ObservableObject {
         saveSessions()
     }
 
-    func resolve(_ approval: PendingApproval, _ decision: VNDecision) {
+    func resolve(_ approval: PendingApproval, _ decision: VNDecision, permissions: [String]? = nil) {
         pending.removeAll { $0.id == approval.id }
         if pending.isEmpty { escalated = false }
 
         let hold = VNSettings.undoSeconds
-        guard hold > 0 else { commit(approval, decision); return }
+        guard hold > 0 else { commit(approval, decision, permissions: permissions); return }
         // Hold the reply so the click can be undone; the agent just waits.
         let task = Task { [weak self] in
             try? await Task.sleep(for: .seconds(hold))
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                self?.commit(approval, decision)
+                self?.commit(approval, decision, permissions: permissions)
                 self?.undo = nil
             }
         }
-        undo = PendingUndo(approval: approval, decision: decision, task: task)
+        undo = PendingUndo(approval: approval, decision: decision, permissions: permissions, task: task)
     }
 
     /// Quit-time flush: a held undo commits (the user did decide); undecided
@@ -287,7 +288,7 @@ final class EventStore: ObservableObject {
     func flushForShutdown() {
         if let held = undo {
             held.task.cancel()
-            commit(held.approval, held.decision)
+            commit(held.approval, held.decision, permissions: held.permissions)
             undo = nil
         }
         for approval in pending { approval.reply(VNReply(decision: .ask)) }
@@ -315,7 +316,7 @@ final class EventStore: ObservableObject {
     }
 
     /// Apply side effects and actually answer the agent.
-    private func commit(_ approval: PendingApproval, _ decision: VNDecision, answers: [String]? = nil) {
+    private func commit(_ approval: PendingApproval, _ decision: VNDecision, answers: [String]? = nil, permissions: [String]? = nil) {
         let policy = Policies.policy(for: approval.inbound.cwd, in: Policies.load())
         switch decision {
         case .alwaysAllow where approval.inbound.host != nil || !policy.alwaysAllow:
@@ -331,7 +332,7 @@ final class EventStore: ObservableObject {
         default:
             break
         }
-        approval.reply(VNReply(decision: decision, answers: answers))
+        approval.reply(VNReply(decision: decision, answers: answers, permissions: permissions))
         StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
         UserHooks.fire("approval", ["decision": decision.rawValue,
                                     "tool": approval.inbound.tool ?? "",

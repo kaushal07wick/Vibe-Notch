@@ -49,6 +49,7 @@ public struct VNInbound: Codable, Sendable {
     public var tokensOut: Int?             // output tokens of the latest turn
     public var sessionId: String?
     public var todos: [VNTodo]?            // Claude's TodoWrite checklist (full list each time)
+    public var suggestions: [VNSuggestion]? // Claude's own "don't ask again" choices for this prompt
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
@@ -59,7 +60,8 @@ public struct VNInbound: Codable, Sendable {
                 termMeta: [String: String]? = nil,
                 model: String? = nil, host: String? = nil,
                 gitBranch: String? = nil, gitDirty: Bool? = nil,
-                tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil, todos: [VNTodo]? = nil) {
+                tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil, todos: [VNTodo]? = nil,
+                suggestions: [VNSuggestion]? = nil) {
         self.v = VNProtocol.version
         self.hookVersion = VNProtocol.build
         self.type = type
@@ -87,7 +89,16 @@ public struct VNInbound: Codable, Sendable {
         self.tokensOut = tokensOut
         self.sessionId = sessionId
         self.todos = todos
+        self.suggestions = suggestions
     }
+}
+
+/// One of Claude's permission_suggestions: a button label plus the raw JSON entry,
+/// echoed back verbatim as `updatedPermissions` when the user picks it.
+public struct VNSuggestion: Codable, Sendable {
+    public var label: String
+    public var json: String
+    public init(label: String, json: String) { self.label = label; self.json = json }
 }
 
 /// One TodoWrite item. `status` is pending | in_progress | completed.
@@ -134,8 +145,11 @@ public struct VNReply: Codable, Sendable {
     public var decision: VNDecision
     /// Selected option label per question (AskUserQuestion), in question order.
     public var answers: [String]?
-    public init(decision: VNDecision, answers: [String]? = nil) {
+    /// Raw `permission_suggestions` entries the user chose (sent back as updatedPermissions).
+    public var permissions: [String]?
+    public init(decision: VNDecision, answers: [String]? = nil, permissions: [String]? = nil) {
         self.decision = decision
         self.answers = answers
+        self.permissions = permissions
     }
 }

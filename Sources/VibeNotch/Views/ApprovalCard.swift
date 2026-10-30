@@ -124,15 +124,25 @@ struct ApprovalCard: View {
     private var risk: Risk { RiskGrader.grade(tool: i.tool, detail: i.detail) }
 
     private var buttons: some View {
-        HStack(spacing: 8) {
-            WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
-            WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
-            // the app persists the rule itself (PermissionRules), so no agent suggestion is needed;
-            // not offered for remote sessions, which the store refuses anyway
-            if i.host == nil {
-                WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
+        VStack(spacing: 8) {
+            // the agent's own "don't ask again" choices, applied by the agent itself
+            if let picks = i.suggestions, !picks.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(Array(picks.prefix(2).enumerated()), id: \.offset) { _, pick in
+                        WideButton(title: pick.label, kind: .always) { store.resolve(approval, .allow, permissions: [pick.json]) }
+                    }
+                }
             }
-            WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
+            HStack(spacing: 8) {
+                WideButton(title: "Deny", kind: .deny) { store.resolve(approval, .deny) }
+                WideButton(title: "Allow Once", kind: .primary, hint: "^A") { store.resolve(approval, .allow) }
+                // no agent suggestion: the app persists the rule itself (PermissionRules);
+                // not offered for remote sessions, which the store refuses anyway
+                if i.suggestions?.isEmpty ?? true, i.host == nil {
+                    WideButton(title: "Always Allow", kind: .always) { store.resolve(approval, .alwaysAllow) }
+                }
+                WideButton(title: "Bypass", kind: .danger) { store.resolve(approval, .bypass) }
+            }
         }
     }
 

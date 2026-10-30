@@ -78,3 +78,26 @@ func parseTodos(_ input: [String: Any]?) -> [VNTodo]? {
         return VNTodo(content: content, status: $0["status"] as? String ?? "pending")
     }
 }
+
+/// Claude's permission_suggestions, each with a short button label.
+func parseSuggestions(_ obj: [String: Any]) -> [VNSuggestion]? {
+    let out = (obj["permission_suggestions"] as? [[String: Any]])?.compactMap { entry -> VNSuggestion? in
+        guard let data = try? JSONSerialization.data(withJSONObject: entry),
+              let json = String(data: data, encoding: .utf8) else { return nil }
+        let label: String
+        switch entry["type"] as? String {
+        case "addRules":
+            let rules = (entry["rules"] as? [[String: Any]])?.map { r -> String in
+                let tool = r["toolName"] as? String ?? "?"
+                return (r["ruleContent"] as? String).map { "\(tool)(\($0))" } ?? tool
+            }.joined(separator: ", ") ?? "this"
+            label = "Always: \(rules)"
+        case "setMode":
+            label = (entry["mode"] as? String) == "acceptEdits" ? "Auto-accept edits" : "Mode: \(entry["mode"] as? String ?? "?")"
+        default:
+            label = "Always allow"
+        }
+        return VNSuggestion(label: label, json: json)
+    }
+    return (out?.isEmpty ?? true) ? nil : out
+}

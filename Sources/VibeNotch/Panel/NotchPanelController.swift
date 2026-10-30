@@ -16,6 +16,7 @@ final class NotchPanelController {
     /// actually left the notch — otherwise a parked cursor loops expand/collapse.
     private var needsHoverExit = false
     private var recheckTask: Task<Void, Never>?
+    private var clickMonitor: Any?
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
 
@@ -41,6 +42,13 @@ final class NotchPanelController {
         cancellables.append(notch.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
+        // The panel is non-activating, so a click on a non-key panel is spent making it
+        // key and never reaches the button. Make it key first — only on a click, so
+        // hovering still never steals the user's typing.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            if let panel = self?.panelWindow, event.window === panel, !panel.isKeyWindow { panel.makeKey() }
+            return event
+        }
         // app switches change whether the agent's terminal is frontmost
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
