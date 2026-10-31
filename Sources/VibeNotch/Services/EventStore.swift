@@ -56,6 +56,8 @@ final class EventStore: ObservableObject {
     /// An open multiple-choice question in a live Codex session, and which of its questions is next.
     @Published var codexQuestion: CodexQuestion?
     @Published var codexQuestionStep = 0
+    /// A session whose turn just ended — the panel peeks at it for a few seconds.
+    @Published var justFinished: String?
     private var hiddenCodexCalls: Set<String> = []
 
     /// Sessions the user chose to Bypass — further requests auto-approve
@@ -494,6 +496,13 @@ final class EventStore: ObservableObject {
         }
 
         let wasWaiting = sessions[sid]?.event == "Notification"
+        if i.event == "Stop", sessions[sid]?.event != "Stop" {
+            justFinished = sid
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(4))
+                if self?.justFinished == sid { self?.justFinished = nil }
+            }
+        }
         if sessions[sid] == nil { StatsLog.bump("sessions") }
         var s = sessions[sid] ?? SessionActivity(sessionId: sid, source: i.source, event: i.event, startedAt: Date(), updatedAt: Date())
         s.source = i.source

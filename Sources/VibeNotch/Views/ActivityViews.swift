@@ -46,6 +46,7 @@ struct ActivityCard: View {
                         Text(sessionTitle(folder: s.folder, task: s.customTitle ?? s.task))
                             .font(VNFont.ui(12.5, .semibold)).lineLimit(1).truncationMode(.tail)
                         GitChip(branch: s.gitBranch, dirty: s.gitDirty)
+                        if let c = s.contextTokens { ContextChip(tokens: c) }
                     }
                     if let user = s.userMessage {
                         Text("You: \(user)").font(VNFont.ui(10.5)).foregroundStyle(VNColor.muted)
@@ -93,6 +94,11 @@ struct SessionStatusLine: View {
             HStack(spacing: 6) {
                 icon
                 Text(label).font(VNFont.ui(11.5, .medium)).foregroundStyle(labelColor)
+                if s.event == "Stop", let d = s.diffStat, d.count == 3 {
+                    (Text("\(d[0]) file\(d[0] == 1 ? "" : "s") ").foregroundStyle(VNColor.paper.opacity(0.7))
+                     + Text("+\(d[1]) ").foregroundStyle(VNColor.go) + Text("−\(d[2])").foregroundStyle(VNColor.stop))
+                        .font(VNFont.sysMono(10.5, .medium))
+                }
                 Spacer(minLength: 0)
                 if s.subagents > 0 {
                     Text("\(s.subagents) subagent\(s.subagents == 1 ? "" : "s")")
@@ -422,10 +428,10 @@ struct TodoProgress: View {
 /// How full the context window is — only shown once it matters (70%+), amber from 85%.
 struct ContextChip: View {
     let tokens: Int
+    // ponytail: window guessed from usage (200k, or 1M once past it); read the model's real limit if agents ever report it
+    static func percent(_ tokens: Int) -> Int { min(100, tokens * 100 / (tokens > 200_000 ? 1_000_000 : 200_000)) }
     var body: some View {
-        // ponytail: window guessed from usage (200k, or 1M once past it); read the model's real limit if agents ever report it
-        let window = tokens > 200_000 ? 1_000_000 : 200_000
-        let pct = min(100, tokens * 100 / window)
+        let pct = Self.percent(tokens)
         if pct >= 70 {
             let tint = pct >= 85 ? VNColor.amber : VNColor.paper.opacity(0.5)
             Text("ctx \(pct)%").font(VNFont.sysMono(9.5, .semibold)).foregroundStyle(tint)

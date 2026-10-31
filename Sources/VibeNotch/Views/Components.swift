@@ -308,6 +308,8 @@ struct PixelGhost: View {
     enum Mood { case idle, working, waiting }
     var mood: Mood
     var px: CGFloat = 1.5
+    /// Context nearly full: a drop runs down beside its head.
+    var sweat = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // b body · l highlight · d shade · o outline · p cheek · E/e eye (2x2: top/bottom)
@@ -332,7 +334,7 @@ struct PixelGhost: View {
 
     var body: some View {
         let px = max(1, (self.px * 2).rounded() / 2)
-        let moving = mood != .idle && !reduceMotion
+        let moving = (mood != .idle || sweat) && !reduceMotion
         TimelineView(.animation(minimumInterval: 0.2, paused: !moving)) { ctx in
             let t = ctx.date.timeIntervalSinceReferenceDate
             let beat = Int(t / 0.4)
@@ -358,8 +360,14 @@ struct PixelGhost: View {
                                with: .color(fill))
                     }
                 }
+                if sweat {   // a drop just off the right of the head, sliding down then resetting
+                    let y = CGFloat(2 + (reduceMotion ? 1 : beat % 4))
+                    c.fill(Path(CGRect(x: 12 * px, y: y * px, width: px, height: 2 * px)),
+                           with: .color(Color(red: 0.62, green: 0.86, blue: 1)))
+                    c.fill(Path(CGRect(x: 12 * px, y: y * px, width: px, height: px)), with: .color(.white.opacity(0.85)))
+                }
             }
-            .frame(width: 12 * px, height: 12 * px)
+            .frame(width: (sweat ? 13 : 12) * px, height: 12 * px)
         }
         .accessibilityHidden(true)
     }

@@ -131,6 +131,8 @@ struct ExpandedContent: View {
             ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1).id(approval.id)
         } else if let question = store.codexQuestion {
             CodexQuestionCard(store: store, question: question).id("\(question.id)-\(store.codexQuestionStep)")
+        } else if !store.hovering, let id = store.justFinished, let done = store.sessions[id] {
+            ActivityCard(store: store, sessions: [done], full: false, onDismiss: { store.dismiss(sessionId: $0) })
         } else {
             ActivityCard(store: store, sessions: store.activeSessions, full: store.hovering,
                          onDismiss: { store.dismiss(sessionId: $0) })
@@ -162,7 +164,8 @@ struct CompactLeading: View {
             let breathe = mood == .idle ? (0.45 + 0.2 * (tick / 6 % 2 == 0 ? 1 : 0)) : 1
             let color = mood == .waiting ? VNColor.amber : VNColor.running
             HStack(spacing: 4) {
-                PixelGhost(mood: mood == .waiting ? .waiting : mood == .working ? .working : .idle, px: 1.5)
+                PixelGhost(mood: mood == .waiting ? .waiting : mood == .working ? .working : .idle, px: 1.5,
+                           sweat: store.activeSessions.contains { ($0.contextTokens).map(ContextChip.percent) ?? 0 >= 85 })
                     .offset(x: dx, y: dy)
                     .opacity(breathe)
                 Circle().fill(color).frame(width: 4, height: 4)

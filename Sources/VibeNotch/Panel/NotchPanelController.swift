@@ -172,7 +172,9 @@ final class NotchPanelController {
         // smart suppression: if you're already looking at the agent's terminal,
         // the prompt is right in front of you — no popup (badge + hover still work)
         let suppressed = VNSettings.smartSuppression && !hovering && frontmostIsTerminal()
-        let want = (hasPending && !suppressed) || hovering
+        // ponytail: every finished turn peeks; add a setting if many parallel agents make it noisy
+        let peek = store.justFinished != nil && !hasPending
+        let want = ((hasPending || peek) && !suppressed) || hovering
 
         // Heartbeat while cards are pending: app-switch notifications can be
         // missed (Stage Manager, fast cmd-tab) — re-evaluate every second so
