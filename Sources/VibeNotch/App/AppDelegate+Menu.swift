@@ -1,7 +1,7 @@
 import AppKit
 import VibeNotchCore
 
-// The menu-bar menu: quick actions and the dynamic rules list. Pure
+// The menu-bar menu: quick actions only. Pure
 // construction — behaviors stay on AppDelegate.
 extension AppDelegate {
     /// Quick actions only. Everything configurable moved into Settings when the
@@ -14,41 +14,6 @@ extension AppDelegate {
         sound.target = self
         sound.state = SoundManager.shared.enabled ? .on : .off
         menu.addItem(sound)
-
-        // Rules manager: every allow-rule in ~/.claude, click to remove.
-        let rules = PermissionRules.listAllow(source: "claude")
-        if !rules.isEmpty {
-            let rulesItem = NSMenuItem(title: "Permission Rules (\(rules.count))", action: nil, keyEquivalent: "")
-            rulesItem.image = NSImage(systemSymbolName: "checkmark.shield", accessibilityDescription: nil)
-            let sub = NSMenu()
-            // Group by tool ("Bash(cd:*)" → Bash · cd), short titles, full rule on hover.
-            let groups = Dictionary(grouping: rules) { $0.split(separator: "(").first.map(String.init) ?? $0 }
-            for tool in groups.keys.sorted() {
-                let header = NSMenuItem(title: tool.uppercased(), action: nil, keyEquivalent: "")
-                header.isEnabled = false
-                header.attributedTitle = NSAttributedString(string: tool.uppercased(), attributes: [
-                    .font: NSFont.systemFont(ofSize: 10, weight: .semibold), .foregroundColor: NSColor.secondaryLabelColor,
-                ])
-                if !sub.items.isEmpty { sub.addItem(.separator()) }
-                sub.addItem(header)
-                for rule in groups[tool]!.sorted() {
-                    var label = rule
-                    if let open = rule.firstIndex(of: "("), rule.hasSuffix(")") {
-                        label = String(rule[rule.index(after: open)..<rule.index(before: rule.endIndex)])
-                        if label.hasSuffix(":*") { label = String(label.dropLast(2)) }
-                    }
-                    let title = label.count > 46 ? label.prefix(45) + "…" : label
-                    let item = NSMenuItem(title: String(title), action: #selector(removeRule(_:)), keyEquivalent: "")
-                    item.target = self
-                    item.indentationLevel = 1
-                    item.representedObject = rule
-                    item.toolTip = "\(rule)\nClick to remove this always-allow rule"
-                    sub.addItem(item)
-                }
-            }
-            rulesItem.submenu = sub
-            menu.addItem(rulesItem)
-        }
 
         let yoloActive = Date().timeIntervalSince1970 < VNSettings.yoloUntil
         let yoloTitle = yoloActive
@@ -89,12 +54,6 @@ extension AppDelegate {
     @objc private func toggleYolo() {
         let active = Date().timeIntervalSince1970 < VNSettings.yoloUntil
         VNSettings.yoloUntil = active ? 0 : Date().timeIntervalSince1970 + 1800
-    }
-
-
-    @objc private func removeRule(_ sender: NSMenuItem) {
-        guard let rule = sender.representedObject as? String else { return }
-        PermissionRules.removeAllowRule(source: "claude", rule: rule)
     }
 
 }
