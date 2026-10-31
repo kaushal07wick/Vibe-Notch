@@ -71,6 +71,20 @@ func gitInfo(_ cwd: String?) -> (branch: String?, dirty: Bool?) {
     return (branch, porcelain.map { !$0.isEmpty })
 }
 
+/// What the working tree changed vs HEAD: [files, lines added, lines removed]. Nil when clean
+/// or not a repo. Binary files count as files with no lines.
+func diffStat(_ cwd: String?) -> [Int]? {
+    guard let cwd, FileManager.default.fileExists(atPath: cwd + "/.git"),
+          let out = shell("/usr/bin/git", ["-C", cwd, "diff", "--numstat", "HEAD"]) else { return nil }
+    var files = 0, added = 0, removed = 0
+    for line in out.split(separator: "\n") {
+        let cols = line.split(separator: "\t")
+        guard cols.count >= 3 else { continue }
+        files += 1; added += Int(cols[0]) ?? 0; removed += Int(cols[1]) ?? 0
+    }
+    return files > 0 ? [files, added, removed] : nil
+}
+
 /// TodoWrite's checklist, if this tool call is one.
 func parseTodos(_ input: [String: Any]?) -> [VNTodo]? {
     (input?["todos"] as? [[String: Any]])?.compactMap {

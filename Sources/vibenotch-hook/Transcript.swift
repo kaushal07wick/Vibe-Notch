@@ -92,6 +92,20 @@ func userText(_ t: Transcript?, first: Bool) -> String? {
     return nil
 }
 
+/// How full the context window is: everything the newest assistant message was sent with.
+func latestContext(_ t: Transcript?) -> Int? {
+    for line in (t?.tailLines ?? []).reversed() {
+        guard let obj = Transcript.parse(line),
+              let msg = obj["message"] as? [String: Any],
+              (msg["role"] as? String) == "assistant",
+              let usage = msg["usage"] as? [String: Any] else { continue }
+        let total = ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
+            .compactMap { usage[$0] as? Int }.reduce(0, +)
+        return total > 0 ? total : nil
+    }
+    return nil
+}
+
 /// Token usage of the newest assistant message in the tail.
 func latestUsage(_ t: Transcript?) -> (input: Int?, output: Int?) {
     for line in (t?.tailLines ?? []).reversed() {

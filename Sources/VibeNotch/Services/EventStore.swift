@@ -35,6 +35,8 @@ struct SessionActivity: Identifiable, Codable {
     var console: [String] = []  // rolling terminal mirror (commands + output tails)
     var imagePath: String?      // last image a tool touched
     var todos: [VNTodo]?        // latest TodoWrite checklist
+    var contextTokens: Int?     // context window fill after the latest turn
+    var diffStat: [Int]?        // [files, added, removed] vs HEAD at the latest turn end
     var startedAt: Date
     var updatedAt: Date
     var id: String { sessionId }
@@ -510,6 +512,8 @@ final class EventStore: ObservableObject {
         if let dirty = i.gitDirty { s.gitDirty = dirty }
         if let img = i.imagePath { s.imagePath = img }
         if let todos = i.todos { s.todos = todos }
+        if let c = i.contextTokens { s.contextTokens = c }
+        if i.event == "Stop" { s.diffStat = i.diffStat }
         s.tokensIn += i.tokensIn ?? 0
         s.tokensOut += i.tokensOut ?? 0
         appendConsole(&s, from: i)

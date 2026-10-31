@@ -202,17 +202,13 @@ struct SessionRow: View {
                         StatusGlyph(event: s.event)
                         Text(sessionTitle(folder: s.folder, task: s.customTitle ?? s.task))
                             .font(VNFont.ui(13, .semibold)).lineLimit(1).truncationMode(.tail)
+                        if let c = s.contextTokens { ContextChip(tokens: c) }
                     }
                     if let user = s.userMessage {
                         Text("You: \(user)").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
                             .lineLimit(1).truncationMode(.tail)
                     }
-                    if let todos = s.todos, !todos.isEmpty {
-                        let done = todos.filter { $0.status == "completed" }.count
-                        let now = todos.first { $0.status == "in_progress" }?.content
-                        Text("☑ \(done)/\(todos.count)" + (now.map { " · \($0)" } ?? ""))
-                            .font(VNFont.ui(11)).foregroundStyle(VNColor.running).lineLimit(1).truncationMode(.tail)
-                    }
+                    if let todos = s.todos, !todos.isEmpty { TodoProgress(todos: todos) }
                     brief.font(VNFont.ui(11)).lineLimit(1).truncationMode(.tail)
                     LinkChipRow(text: s.detail, imagesOnly: true)
                 }
@@ -222,6 +218,7 @@ struct SessionRow: View {
             }
             .buttonStyle(.plain)
                 HStack(spacing: 5) {
+                    if s.event == "Stop", s.diffStat != nil, let cwd = s.cwd { diffButton(cwd) }
                     if let terminal = s.terminal { TerminalIcon(terminal: terminal) }
                     if hovering || replying { replyButton }
                     interruptButton
@@ -233,6 +230,21 @@ struct SessionRow: View {
         .accessibilityHint("Jumps to this session's terminal tab")
         .background(Color.white.opacity(hovering ? 0.05 : 0), in: RoundedRectangle(cornerRadius: 9))
         .onHover { hovering = $0 }
+    }
+
+    /// The turn's changes, as `git diff HEAD` in a new terminal tab.
+    private func diffButton(_ cwd: String) -> some View {
+        Button {
+            let quoted = "'" + cwd.replacingOccurrences(of: "'", with: "'\\''") + "'"
+            TerminalLauncher.run("cd \(quoted) && git diff HEAD", purpose: "showing the diff")
+        } label: {
+            Image(systemName: "plus.forwardslash.minus").font(VNFont.ui(10, .semibold))
+                .foregroundStyle(VNColor.paper.opacity(0.8))
+                .frame(width: 26, height: 26).background(Color.white.opacity(0.07), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Open this turn's diff in a terminal")
+        .accessibilityLabel("Show diff")
     }
 
     private var replyButton: some View {
@@ -293,7 +305,11 @@ struct SessionRow: View {
         case "StopFailure":
             return Text("Failed").foregroundStyle(VNColor.stop)
         case "Stop":
-            return Text(s.detail.map { String($0.prefix(80)) } ?? "Finished").foregroundStyle(VNColor.faint)
+            let summary = Text(s.detail.map { String($0.prefix(80)) } ?? "Finished").foregroundStyle(VNColor.faint)
+            guard let d = s.diffStat, d.count == 3 else { return summary }
+            return Text("\(d[0]) file\(d[0] == 1 ? "" : "s") ").foregroundStyle(VNColor.paper.opacity(0.75))
+                 + Text("+\(d[1]) ").foregroundStyle(VNColor.go) + Text("−\(d[2])").foregroundStyle(VNColor.stop)
+                 + Text("  ·  ").foregroundStyle(VNColor.faint) + summary
         case "UserPromptSubmit":
             return Text("Thinking…").foregroundStyle(VNColor.faint)
         default:
@@ -374,5 +390,48 @@ private struct InterruptButton: View {
         .onHover { hovering = $0 }
         .accessibilityLabel("Interrupt agent")
         .help("Interrupt (Esc)")
+    }
+}
+
+// MARK: - Todo progress, context fill
+
+/// TodoWrite as a slim bar: done/total, then what it's on now.
+struct TodoProgress: View {
+    let todos: [VNTodo]
+    var body: some View {
+        let done = todos.filter { $0.status == "completed" }.count
+        let now = todos.first { $0.status == "in_progress" }?.content
+        HStack(spacing: 7) {
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.1))
+                    Capsule().fill(VNColor.running)
+                        .frame(width: g.size.width * CGFloat(done) / CGFloat(max(1, todos.count)))
+                }
+            }
+            .frame(width: 54, height: 4)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: done)
+            Text("\(done)/\(todos.count)").font(VNFont.sysMono(10, .semibold)).foregroundStyle(VNColor.running)
+            if let now { Text(now).font(VNFont.ui(11)).foregroundStyle(VNColor.muted).lineLimit(1).truncationMode(.tail) }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(done) of \(todos.count) tasks done" + (now.map { ", now \($0)" } ?? ""))
+    }
+}
+
+/// How full the context window is — only shown once it matters (70%+), amber from 85%.
+struct ContextChip: View {
+    let tokens: Int
+    var body: some View {
+        // ponytail: window guessed from usage (200k, or 1M once past it); read the model's real limit if agents ever report it
+        let window = tokens > 200_000 ? 1_000_000 : 200_000
+        let pct = min(100, tokens * 100 / window)
+        if pct >= 70 {
+            let tint = pct >= 85 ? VNColor.amber : VNColor.paper.opacity(0.5)
+            Text("ctx \(pct)%").font(VNFont.sysMono(9.5, .semibold)).foregroundStyle(tint)
+                .padding(.horizontal, 5).padding(.vertical, 1)
+                .background(tint.opacity(0.14), in: Capsule())
+                .help(pct >= 85 ? "Context nearly full: consider /compact" : "Context window \(pct)% full")
+        }
     }
 }

@@ -50,6 +50,8 @@ public struct VNInbound: Codable, Sendable {
     public var sessionId: String?
     public var todos: [VNTodo]?            // Claude's TodoWrite checklist (full list each time)
     public var suggestions: [VNSuggestion]? // Claude's own "don't ask again" choices for this prompt
+    public var contextTokens: Int?         // tokens in the context window after the latest turn
+    public var diffStat: [Int]?            // working tree vs HEAD at turn end: [files, added, removed]
 
     public init(type: VNMessageType, source: String, event: String,
                 title: String? = nil, tool: String? = nil, detail: String? = nil,
@@ -61,7 +63,7 @@ public struct VNInbound: Codable, Sendable {
                 model: String? = nil, host: String? = nil,
                 gitBranch: String? = nil, gitDirty: Bool? = nil,
                 tokensIn: Int? = nil, tokensOut: Int? = nil, sessionId: String? = nil, todos: [VNTodo]? = nil,
-                suggestions: [VNSuggestion]? = nil) {
+                suggestions: [VNSuggestion]? = nil, contextTokens: Int? = nil, diffStat: [Int]? = nil) {
         self.v = VNProtocol.version
         self.hookVersion = VNProtocol.build
         self.type = type
@@ -90,6 +92,8 @@ public struct VNInbound: Codable, Sendable {
         self.sessionId = sessionId
         self.todos = todos
         self.suggestions = suggestions
+        self.contextTokens = contextTokens
+        self.diffStat = diffStat
     }
 }
 
