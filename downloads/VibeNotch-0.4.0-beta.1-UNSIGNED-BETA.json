@@ -1,0 +1,24 @@
+{
+  "version": "0.4.0-beta.1",
+  "channel": "unsigned-beta",
+  "public_signing_checks_passed": false,
+  "signing": "ad-hoc",
+  "notarized": false,
+  "full_xctest_passed_by_release_script": true,
+  "minimum_macos": "14.0",
+  "architecture": "arm64",
+  "source_commit": "cd0aa5c345bfcf0c866819746629c80e5b86eb54",
+  "source_dirty": false,
+  "artifacts": [
+    {
+      "file": "VibeNotch-0.4.0-beta.1-UNSIGNED-BETA.dmg",
+      "bytes": 2993583,
+      "sha256": "159c30e6544f7660fa0dffdc310306b1461af9c8973e2ce90d0c7badb5895382"
+    },
+    {
+      "file": "VibeNotch-0.4.0-beta.1-UNSIGNED-BETA-source.tar.gz",
+      "bytes": 2936605,
+      "sha256": "26ecbc8c0eb50c909a9bb7418b2c4fd7e35d80d7278654078b4f77ec198b5a15"
+    }
+  ]
+}
