@@ -404,7 +404,7 @@ struct CodexQuestionCard: View {
                     }
                     HStack(spacing: 8) {
                         Text("\(item.options.count + 1)").font(VNFont.sysMono(11, .semibold)).foregroundStyle(VNColor.faint)
-                        TextField("Other…", text: $other).textFieldStyle(.plain).font(VNFont.ui(11.8))
+                        TextField(item.options.isEmpty ? "Your answer…" : "Other…", text: $other).textFieldStyle(.plain).font(VNFont.ui(11.8))
                             .onSubmit { send(other) }
                         if !other.isEmpty {
                             Button("Send") { send(other) }.buttonStyle(.plain)
@@ -416,7 +416,15 @@ struct CodexQuestionCard: View {
                 }
             }
             .scrollIndicators(.hidden).frame(maxHeight: 260).fixedSize(horizontal: false, vertical: true)
+            if let error = store.codexAnswerError {
+                Text(error).font(VNFont.ui(11)).foregroundStyle(VNColor.stop)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if store.sendingCodexAnswer {
+                Text("Sending to Codex…").font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
+            }
         }
+        .disabled(store.sendingCodexAnswer)
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
         .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
     }

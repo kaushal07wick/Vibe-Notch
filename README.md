@@ -66,8 +66,10 @@ message, what it's running right now, a rolling console mirror, git branch,
 and token usage.
 
 ❓ **Answer questions in place** — Claude's `AskUserQuestion` and Codex's
-multiple-choice prompts (including the ones Codex queues behind `⇧←`) show up
+multiple-choice prompts (including the ones Codex queues behind `⌥↑`) show up
 as cards. Click an option or press `⌘1`–`⌘9`; "Something else…" takes free text.
+Queued Codex answers go directly to the exact thread through its local daemon;
+the card advances only after delivery is acknowledged.
 
 ⚡ **Act without switching** — jump to the exact terminal tab (`^G`), send a
 quick reply ("continue", "yes", or your own text) straight into the agent's

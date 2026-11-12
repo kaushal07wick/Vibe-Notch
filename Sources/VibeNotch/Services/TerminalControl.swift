@@ -17,13 +17,13 @@ enum TerminalControl {
     }
 
     /// Completion means the terminal accepted the input, not that the agent finished it.
-    static func send(_ text: String, to s: SessionActivity, allowActiveTab: Bool = false) async -> Bool {
+    static func send(_ text: String, to s: SessionActivity, allowActiveTab: Bool = false, submit: Bool = true) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !trimmed.contains("\0"), s.host == nil else { return false }
         guard sending.insert(s.id).inserted else { return false }
         defer { sending.remove(s.id) }
         let plan = InjectionPlan.make(terminal: s.terminal, tty: s.tty,
-                                      meta: s.termMeta ?? [:], text: trimmed)
+                                      meta: s.termMeta ?? [:], text: trimmed, submit: submit)
         if plan.isSupported {
             if !plan.commands.isEmpty, !(await TerminalCommand.run(plan.commands)) { return false }
             if let script = plan.appleScript,
@@ -31,13 +31,13 @@ enum TerminalControl {
         } else {
             // ponytail: app-only terminals cannot identify a pane. Require an explicit
             // active-tab choice; add their pane APIs when available.
-            guard allowActiveTab, await sendByTyping(trimmed, to: s) else { return false }
+            guard allowActiveTab, await sendByTyping(trimmed, to: s, submit: submit) else { return false }
         }
         StatsLog.bump("replies")
         return true
     }
 
-    private static func sendByTyping(_ text: String, to s: SessionActivity) async -> Bool {
+    private static func sendByTyping(_ text: String, to s: SessionActivity, submit: Bool) async -> Bool {
         let plan = JumpPlan.make(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
         guard let bundleID = plan.bundleID,
               await TerminalJumper.focus(terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:]) else { return false }
@@ -53,7 +53,7 @@ enum TerminalControl {
             tell application "System Events"
                 if bundle identifier of first application process whose frontmost is true is not "\(bundleID)" then return "miss"
                 keystroke "\(escaped)"
-                key code 36
+                \(submit ? "key code 36" : "")
             end tell
             return "ok"
             """, purpose: "typing into the active terminal tab") == "ok"

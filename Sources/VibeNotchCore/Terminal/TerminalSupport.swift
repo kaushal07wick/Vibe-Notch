@@ -144,24 +144,24 @@ public struct InjectionPlan: Equatable, Sendable {
     public var isSupported: Bool { !commands.isEmpty || appleScript != nil }
 
     public static func make(terminal: String?, tty: String?,
-                            meta: [String: String], text: String) -> InjectionPlan {
+                            meta: [String: String], text: String, submit: Bool = true) -> InjectionPlan {
         var plan = InjectionPlan()
         if let pane = meta["TMUX_PANE"], let tmux = meta["TMUX"] {
             let socket = tmux.split(separator: ",").first.map(String.init) ?? ""
             plan.commands = [
                 ["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "-l", text],
-                ["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "Enter"],
             ]
+            if submit { plan.commands.append(["/usr/bin/env", "tmux", "-S", socket, "send-keys", "-t", pane, "Enter"]) }
             return plan
         }
         if let pane = meta["WEZTERM_PANE"] {
             plan.commands = [["/usr/bin/env", "wezterm", "cli", "send-text",
-                              "--pane-id", pane, "--no-paste", text + "\r"]]
+                              "--pane-id", pane, "--no-paste", text + (submit ? "\r" : "")]]
             return plan
         }
         if let window = meta["KITTY_WINDOW_ID"], let listen = meta["KITTY_LISTEN_ON"] {
             plan.commands = [["/usr/bin/env", "kitty", "@", "--to", listen, "send-text",
-                              "--match", "id:\(window)", text + "\r"]]
+                              "--match", "id:\(window)", text + (submit ? "\r" : "")]]
             return plan
         }
         guard let tty, TerminalCommand.validTTY(tty) else { return plan }
@@ -183,7 +183,7 @@ public struct InjectionPlan: Equatable, Sendable {
                     repeat with t in tabs of w
                         repeat with s in sessions of t
                             if tty of s is "\(device)" then
-                                tell s to write text "\(escaped)"
+                                tell s to write text "\(escaped)"\(submit ? "" : " newline NO")
                                 return "ok"
                             end if
                         end repeat
@@ -192,6 +192,7 @@ public struct InjectionPlan: Equatable, Sendable {
             end tell
             """
         case "Terminal":
+            guard submit else { return plan }
             plan.appleScript = """
             tell application "Terminal"
                 repeat with w in windows

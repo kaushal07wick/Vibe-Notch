@@ -56,6 +56,8 @@ final class EventStore: ObservableObject {
     /// An open multiple-choice question in a live Codex session, and which of its questions is next.
     @Published var codexQuestion: CodexQuestion?
     @Published var codexQuestionStep = 0
+    @Published var sendingCodexAnswer = false
+    @Published var codexAnswerError: String?
     /// A session whose turn just ended — the panel peeks at it for a few seconds.
     @Published var justFinished: String?
     private var hiddenCodexCalls: Set<String> = []
@@ -125,6 +127,7 @@ final class EventStore: ObservableObject {
     }
 
     private func pollCodexQuestions() {
+        guard !sendingCodexAnswer else { return }
         guard sessions.values.contains(where: { $0.source == "codex" && liveIDs.contains($0.id) }) else {
             if codexQuestion != nil { codexQuestion = nil }
             return
@@ -133,37 +136,59 @@ final class EventStore: ObservableObject {
             let found = CodexQuestionWatcher.scan()
             await MainActor.run { [weak self] in
                 guard let self else { return }
+                guard !self.sendingCodexAnswer else { return }
                 let live = self.sessions.values.filter { $0.source == "codex" && self.liveIDs.contains($0.id) }
-                let match = found.first { q in !self.hiddenCodexCalls.contains(q.id) && live.contains { $0.cwd == q.cwd } }
-                if match?.id != self.codexQuestion?.id { self.codexQuestionStep = 0 }
+                let match = found.first { q in !self.hiddenCodexCalls.contains(q.id) && live.contains { $0.id == q.sessionID } }
+                if match?.id != self.codexQuestion?.id || match?.items != self.codexQuestion?.items {
+                    self.codexQuestionStep = 0
+                    self.codexAnswerError = nil
+                }
                 if self.codexQuestion != match { self.codexQuestion = match }
             }
         }
     }
 
-    /// The live Codex session a question belongs to (matched by working directory).
+    /// Folders are shared by multiple CLIs; only the transcript's session ID identifies the owner.
     func codexSession(for q: CodexQuestion) -> SessionActivity? {
-        sessions.values.filter { $0.source == "codex" && $0.cwd == q.cwd && liveIDs.contains($0.id) }
-            .max { $0.updatedAt < $1.updatedAt }
+        guard let session = sessions[q.sessionID], session.source == "codex", liveIDs.contains(session.id) else { return nil }
+        return session
     }
 
-    /// Types the choice into Codex's own prompt, then moves to the next question (or hides the card).
+    /// Advance only after Codex acknowledges the reply (or the legacy terminal accepts it).
     func answerCodex(_ q: CodexQuestion, option index: Int, text: String? = nil) {
-        guard let session = codexSession(for: q) else { return }
-        let openFirst = q.async && codexQuestionStep == 0
+        guard !sendingCodexAnswer, codexQuestion == q,
+              let session = codexSession(for: q), session.host == nil,
+              q.items.indices.contains(codexQuestionStep),
+              let reply = q.reply(step: codexQuestionStep, option: index, text: text) else { return }
+        let step = codexQuestionStep
+        sendingCodexAnswer = true
+        codexAnswerError = nil
         Task {
-            if openFirst {   // async questions wait behind "⇧← to answer"
-                _ = await TerminalControl.press(tmux: "S-Left", keyCode: 123, shift: true, in: session, purpose: "opening Codex's question")
-                try? await Task.sleep(for: .milliseconds(350))
+            let sent: Bool
+            if q.async {
+                sent = await CodexQuestionResponder.send(reply, sessionID: q.sessionID)
+            } else if let text {
+                // Tab focuses the legacy prompt's notes without submitting a numbered choice first.
+                let focused: Bool
+                if q.items[step].options.isEmpty { focused = true }
+                else { focused = await TerminalControl.press(
+                    tmux: "Tab", keyCode: 48, in: session, purpose: "editing Codex's answer") }
+                if focused {
+                    sent = await TerminalControl.send(text, to: session, allowActiveTab: true)
+                } else { sent = false }
+            } else {
+                // Number keys select AND submit; an extra Enter would answer the next question too.
+                sent = await TerminalControl.send("\(index + 1)", to: session, allowActiveTab: true, submit: false)
             }
-            _ = await TerminalControl.send("\(index + 1)", to: session, allowActiveTab: true)
-            if let text, !text.isEmpty {
-                try? await Task.sleep(for: .milliseconds(450))
-                _ = await TerminalControl.send(text, to: session, allowActiveTab: true)
+            sendingCodexAnswer = false
+            guard codexQuestion?.id == q.id else { return }
+            guard sent else {
+                codexAnswerError = "Couldn’t deliver the answer to Codex. Your answer is still here; try again."
+                return
             }
+            codexQuestionStep += 1
+            if codexQuestionStep >= q.items.count { hideCodexQuestion(q) }
         }
-        codexQuestionStep += 1
-        if codexQuestionStep >= q.items.count { hideCodexQuestion(q) }
     }
 
     func hideCodexQuestion(_ q: CodexQuestion) {
