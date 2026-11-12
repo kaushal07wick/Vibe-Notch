@@ -5,17 +5,23 @@ import VibeNotchCore
 /// One session → detail card; several + hover → the SESSIONS list.
 struct ActivityCard: View {
     @ObservedObject var store: EventStore
+    @Environment(\.vnInterfaceStyle) private var interfaceStyle
     let sessions: [SessionActivity]
     let full: Bool
     var onDismiss: (String) -> Void = { _ in }
 
     var body: some View {
-        if sessions.isEmpty {
-            idlePill
-        } else if sessions.count > 1 && full {
-            listCard
-        } else {
-            singleCard(sessions[0])
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            if interfaceStyle != .classic {
+                StyledSessionBoard(store: store, sessions: sessions, full: full, style: interfaceStyle,
+                                   now: context.date, onDismiss: onDismiss)
+            } else if sessions.isEmpty {
+                idlePill
+            } else if sessions.count > 1 && full {
+                listCard(at: context.date)
+            } else {
+                singleCard(sessions[0], at: context.date)
+            }
         }
     }
 
@@ -25,19 +31,20 @@ struct ActivityCard: View {
         HStack(spacing: 12) {
             PixelGhost(mood: .idle, px: 2)
             VStack(alignment: .leading, spacing: 2) {
-                Text("vibe-notch").font(VNFont.ui(13, .semibold))
-                Text(AgentConnections.anyConnected ? "no active sessions" : "not connected")
+                Text("Ready when you are").font(VNFont.ui(13, .semibold))
+                Text(AgentConnections.anyConnected ? "Start a coding session to see it here." : "Connect your agents in Settings → Integrations.")
                     .font(VNFont.ui(11)).foregroundStyle(VNColor.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
         }
-        .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: 260)
+        .padding(EdgeInsets(top: 4, leading: 16, bottom: 10, trailing: 16))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Single session
 
-    private func singleCard(_ s: SessionActivity) -> some View {
+    private func singleCard(_ s: SessionActivity, at now: Date) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 10) {
                 AgentIcon(source: s.source, size: 22)
@@ -54,21 +61,23 @@ struct ActivityCard: View {
                     }
                 }
                 Spacer(minLength: 8)
-                PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:])
+                PillCluster(source: s.source, terminal: s.terminal, tty: s.tty, meta: s.termMeta ?? [:],
+                            showJump: s.terminal != nil)
+                SessionTimelineButton { store.timelineSessionID = s.id }
             }
-            SessionStatusLine(s: s, full: full)
+            SessionStatusLine(s: s, full: full, phase: store.phase(for: s, now: now))
         }
         .padding(EdgeInsets(top: 2, leading: 16, bottom: 8, trailing: 16))
-        .frame(width: CGFloat(VNSettings.panelWidth) - 20, alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth - 20, alignment: .leading)
             }
 
     // MARK: Session list
 
-    private var listCard: some View {
+    private func listCard(at now: Date) -> some View {
         VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(sessions.enumerated()), id: \.element.id) { index, s in
-                        SessionRow(s: s, onDismiss: onDismiss)
+                        SessionRow(store: store, s: s, phase: store.phase(for: s, now: now), onDismiss: onDismiss)
                         if index < sessions.count - 1 {
                             Rectangle().fill(Color.white.opacity(0.055))
                                 .frame(height: 1)
@@ -77,7 +86,7 @@ struct ActivityCard: View {
                 }
         }
         .padding(EdgeInsets(top: 2, leading: 0, bottom: 8, trailing: 0))
-        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth, alignment: .leading)
     }
 }
 
@@ -88,13 +97,15 @@ struct ActivityCard: View {
 struct SessionStatusLine: View {
     let s: SessionActivity
     let full: Bool
+    let phase: SessionPhase
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                icon
-                Text(label).font(VNFont.ui(11.5, .medium)).foregroundStyle(labelColor)
-                if s.event == "Stop", let d = s.diffStat, d.count == 3 {
+                StatusGlyph(phase: phase, size: 10)
+                Text(phase.statusText(event: s.event, tool: s.tool))
+                    .font(VNFont.ui(11.5, .medium)).foregroundStyle(phase.tint)
+                if phase == .completed, let d = s.diffStat, d.count == 3 {
                     (Text("\(d[0]) file\(d[0] == 1 ? "" : "s") ").foregroundStyle(VNColor.paper.opacity(0.7))
                      + Text("+\(d[1]) ").foregroundStyle(VNColor.go) + Text("−\(d[2])").foregroundStyle(VNColor.stop))
                         .font(VNFont.sysMono(10.5, .medium))
@@ -125,39 +136,6 @@ struct SessionStatusLine: View {
         }
     }
 
-    @ViewBuilder private var icon: some View {
-        switch s.event {
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit", "PreCompact": PixelRingSpinner(color: VNColor.running)
-        case "Notification": Image(systemName: "hourglass").font(VNFont.ui(10)).foregroundStyle(VNColor.amber)
-        case "Stop": Image(systemName: "checkmark.circle.fill").font(VNFont.ui(10)).foregroundStyle(VNColor.go)
-        case "PostToolUseFailure", "StopFailure":
-            Image(systemName: "xmark.circle.fill").font(VNFont.ui(10)).foregroundStyle(VNColor.stop)
-        default: Circle().fill(VNColor.faint).frame(width: 5, height: 5)
-        }
-    }
-
-    private var label: String {
-        switch s.event {
-        case "PreToolUse": return "Running \(s.tool ?? "tool")"
-        case "PostToolUse": return s.tool ?? "Output"
-        case "PostToolUseFailure": return "\(s.tool ?? "Tool") failed"
-        case "StopFailure": return "Failed"
-        case "Notification": return s.detail ?? "Waiting for input"
-        case "Stop": return "Finished"
-        case "UserPromptSubmit": return "Thinking…"
-        case "PreCompact": return "Compacting context…"
-        default: return "Working…"
-        }
-    }
-
-    private var labelColor: Color {
-        switch s.event {
-        case "Notification": return VNColor.amber
-        case "Stop": return VNColor.go
-        case "PostToolUseFailure", "StopFailure": return VNColor.stop
-        default: return VNColor.text
-        }
-    }
 }
 
 /// A terminal-style block — the tail of the real command output/message, in mono.
@@ -185,7 +163,10 @@ struct TerminalBlock: View {
 
 /// A compact row per session — tap to jump to its terminal; the bin dismisses it.
 struct SessionRow: View {
+    @Environment(\.vnInterfaceStyle) private var interfaceStyle
+    @ObservedObject var store: EventStore
     let s: SessionActivity
+    let phase: SessionPhase
     var onDismiss: (String) -> Void = { _ in }
     @State private var hovering = false
     @State private var replying = false
@@ -205,7 +186,7 @@ struct SessionRow: View {
                 AgentIcon(source: s.source, size: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        StatusGlyph(event: s.event)
+                        StatusGlyph(phase: phase)
                         Text(sessionTitle(folder: s.folder, task: s.customTitle ?? s.task))
                             .font(VNFont.ui(13, .semibold)).lineLimit(1).truncationMode(.tail)
                         if let c = s.contextTokens { ContextChip(tokens: c) }
@@ -223,14 +204,21 @@ struct SessionRow: View {
               .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .disabled(s.terminal == nil)
                 HStack(spacing: 5) {
-                    if s.event == "Stop", s.diffStat != nil, let cwd = s.cwd { diffButton(cwd) }
+                    SessionTimelineButton { store.timelineSessionID = s.id }
+                    if phase == .completed, s.diffStat != nil, let cwd = s.cwd { diffButton(cwd) }
                     if let terminal = s.terminal { TerminalIcon(terminal: terminal) }
-                    if hovering || replying { replyButton }
-                    interruptButton
+                    if TerminalControl.canReply(to: s) {
+                        if hovering || replying { replyButton }
+                        if phase.isBusy { interruptButton }
+                    }
                 }
         }
-        .padding(EdgeInsets(top: 9, leading: 18, bottom: 9, trailing: 18))
+        .padding(EdgeInsets(top: interfaceStyle == .focus ? 12 : 9,
+                            leading: interfaceStyle == .classic ? 18 : 12,
+                            bottom: interfaceStyle == .focus ? 12 : 9,
+                            trailing: interfaceStyle == .classic ? 18 : 12))
         .contentShape(Rectangle())
         .buttonStyle(.plain)
         .accessibilityHint("Jumps to this session's terminal tab")
@@ -293,34 +281,22 @@ struct SessionRow: View {
     }
 
     private var interruptButton: some View {
-        InterruptButton(running: ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains(s.event)) {
+        InterruptButton(running: phase == .working) {
             Task { _ = await TerminalControl.interrupt(s) }
         }
     }
 
-    /// Activity line — tool name in blue, arguments/reply in grey (inspo style).
+    /// Phase and detail share the same interpretation as the single-session card.
     private var brief: Text {
-        switch s.event {
-        case "PreToolUse", "PostToolUse":
-            return Text(s.tool ?? "Running").foregroundStyle(VNColor.running)
-                 + Text(" \(s.detail?.components(separatedBy: "\n").first ?? "")").foregroundStyle(VNColor.faint)
-        case "Notification":
-            return Text("Waiting for input").foregroundStyle(VNColor.amber)
-        case "PostToolUseFailure":
-            return Text("\(s.tool ?? "Tool") failed").foregroundStyle(VNColor.stop)
-        case "StopFailure":
-            return Text("Failed").foregroundStyle(VNColor.stop)
-        case "Stop":
-            let summary = Text(s.detail.map { String($0.prefix(80)) } ?? "Finished").foregroundStyle(VNColor.faint)
-            guard let d = s.diffStat, d.count == 3 else { return summary }
-            return Text("\(d[0]) file\(d[0] == 1 ? "" : "s") ").foregroundStyle(VNColor.paper.opacity(0.75))
-                 + Text("+\(d[1]) ").foregroundStyle(VNColor.go) + Text("−\(d[2])").foregroundStyle(VNColor.stop)
-                 + Text("  ·  ").foregroundStyle(VNColor.faint) + summary
-        case "UserPromptSubmit":
-            return Text("Thinking…").foregroundStyle(VNColor.faint)
-        default:
-            return Text("Working…").foregroundStyle(VNColor.faint)
+        let status = Text(phase.statusText(event: s.event, tool: s.tool)).foregroundStyle(phase.tint)
+        if phase == .completed, let d = s.diffStat, d.count == 3 {
+            return status + Text(" · \(d[0]) file\(d[0] == 1 ? "" : "s") ").foregroundStyle(VNColor.muted)
+                + Text("+\(d[1]) ").foregroundStyle(VNColor.go)
+                + Text("−\(d[2])").foregroundStyle(VNColor.stop)
         }
+        guard phase == .working || phase == .completed || phase == .failed,
+              let detail = s.detail?.components(separatedBy: "\n").first, !detail.isEmpty else { return status }
+        return status + Text(" · " + String(detail.prefix(100))).foregroundStyle(VNColor.faint)
     }
 }
 

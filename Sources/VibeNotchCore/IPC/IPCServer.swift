@@ -32,17 +32,25 @@ public final class IPCServer: @unchecked Sendable {
     }
 
     public func start() throws {
+        guard validUnixSocketPath(socketPath) else { throw VNError.socket("Unix socket path exceeds the platform limit") }
         unlink(socketPath)
         listenFD = socket(AF_UNIX, SOCK_STREAM, 0)
         guard listenFD >= 0 else { throw VNError.socket("socket() failed") }
+        var started = false
+        defer {
+            if !started { close(listenFD); listenFD = -1; unlink(socketPath) }
+        }
+        suppressBrokenPipeSignal(listenFD)
 
         var (addr, len) = makeUnixAddr(socketPath)
         let bound = withUnsafePointer(to: &addr) {
             $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(listenFD, $0, len) }
         }
         guard bound == 0 else { throw VNError.socket("bind() failed errno=\(errno)") }
+        guard chmod(socketPath, 0o600) == 0 else { throw VNError.socket("Could not restrict socket permissions") }
         guard listen(listenFD, 16) == 0 else { throw VNError.socket("listen() failed errno=\(errno)") }
 
+        started = true
         queue.async { [weak self] in self?.acceptLoop() }
     }
 
@@ -58,6 +66,7 @@ public final class IPCServer: @unchecked Sendable {
                 if errno == EINTR { continue }
                 break
             }
+            suppressBrokenPipeSignal(fd)
             queue.async { [weak self] in self?.handle(fd) }
         }
     }

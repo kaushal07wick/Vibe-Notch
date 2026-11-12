@@ -30,9 +30,11 @@ public enum IPCClient {
     /// Write one JSON line; optionally read one line back (bounded).
     private static func sendRaw(_ msg: VNInbound, socketPath: String,
                                 timeout: TimeInterval, expectReply: Bool) -> Data? {
+        guard validUnixSocketPath(socketPath) else { return nil }
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
+        suppressBrokenPipeSignal(fd)
 
         var (addr, len) = makeUnixAddr(socketPath)
         let connected = withUnsafePointer(to: &addr) {

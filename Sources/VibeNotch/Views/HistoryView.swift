@@ -210,7 +210,7 @@ struct HistoryList: View {
             }
         }
         .padding(EdgeInsets(top: 4, leading: 0, bottom: 10, trailing: 0))
-        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth, alignment: .leading)
     }
 }
 

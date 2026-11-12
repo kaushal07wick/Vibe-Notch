@@ -49,7 +49,7 @@ struct PaletteView: View {
             .padding(.top, 5)
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth, alignment: .leading)
         .onAppear {
             history = SessionHistory.load(limit: 10)
             focused = true

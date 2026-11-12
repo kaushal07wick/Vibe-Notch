@@ -23,6 +23,8 @@ final class NotchPanelController {
     private var trayAutoOpened = false
     /// Hover-only expansions self-dismiss after this dwell (VI: ~5s, ESC sooner).
     private var dwellTask: Task<Void, Never>?
+    private var appliedStyle: VNInterfaceStyle?
+    private var appliedReducedMotion: Bool?
 
     init(store: EventStore, usage: UsageModel) {
         self.store = store
@@ -33,13 +35,15 @@ final class NotchPanelController {
             compactLeading: { CompactLeading(store: store) },
             compactTrailing: { CompactTrailing(store: store) }
         )
-        // Springy morph — a little bounce on open/convert, a calm close.
-        notch.transitionConfiguration = .init(
-            // fast open — an approval must be actionable the instant it arrives
-            openingAnimation: .spring(response: 0.32, dampingFraction: 0.85),
-            closingAnimation: .spring(response: 0.26, dampingFraction: 0.92),
-            conversionAnimation: .spring(response: 0.34, dampingFraction: 0.85)
-        )
+        applyStyleMotion()
+        cancellables.append(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.applyStyleMotion() }
+            })
+        cancellables.append(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.applyStyleMotion() }
+            })
         cancellables.append(store.objectWillChange.sink { [weak self] in
             Task { @MainActor in self?.refresh() }
         })
@@ -82,6 +86,20 @@ final class NotchPanelController {
 
     /// The underlying panel (labs lock-screen attach).
     var panelWindow: NSWindow? { notch.windowController?.window }
+
+    private func applyStyleMotion() {
+        let style = VNInterfaceStyle.current
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard style != appliedStyle || reduced != appliedReducedMotion else { return }
+        appliedStyle = style
+        appliedReducedMotion = reduced
+        notch.transitionConfiguration = .init(
+            openingAnimation: reduced ? .easeOut(duration: 0.1) : style.openingAnimation,
+            closingAnimation: reduced ? .easeOut(duration: 0.1) : style.closingAnimation,
+            conversionAnimation: reduced ? .easeOut(duration: 0.1) :
+                (style == .classic ? .spring(response: 0.34, dampingFraction: 0.85) : style.contentAnimation)
+        )
+    }
 
     /// The screen the notch lives on. DynamicNotchKit defaults every call to
     /// `NSScreen.screens[0]`, which strands the notch on the built-in display

@@ -1,68 +1,112 @@
 #!/usr/bin/env bash
-# Release build → signed .app → dist/VibeNotch-<version>.dmg
-# Uses a Developer ID identity when available, else ad-hoc signs.
+# Default: signed and notarized. Unsigned public betas require an explicit flag.
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="$(plutil -extract CFBundleShortVersionString raw "$ROOT/Resources/Info.plist")"
-APP="$ROOT/.build/VibeNotch.app"
-DIST="$ROOT/dist"
-DMG="$DIST/VibeNotch-$VERSION.dmg"
-
 cd "$ROOT"
-python3 scripts/make-icon.py
+PREVIEW=false
+UNSIGNED_BETA=false
+BASE_VERSION="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+VERSION="${RELEASE_VERSION:-$BASE_VERSION-beta.1}"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --preview) PREVIEW=true; shift ;;
+    --unsigned-beta) UNSIGNED_BETA=true; shift ;;
+    --version) VERSION="${2:?--version requires a version}"; shift 2 ;;
+    *) echo "Usage: $0 [--preview | --unsigned-beta] [--version x.y.z-beta.n]" >&2; exit 2 ;;
+  esac
+done
+if $PREVIEW && $UNSIGNED_BETA; then echo "Choose preview or unsigned beta, not both." >&2; exit 2; fi
+if $UNSIGNED_BETA && [[ ! "$VERSION" =~ -beta\.[0-9]+$ ]]; then echo "Unsigned public builds must use a beta version." >&2; exit 2; fi
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]] || { echo "Invalid release version: $VERSION" >&2; exit 1; }
+[ "${VERSION%%-*}" = "$BASE_VERSION" ] || { echo "Release version must match Info.plist $BASE_VERSION." >&2; exit 1; }
+IDENTITY="${SIGNING_IDENTITY:-}"
+if ! $PREVIEW; then
+  [ -z "$(git status --porcelain)" ] || { echo "Public releases require a reviewed, committed, clean source tree. Use --preview for local validation." >&2; exit 1; }
+  [ "$(git describe --tags --exact-match HEAD 2>/dev/null || true)" = "v$VERSION" ] || { echo "Public releases require HEAD tagged v$VERSION." >&2; exit 1; }
+  if ! $UNSIGNED_BETA; then
+  if [ -z "$IDENTITY" ]; then
+    IDENTITY="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)"
+  fi
+  [ -n "$IDENTITY" ] && [ -n "${NOTARY_PROFILE:-}" ] || { echo "Developer ID Application signing and NOTARY_PROFILE are required. No public artifact was produced." >&2; exit 1; }
+  fi
+  ./scripts/check.sh
+fi
 ./scripts/bundle.sh release
-cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-mkdir -p "$APP/Contents/Resources/AgentIcons"
-cp "$ROOT/Resources/AgentIcons/"*.png "$APP/Contents/Resources/AgentIcons/"
-plutil -replace CFBundleIconFile -string AppIcon "$APP/Contents/Info.plist"
-
-ENTITLEMENTS="$ROOT/Resources/VibeNotch.entitlements"
-
-# Sign inside-out: helpers first, bundle last. `--deep` is not supported by
-# Apple for signing (only for verifying) and leaves nested binaries with the
-# wrong entitlements — which is how a notarized build ends up with working
-# menus and dead terminal jump / reply / model-switch.
-sign() {
-  codesign --force --timestamp --options runtime \
-    --entitlements "$ENTITLEMENTS" --sign "$1" "$2"
-}
-
-IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep -m1 'Developer ID Application' | sed -E 's/.*"(.+)"/\1/' || true)"
-if [ -n "$IDENTITY" ]; then
-  echo "Signing with: $IDENTITY"
-  for helper in "$APP/Contents/Helpers/"*; do sign "$IDENTITY" "$helper"; done
-  sign "$IDENTITY" "$APP"
-else
-  echo "No Developer ID found — ad-hoc signing."
-  echo "  Gatekeeper BLOCKS ad-hoc-signed apps downloaded from the internet."
-  echo "  Fine for local builds; a published DMG needs Developer ID + notarization."
-  # Ad-hoc can't carry a secure timestamp, and entitlements are meaningless
-  # without a real identity — sign plainly so the local build still runs.
-  for helper in "$APP/Contents/Helpers/"*; do codesign --force --sign - "$helper"; done
-  codesign --force --sign - --requirements '=designated => identifier "com.kaushalchoudhary.vibenotch"' "$APP"
-fi
-
+APP="$ROOT/.build/VibeNotch.app"
+python3 scripts/verify-bundle.py "$APP"
+python3 scripts/smoke-hook.py "$APP/Contents/Helpers/vibenotch-hook"
+DIST="$ROOT/dist"
 mkdir -p "$DIST"
-rm -f "$DMG"
-STAGE="$(mktemp -d)"
-cp -R "$APP" "$STAGE/VibeNotch.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Vibe Notch" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
-rm -rf "$STAGE"
-echo "Built $DMG"
-
-# Notarization is what stops macOS showing "VibeNotch is damaged and can't be
-# opened" to everyone who downloads the DMG. One-time setup:
-#   xcrun notarytool store-credentials vibenotch \
-#     --apple-id you@example.com --team-id TEAMID --password <app-specific-password>
-# then run with NOTARY_PROFILE=vibenotch.
-if [ -n "$IDENTITY" ] && [ -n "${NOTARY_PROFILE:-}" ]; then
-  echo "Notarizing…"
-  xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
-  xcrun stapler staple "$DMG"
-  echo "Notarized and stapled — this DMG opens cleanly on any Mac."
+STAGE="$(mktemp -d "$ROOT/.build/release-stage.XXXXXX")"
+trap 'rm -rf "$STAGE"' EXIT
+notarize() {
+  local artifact="$1" report="$2"
+  xcrun notarytool submit "$artifact" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json > "$report"
+  python3 - "$report" <<'PY'
+import json,sys
+r=json.load(open(sys.argv[1]))
+if r.get('status')!='Accepted': raise SystemExit('Notarization was not accepted. Review '+sys.argv[1]+' before distributing.')
+PY
+}
+if $PREVIEW; then
+  NAME="VibeNotch-$VERSION-LOCAL-PREVIEW"
+  echo "LOCAL PREVIEW ONLY: ad-hoc signed, not notarized, not suitable for a public download."
+elif $UNSIGNED_BETA; then
+  NAME="VibeNotch-$VERSION-UNSIGNED-BETA"
+  [ ! -e "$DIST/$NAME.dmg" ] || { echo "Release artifact already exists; refusing to replace it." >&2; exit 1; }
+  echo "UNSIGNED BETA: ad-hoc signed, not notarized. macOS may block first launch."
 else
-  echo "NOT notarized. This DMG will be blocked by Gatekeeper if downloaded."
-  echo "  Set NOTARY_PROFILE (and have a Developer ID) to notarize."
+  NAME="VibeNotch-$VERSION"
+  [ ! -e "$DIST/$NAME.dmg" ] || { echo "Release artifact already exists; refusing to replace it." >&2; exit 1; }
+  for binary in "$APP/Contents/Helpers/"* "$APP/Contents/MacOS/VibeNotch"; do
+    codesign --force --timestamp --options runtime --entitlements Resources/VibeNotch.entitlements --sign "$IDENTITY" "$binary"
+  done
+  codesign --force --timestamp --options runtime --entitlements Resources/VibeNotch.entitlements --sign "$IDENTITY" "$APP"
+  codesign --verify --deep --strict "$APP"
+  ditto -c -k --keepParent "$APP" "$STAGE/notarize.zip"
+  notarize "$STAGE/notarize.zip" "$DIST/$NAME-app-notary.json"
+  xcrun stapler staple "$APP"
+  xcrun stapler validate "$APP"
+  spctl --assess --type execute --verbose=2 "$APP"
 fi
+mkdir -p "$STAGE/disk"
+ditto "$APP" "$STAGE/disk/VibeNotch.app"
+ln -s /Applications "$STAGE/disk/Applications"
+if $PREVIEW; then
+  cat > "$STAGE/disk/READ ME.txt" <<'TEXT'
+Vibe Notch local preview
+
+This build is for local validation. It is ad-hoc signed and not notarized.
+It is not the public beta download. Do not publish it as a Gatekeeper-ready app.
+The production release process requires full tests, Developer ID, and notarization.
+TEXT
+fi
+if $UNSIGNED_BETA; then
+  cat > "$STAGE/disk/READ ME.txt" <<'TEXT'
+Vibe Notch unsigned beta
+
+This beta is ad-hoc signed, not Developer ID signed or notarized by Apple.
+macOS may block first launch because Apple cannot verify the developer.
+Download only from the official Vibe Notch website and verify the SHA-256 checksum.
+If you are uncomfortable with this limitation, wait for a signed release.
+
+Requires Apple Silicon and macOS 14 or newer. Drag VibeNotch.app to Applications.
+Source code and license notices accompany this release. Report issues without
+including private prompts, paths, credentials, or agent configuration files.
+TEXT
+fi
+DMG="$DIST/$NAME.dmg"
+hdiutil create -volname "Vibe Notch" -srcfolder "$STAGE/disk" -ov -format UDZO "$DMG" >/dev/null
+if ! $PREVIEW && ! $UNSIGNED_BETA; then
+  codesign --timestamp --sign "$IDENTITY" "$DMG"
+  notarize "$DMG" "$DIST/$NAME-dmg-notary.json"
+  xcrun stapler staple "$DMG"
+  xcrun stapler validate "$DMG"
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+fi
+if ! $PREVIEW; then
+  git archive --format=tar.gz --prefix="VibeNotch-$VERSION/" --output="$DIST/$NAME-source.tar.gz" HEAD
+fi
+python3 scripts/release-metadata.py "$DMG" --version "$VERSION" --preview "$PREVIEW" --unsigned-beta "$UNSIGNED_BETA"
+echo "Built $DMG"
+if $PREVIEW; then echo "Not published. Public signing, notarization, and fresh-machine validation remain required."; fi

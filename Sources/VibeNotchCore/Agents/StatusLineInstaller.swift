@@ -16,44 +16,71 @@ public enum StatusLineInstaller {
               let settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               let command = (settings["statusLine"] as? [String: Any])?["command"] as? String
         else { return false }
-        return command.contains(marker)
+        return command.contains(scriptURL.path)
     }
 
-    public static func installIfNeeded() {
-        guard let data = try? Data(contentsOf: settingsURL),
-              var settings = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        else { return }
-
-        let existing = (settings["statusLine"] as? [String: Any])?["command"] as? String
-        if existing?.contains(marker) == true {
-            try? writeScript(wrapping: currentWrappedCommand()) // refresh script only
-            return
+    /// Preparing a plan is read-only; Settings reviews it before applying.
+    public static func connectionPlan(connecting: Bool, settingsURL: URL? = nil,
+                                      scriptURL: URL? = nil) throws -> HookChangePlan {
+        let fm = FileManager.default
+        let settingsURL = settingsURL ?? Self.settingsURL
+        let scriptURL = scriptURL ?? Self.scriptURL
+        let before = fm.fileExists(atPath: settingsURL.path) ? try Data(contentsOf: settingsURL) : nil
+        var settings: [String: Any]
+        if let before {
+            guard let root = (try? JSONSerialization.jsonObject(with: before)) as? [String: Any] else {
+                throw HookChangePlan.ChangeError.invalidConfiguration(settingsURL.path)
+            }
+            settings = root
+        } else { settings = [:] }
+        if let line = settings["statusLine"], !(line is [String: Any]) {
+            throw HookChangePlan.ChangeError.invalidConfiguration(settingsURL.path)
         }
-        do {
-            try writeScript(wrapping: existing)
+        let originalURL = scriptURL.deletingLastPathComponent().appendingPathComponent("statusline-original.json")
+        let oldOriginal = fm.fileExists(atPath: originalURL.path) ? try Data(contentsOf: originalURL) : nil
+        let oldScript = fm.fileExists(atPath: scriptURL.path) ? try Data(contentsOf: scriptURL) : nil
+        let existing = settings["statusLine"] as? [String: Any]
+        let ours = (existing?["command"] as? String)?.contains(scriptURL.path) == true
+        var changes: [HookChangePlan.FileChange] = []
+        if connecting {
+            let original: [String: Any]?
+            if ours {
+                original = oldOriginal.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+            } else {
+                original = existing
+                let saved = try JSONSerialization.data(withJSONObject: existing as Any? ?? NSNull(), options: [.fragmentsAllowed, .sortedKeys])
+                changes.append(.init(url: originalURL, before: oldOriginal, after: saved))
+            }
+            let command = original?["command"] as? String ?? (ours ? currentWrappedCommand(scriptURL: scriptURL) : nil)
+            changes.append(.init(url: scriptURL, before: oldScript, after: Data(script(wrapping: command).utf8), executable: true))
             settings["statusLine"] = ["type": "command", "command": scriptURL.path]
-            let out = try JSONSerialization.data(
-                withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-            try out.write(to: settingsURL, options: .atomic)
-        } catch {
-            NSLog("VibeNotch: status line install failed: \(error)")
+        } else if ours {
+            if let oldOriginal, let original = try? JSONSerialization.jsonObject(with: oldOriginal, options: [.fragmentsAllowed]) {
+                if original is NSNull { settings.removeValue(forKey: "statusLine") }
+                else { settings["statusLine"] = original }
+            } else if let command = currentWrappedCommand(scriptURL: scriptURL) {
+                settings["statusLine"] = ["type": "command", "command": command]
+            } else { settings.removeValue(forKey: "statusLine") }
         }
+        let after = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        if connecting || ours { changes.append(.init(url: settingsURL, before: before, after: after)) }
+        return HookChangePlan(agentName: "Claude usage bridge", connecting: connecting, events: ["statusLine"], changes: changes)
     }
 
     /// The original command we wrapped, recovered from the script itself.
-    static func currentWrappedCommand() -> String? {
+    static func currentWrappedCommand(scriptURL: URL = StatusLineInstaller.scriptURL) -> String? {
         guard let text = try? String(contentsOf: scriptURL, encoding: .utf8),
               let line = text.components(separatedBy: "\n").first(where: { $0.hasPrefix("ORIG=") })
         else { return nil }
         let raw = String(line.dropFirst("ORIG=".count))
-        let unquoted = raw.trimmingCharacters(in: CharacterSet(charactersIn: "'"))
+        guard raw.hasPrefix("'"), raw.hasSuffix("'"), raw.count >= 2 else { return nil }
+        let unquoted = String(raw.dropFirst().dropLast()).replacingOccurrences(of: "'\\''", with: "'")
         return unquoted.isEmpty ? nil : unquoted
     }
 
-    static func writeScript(wrapping original: String?) throws {
-        try VNPaths.ensure()
+    private static func script(wrapping original: String?) -> String {
         let orig = (original ?? "").replacingOccurrences(of: "'", with: "'\\''")
-        let script = """
+        return """
         #!/bin/sh
         # vibenotch status line — tees Claude's rate limits to the usage cache,
         # then delegates to the user's original status line (or prints a default).
@@ -85,7 +112,5 @@ public enum StatusLineInstaller {
         '
         fi
         """
-        try script.write(to: scriptURL, atomically: true, encoding: .utf8)
-        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
     }
 }

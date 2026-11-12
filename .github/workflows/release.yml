@@ -1,23 +1,71 @@
-name: Release
+name: Prepare signed release
 on:
   push:
     tags: ["v*"]
-
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version matching the checked-out tag, for example 0.4.0-beta.1
+        required: true
+permissions:
+  contents: read
 jobs:
-  dmg:
+  signed-draft:
     runs-on: macos-15
+    timeout-minutes: 45
+    environment: release
     permissions:
       contents: write
+    env:
+      RELEASE_VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+      CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - name: Icon toolchain
-        run: pip3 install --break-system-packages pillow
-      - name: Build DMG
-        # CI has no signing identity — release.sh falls back to ad-hoc.
-        # Swap in Developer ID signing via secrets when available.
-        run: ./scripts/release.sh
-      - name: Publish release
+        with:
+          fetch-depth: 0
+      - name: Require signing credentials
+        shell: bash
+        run: |
+          for name in CERTIFICATE_P12 CERTIFICATE_PASSWORD APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD; do
+            [ -n "${!name}" ] || { echo "Missing release secret for $name. Unsigned public releases are disabled." >&2; exit 1; }
+          done
+          echo "RELEASE_VERSION=${RELEASE_VERSION#v}" >> "$GITHUB_ENV"
+      - name: Import release identity
+        shell: bash
+        run: |
+          keychain="$RUNNER_TEMP/vibenotch-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 32)"
+          printf '%s' "$CERTIFICATE_P12" | base64 -D > "$RUNNER_TEMP/developer-id.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/developer-id.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          xcrun notarytool store-credentials vibenotch-ci --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+          echo "NOTARY_PROFILE=vibenotch-ci" >> "$GITHUB_ENV"
+      - name: Test, sign, notarize and package
+        run: ./scripts/release.sh --version "$RELEASE_VERSION"
+      - name: Create draft for human review
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.dmg
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Vibe Notch ${{ env.RELEASE_VERSION }}
+          draft: true
+          prerelease: ${{ contains(env.RELEASE_VERSION, '-') }}
           generate_release_notes: true
+          files: |
+            dist/*.dmg
+            dist/*-source.tar.gz
+            dist/*.sha256
+            dist/*.json
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: |
+          security delete-keychain "$RUNNER_TEMP/vibenotch-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/developer-id.p12"

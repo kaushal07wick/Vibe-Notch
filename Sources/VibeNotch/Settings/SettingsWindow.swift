@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import VibeNotchCore
 
@@ -351,7 +352,7 @@ private struct GeneralPane: View {
                 SecondsField(value: VNSettings.undoSeconds, width: 44) { VNSettings.undoSeconds = $0 }
             }
             SettingRow(label: "Auto-approve safe list",
-                       caption: "Simple read-only commands (git status, ls, pwd…) approve silently.") {
+                       caption: "Opt-in command prefixes approve silently. Arguments can change behavior; review your list.") {
                 VNToggle(isOn: VNSettings.safeListEnabled) { VNSettings.safeListEnabled = $0 }
             }
             SettingRow(label: "Safe list", caption: "The patterns that qualify. Plain JSON.") {
@@ -428,33 +429,37 @@ private struct AgentRow: View {
                 Spacer(minLength: 12)
                 if !spec.isDetected {
                     Text("Not installed").font(.caption).foregroundStyle(.secondary)
-                } else if installer.isConnected {
-                    Label("Active", systemImage: "checkmark.circle.fill")
-                        .font(.caption).foregroundStyle(VNColor.go).labelStyle(.titleAndIcon)
                 } else {
-                    Label("Off", systemImage: "circle")
-                        .font(.caption).foregroundStyle(.secondary).labelStyle(.titleAndIcon)
+                    let health = installer.health
+                    Label(health.summary, systemImage: health.state == .configured ? "checkmark.circle.fill" : health.state == .needsRepair ? "exclamationmark.triangle.fill" : "circle")
+                        .font(.caption)
+                        .foregroundStyle(health.state == .configured ? VNColor.go : health.state == .needsRepair ? VNColor.amber : VNColor.muted)
+                    if health.state != .configured {
+                        Button(health.state == .needsRepair ? "Review repair…" : "Connect…") { toggle(to: true) }
+                            .controlSize(.small)
+                    }
+                    if !health.installedEvents.isEmpty {
+                        Button("Disconnect…") { toggle(to: false) }.controlSize(.small)
+                    }
                 }
-                Toggle("", isOn: Binding(
-                    get: { installer.isConnected },
-                    set: { on in toggle(to: on) }
-                ))
-                .labelsHidden().toggleStyle(.switch).controlSize(.small)
-                .disabled(!spec.isDetected)
+
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
+            if spec.isDetected {
+                Text(installer.health.issues.first ?? (installer.isConnected ? "Hook configuration is ready. Live activity appears when an agent sends an event." : "Review the config changes before connecting."))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 40).padding(.bottom, 8)
+            }
             if !isLast { Divider().opacity(0.35).padding(.leading, 12) }
         }
     }
 
     private func toggle(to on: Bool) {
         do {
-            if on {
-                let src = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
-                try installer.connect(hookBinarySource: src)
-            } else {
-                try installer.disconnect()
-            }
+            let source = on ? Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook") : nil
+            let plan = try installer.connectionPlan(connecting: on, hookBinarySource: source)
+            guard try HookConnectionReview.apply([plan]) else { return }
         } catch {
             let alert = NSAlert()
             alert.messageText = "Could not update \(spec.name)"
@@ -508,7 +513,10 @@ private struct DisplayPane: View {
     @State private var dwell = VNSettings.dwellSeconds
 
     var body: some View {
-
+        SectionCard(title: "Interface style",
+                    footnote: "Sample sessions above. Pick a style to update the notch immediately. Classic keeps the original look.") {
+            InterfaceStylePicker().padding(12)
+        }
         SectionCard(title: "Size",
                     footnote: "Everything in the panel scales together — text, pills and the mono blocks.") {
             SettingRow(label: "Content size",
@@ -622,15 +630,21 @@ private struct UsagePane: View {
                            ? "Connected. Your own status line output is unchanged — we only tee the rate-limit numbers."
                            : "Claude reports its limits to the status line. Vibe Notch wraps yours to read them.") {
                 if connected {
-                    Label("Connected", systemImage: "checkmark.circle.fill")
-                        .font(.caption).foregroundStyle(VNColor.go)
+                    Button("Disconnect…") { changeBridge(connecting: false) }.controlSize(.small)
                 } else {
-                    Button("Connect usage") {
-                        StatusLineInstaller.installIfNeeded()
-                        connected = StatusLineInstaller.isInstalled
-                    }.controlSize(.small)
+                    Button("Connect usage…") { changeBridge(connecting: true) }.controlSize(.small)
                 }
             }
+        }
+    }
+
+    private func changeBridge(connecting: Bool) {
+        do {
+            let plan = try StatusLineInstaller.connectionPlan(connecting: connecting)
+            if try HookConnectionReview.apply([plan]) { connected = StatusLineInstaller.isInstalled }
+        } catch {
+            let alert = NSAlert(); alert.messageText = "Could not update usage bridge"
+            alert.informativeText = error.localizedDescription; alert.runModal()
         }
     }
 }
@@ -977,12 +991,12 @@ private struct SSHPane: View {
 // MARK: - Labs
 
 private struct LabsPane: View {
-    @State private var port = VNSettings.dashboardPort
+    @State private var port = VNSettings.dashboardPort > 0 ? VNSettings.dashboardPort : 4141
     @State private var dashboardOn = VNSettings.dashboardPort > 0
 
     var body: some View {
         SectionCard(title: "Web dashboard",
-                    footnote: "Bound to 127.0.0.1 only. The page is read-only; approve/deny need a token printed to the log at startup.") {
+                    footnote: "Off by default. Read-only, bound to 127.0.0.1, and protected by a per-launch key. Open it with the button below.") {
             SettingRow(label: "Run the dashboard",
                        caption: "Sessions and pending approvals in a browser.") {
                 VNToggle(isOn: dashboardOn) { on in
@@ -1000,7 +1014,7 @@ private struct LabsPane: View {
                             AppDelegate.shared?.applyDashboardSetting()
                         }
                     Button("Open") {
-                        if let url = URL(string: "http://127.0.0.1:\(VNSettings.dashboardPort)") {
+                        if let address = AppDelegate.shared?.dashboard.authorizedURL, let url = URL(string: address) {
                             NSWorkspace.shared.open(url)
                         }
                     }
@@ -1036,7 +1050,8 @@ private struct AboutPane: View {
     private var version: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "v\(short) (\(build))"
+        let channel = Bundle.main.infoDictionary?["VNReleaseChannel"] as? String ?? ""
+        return "v\(short) \(channel) (\(build))"
     }
 
     var body: some View {
@@ -1068,18 +1083,16 @@ private struct AboutPane: View {
     }
 
     private func disconnectAll() {
-        let connected = Agents.all.filter { AgentHookInstaller($0).isConnected }
-        let alert = NSAlert()
-        alert.messageText = "Disconnect \(connected.count) agent\(connected.count == 1 ? "" : "s")?"
-        alert.informativeText = connected.isEmpty
-            ? "Nothing is connected right now."
-            : "Removes Vibe Notch's hooks from: " + connected.map(\.name).joined(separator: ", ")
-        alert.addButton(withTitle: "Disconnect")
-        alert.addButton(withTitle: "Cancel")
-        guard !connected.isEmpty, alert.runModal() == .alertFirstButtonReturn else { return }
-        for spec in connected { try? AgentHookInstaller(spec).disconnect() }
-        // Otherwise the next launch would helpfully wire them all back up.
-        VNSettings.autoConfigureAgents = false
+        do {
+            let connected = Agents.all.filter { AgentHookInstaller($0).health.state != .notConnected }
+            var plans = try connected.map { try AgentHookInstaller($0).connectionPlan(connecting: false) }
+            if StatusLineInstaller.isInstalled { plans.append(try StatusLineInstaller.connectionPlan(connecting: false)) }
+            guard !plans.isEmpty else { return }
+            if try HookConnectionReview.apply(plans) { VNSettings.autoConfigureAgents = false }
+        } catch {
+            let alert = NSAlert(); alert.messageText = "Could not disconnect agents"
+            alert.informativeText = error.localizedDescription; alert.runModal()
+        }
     }
 }
 

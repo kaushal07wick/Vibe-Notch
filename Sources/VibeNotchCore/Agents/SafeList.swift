@@ -31,7 +31,7 @@ public enum SafeList {
     public static func matches(_ command: String, patterns: [String]) -> Bool {
         let cmd = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cmd.isEmpty else { return false }
-        for dangerous in ["&&", "||", ";", "|", "`", "$(", ">", "<", "\n"] {
+        for dangerous in ["&", ";", "|", "`", "$(", ">", "<", "\n", "\r", "\0", "\\"] {
             if cmd.contains(dangerous) { return false }
         }
         return patterns.contains { cmd == $0 || cmd.hasPrefix($0 + " ") }

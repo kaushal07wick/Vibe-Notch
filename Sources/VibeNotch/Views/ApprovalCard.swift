@@ -44,7 +44,7 @@ struct ApprovalCard: View {
             }
         }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 10, trailing: 20))
-        .frame(width: CGFloat(VNSettings.panelWidth))
+        .frame(width: VNSettings.effectivePanelWidth)
         .background(riskTint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 4)
     }
@@ -425,8 +425,10 @@ struct CodexQuestionCard: View {
             }
         }
         .disabled(store.sendingCodexAnswer)
+        .onChange(of: item.index) { _, _ in other = "" }
+        .onChange(of: question.id) { _, _ in other = "" }
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
-        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth, alignment: .leading)
     }
 
     private func send(_ text: String) {

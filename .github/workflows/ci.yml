@@ -3,17 +3,34 @@ on:
   push:
     branches: [master]
   pull_request:
-
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build-and-test:
     runs-on: macos-15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Swift version
-        run: swift --version
-      - name: Build
-        run: swift build
-      - name: Test
-        run: swift test
-      - name: Test Codex question delivery
-        run: python3 -m unittest discover -s Tests -p 'test_codex_reply.py' -v
+      - name: Toolchain
+        run: |
+          uname -m
+          xcode-select -p
+          swift --version
+      - name: Full checks and XCTest
+        run: ./scripts/check.sh
+      - name: Build and verify bundle
+        run: |
+          ./scripts/bundle.sh release
+          python3 scripts/verify-bundle.py .build/VibeNotch.app
+          python3 scripts/smoke-hook.py .build/VibeNotch.app/Contents/Helpers/vibenotch-hook
+      - name: Export interface comparison
+        run: .build/VibeNotch.app/Contents/MacOS/VibeNotch --export-style-gallery .build/interface-styles.png
+      - name: Upload visual comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: interface-styles
+          path: .build/interface-styles.png

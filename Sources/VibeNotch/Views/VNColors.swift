@@ -4,18 +4,18 @@ import VibeNotchCore
 /// Palette matched to Open Island's spec — warm paper on near-black ink,
 /// tinted status/agent colors.
 enum VNColor {
-    static let paper = Color(hex: 0xF1EAD9)          // primary text
-    static let ink = Color(hex: 0x0D0D0F)            // panel ground
+    static var paper: Color { VNInterfaceStyle.current.text } // primary text
+    static var ink: Color { VNInterfaceStyle.current.surface } // panel ground
     static let ink2 = Color.white.opacity(0.06)      // badge / chip fill
     static let hair = Color.white.opacity(0.06)      // hairlines / borders
 
-    static let text = paper
-    static let muted = paper.opacity(0.52)
-    static let faint = paper.opacity(0.35)
+    static var text: Color { paper }
+    static var muted: Color { paper.opacity(0.52) }
+    static var faint: Color { paper.opacity(0.35) }
 
     // status
     static let go = Color(hex: 0x6FB982)             // completed
-    static let running = Color(hex: 0x6EA7FF)        // running
+    static var running: Color { VNInterfaceStyle.current.accent } // running
     static let amber = Color(hex: 0xE7A762)          // waiting
     static let stop = Color(hex: 0xF4A4A4)           // deny / approval
 
@@ -62,7 +62,7 @@ enum VNFont {
     }
     /// The panel's UI font. Same call shape as `.system(size:weight:)`.
     static func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: scaled(size), weight: weight)
+        .system(size: scaled(size), weight: weight, design: VNInterfaceStyle.current == .aurora ? .rounded : .default)
     }
     static func uiMono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .system(size: scaled(size), weight: weight, design: .monospaced)

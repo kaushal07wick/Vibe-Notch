@@ -32,4 +32,21 @@ final class TerminalCommandTests: XCTestCase {
             XCTAssertFalse(InjectionPlan.make(terminal: "Terminal", tty: tty, meta: [:], text: "hello").isSupported)
         }
     }
+    func testPrivateStdinAndEarlyPeerExitAreBounded() async {
+        let payload = Data("private fixture — नमस्ते\n".utf8)
+        let program = "import sys; sys.exit(0 if sys.stdin.buffer.read().decode() == 'private fixture — नमस्ते\\n' else 1)"
+        let delivered = await TerminalCommand.run([["/usr/bin/python3", "-c", program]], input: payload)
+        XCTAssertTrue(delivered)
+        let rejected = await TerminalCommand.run([["/usr/bin/false"]], timeout: 1,
+                                                 input: Data(repeating: 65, count: 1_000_000))
+        XCTAssertFalse(rejected, "A closed stdin must not crash or hang the caller")
+    }
+
+    func testTimeoutReturnsWhenChildIgnoresTermination() async {
+        let started = Date()
+        let result = await TerminalCommand.run([["/bin/sh", "-c", "trap '' TERM; while :; do :; done"]], timeout: 0.1)
+        XCTAssertFalse(result)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+    }
+
 }

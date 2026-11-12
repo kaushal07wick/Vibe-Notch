@@ -1,257 +1,133 @@
 <div align="center">
-
-<img src="docs/assets/icon.png" width="128" alt="Vibe Notch icon">
+<img src="docs/assets/icon.png" width="112" alt="Vibe Notch icon">
 
 # Vibe Notch
 
-### Mission control for your AI coding agents — right in the notch.
+Keep your coding agents in sight.
 
-Stop babysitting terminals. Approve, steer, and watch every agent
-from the one place your eyes already go.
+A native Mac app that brings agent activity, permission requests, and questions to your notch.
 
-[![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](Package.swift)
-[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](#build-from-source)
-[![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-native-333333?logo=apple&logoColor=white)](#build-from-source)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![No Electron](https://img.shields.io/badge/Electron-0%20KB-2ea44f)](#privacy--security)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6FB982.svg)](#contributing)
+[macOS 14+](#requirements) · Apple Silicon · Swift 6 · [GPL-3.0](LICENSE)
 
-<img src="docs/assets/expand.gif" width="640" alt="An approval arriving: the notch expands into the card, then settles back">
-
+<img src="docs/assets/expand.gif" width="640" alt="An approval opens from the notch">
 </div>
 
----
+## Public beta
 
-## The problem
+**0.4.0-beta.1** is distributed as an explicitly unsigned beta from [tryvibenotch.com](https://tryvibenotch.com). It is ad-hoc signed, not Developer ID signed or notarized. macOS may block first launch because Apple cannot verify the developer. A signed release is planned later. Files named `LOCAL-PREVIEW` remain local validation builds.
 
-You kick off Claude Code, switch to your browser, and three minutes later the
-agent has been sitting on *"Can I run `pnpm install`?"* — waiting, in a buried
-terminal tab, while you thought it was working.
+Keep the agent terminal available during the beta. Hook support, question delivery, and terminal navigation vary by agent version and terminal. Please report the agent version, macOS version, display model, and steps to reproduce when filing an issue. Redact prompts, commands, paths, and credentials from screenshots and logs.
 
-**Vibe Notch puts that moment in the notch.** The permission card appears where
-you're already looking; one click (or `^A`) and the agent is moving again.
+## What it does
 
-## What you get
+- **Activity at a glance.** See working, waiting, completed, interrupted, failed, and inactive sessions, with a short local event timeline.
+- **Permissions with context.** Review commands and supported file diffs, then allow or deny. Risk labels are hints; review the action yourself.
+- **Questions in place.** Show supported Claude and Codex questions. Queued Codex answers go to the exact thread through its local daemon, and the card advances after delivery is acknowledged. Superseded questions expire as the transcript advances.
+- **Four looks.** Classic is the default; Focus, Aurora, and Studio change the panel styling. Choose in Settings › Display or from the notch’s settings menu.
+- **Useful extras.** Session history, a file tray, command palette, optional usage display, calendar, and now playing.
+- **Reviewed connections.** Preview agent configuration edits, preserve unrelated hooks, and create backups. Settings › Integrations shows connection health and repair options.
 
-| | |
+<img src="docs/assets/approval.png" width="640" alt="Permission card; earlier interface shown">
+
+The approval screenshot and animation show an earlier interface. Here are the current four styles with illustrative sample sessions:
+
+<img src="docs/assets/interface-styles.png" width="800" alt="Classic, Focus, Aurora, and Studio interface comparison using sample sessions">
+
+Use the style export below to regenerate this comparison from the app.
+
+## Agent integrations
+
+| Agent | Integration |
 |---|---|
-| **Zero babysitting** | Cards pop the instant an agent needs you — and *only* when you're not already looking at its terminal. |
-| **Zero misclicks** | Dangerous commands (`rm -rf`, `sudo`, `curl \| sh`) are graded and flagged red before you click. Safe reads auto-approve silently. |
-| **Zero context loss** | Answer questions, jump to the exact terminal tab, reply into the agent's pane, or stop a runaway turn — from the notch. |
-| **Zero cloud** | Native Swift. Local socket. No accounts, no telemetry, no Electron. |
+| Claude Code | Permission requests, questions, activity; optional status line bridge for usage |
+| Codex | Hook activity and supported permission requests; local transcript activity and questions |
+| OpenCode | Plugin integration for supported permissions and activity |
+| Qwen, Droid, Kimi | Agent-specific hook adapters |
+| Cursor, Gemini CLI | Activity hooks; permission decisions remain in the agent |
 
-## See it
+These adapters depend on each agent’s hook APIs. Connecting a hook does not guarantee every feature in every client version. Codex transcript observation describes logged activity; it cannot turn an old transcript event into a live permission request.
 
-<div align="center">
+First launch offers detected integrations. Configuration changes require your review. Optional automatic connection of newly detected agents can be controlled in Settings › Integrations. The Claude usage bridge has its own Connect review in Settings.
 
-**A permission, one glance away** — the real diff, risk-aware buttons, `^A` to allow:
+## Requirements
 
-<img src="docs/assets/approval.png" width="640" alt="Approval card for an Edit, with a diff and Deny / Allow Once / Always Allow / Bypass">
+- Apple Silicon Mac running macOS 14 or later.
+- At least one supported coding agent for live activity.
+- Swift 6 for source builds. Full Xcode is required to run the XCTest suite.
 
-**Every session, live** — task, your last message, what it is running, waiting ones first:
+Notch geometry follows the selected display’s safe area. Validate your display and scaling before relying on a presentation or recording. External displays and older macOS versions remain part of the beta test matrix.
 
-<img src="docs/assets/sessions.png" width="640" alt="Session list with Claude and Codex sessions, one waiting for input">
-
-</div>
-
-## Everything else in the box
-
-🔔 **Approve from the notch** — permission cards with the full command, its
-diff (for file edits), and Deny / Allow / Bypass. Dangerous commands
-(`rm -rf`, `sudo`, `curl | sh`…) are graded **high risk** and the card turns
-red — you see what you're waving through.
-
-👀 **Live session board** — every agent session with its task, your last
-message, what it's running right now, a rolling console mirror, git branch,
-and token usage.
-
-❓ **Answer questions in place** — Claude's `AskUserQuestion` and Codex's
-multiple-choice prompts (including the ones Codex queues behind `⌥↑`) show up
-as cards. Click an option or press `⌘1`–`⌘9`; "Something else…" takes free text.
-Queued Codex answers go directly to the exact thread through its local daemon;
-the card advances only after delivery is acknowledged.
-
-⚡ **Act without switching** — jump to the exact terminal tab (`^G`), send a
-quick reply ("continue", "yes", or your own text) straight into the agent's
-pane, or **stop** the current turn with the same `Esc` the CLI uses — the
-session stays alive.
-
-🏷️ **Session names** — renames show up immediately: Claude's `/rename` titles
-and Codex thread names replace the folder name in every row.
-
-🕘 **Session history** — click the clock for past Claude *and* Codex sessions;
-click one and a terminal opens running `claude --resume <id>` or
-`codex resume <id>` in the right folder.
-
-📁 **File tray** — drag a file toward the notch and the tray opens under your
-cursor; drop it in, drag it out anywhere later. Images preview inline.
-
-🎵 **Music & calendar** — what's playing (Music, Spotify, or a browser tab)
-with play/pause and skip, plus this week and your next event.
-
-🔍 **⌘K palette** — search across active sessions, history, and actions from
-one field.
-
-🛡️ **Guardrails** — screen-share guard queues cards silently while you're
-presenting; smart suppression skips the popup when the agent's terminal is
-already frontmost; per-project policies can lock strict repos to allow-once;
-a safe-list auto-approves harmless reads (`git status`, `ls`, …).
-
-📈 **Usage & escalation** — Claude 5h/7d rate-limit windows in the header;
-unanswered requests re-chime, badge the menu bar, and (optionally) ping your
-phone via [ntfy](https://ntfy.sh).
-
-🖥️ **Remote Macs** — Settings › SSH lists every `Host` in `~/.ssh/config`;
-pick one to watch its agents too.
-
-🧪 **Labs** — localhost web dashboard, notch-over-lock-screen, and a
-scriptable CLI (`vibenotch list|approve|deny|send|interrupt`).
-
-## Supported agents
-
-| Agent | Approvals | Questions | Activity | Config |
-|---|:--:|:--:|:--:|---|
-| <img src="docs/assets/agents/claude.png" width="16" height="16" alt=""> Claude Code | ✅ | ✅ | ✅ | `~/.claude/settings.json` |
-| <img src="docs/assets/agents/codex.png" width="16" height="16" alt=""> Codex | ✅ | ✅ | ✅ | `~/.codex` (hooks) |
-| <img src="docs/assets/agents/opencode.png" width="16" height="16" alt=""> OpenCode | ✅ | — | ✅ | plugin, `opencode.json` |
-| <img src="docs/assets/agents/qwen.png" width="16" height="16" alt=""> Qwen · <img src="docs/assets/agents/droid.png" width="16" height="16" alt=""> Droid · <img src="docs/assets/agents/kimi.png" width="16" height="16" alt=""> Kimi | ✅ | — | ✅ | Claude-schema / TOML |
-| <img src="docs/assets/agents/cursor.png" width="16" height="16" alt=""> Cursor | — | — | ✅ | `~/.cursor/hooks.json` |
-| <img src="docs/assets/agents/gemini.png" width="16" height="16" alt=""> Gemini CLI | — | — | ✅ | `~/.gemini/settings.json` |
-
-On first launch a setup window shows the agents it found and connects them
-when you say so — nothing is written to an agent's config before that. After
-that, newly detected agents are wired automatically (switchable in Settings ›
-CLI Hooks, where you can also toggle any agent off). Every config edit is
-backed up and reversible.
-
-## Install
-
-### Download
-
-Grab the latest `VibeNotch-x.y.z.dmg` from
-[Releases](https://github.com/kaushal07wick/Vibe-Notch/releases) (the first
-public release is on its way — until then, build from source), open it, and
-drag **VibeNotch** to Applications.
-
-> **Not notarized yet** (no Apple Developer ID). macOS quarantines the
-> download and will say the app is damaged — right-click → Open does not get
-> past that. Clear the quarantine flag once after installing:
->
-> ```bash
-> xattr -dr com.apple.quarantine /Applications/VibeNotch.app
-> ```
->
-> Building from source has no quarantine and needs none of this.
-
-### Build from source
-
-Requires macOS 14+, Apple Silicon, and the Swift 6 toolchain
-(`xcode-select --install` is enough — no Xcode IDE needed).
+## Build from source
 
 ```bash
 git clone https://github.com/kaushal07wick/Vibe-Notch.git
 cd Vibe-Notch
-./scripts/bundle.sh release  # → .build/VibeNotch.app
+./scripts/bundle.sh release
 open .build/VibeNotch.app
 ```
 
-No Dock icon — the setup window opens on first launch to show you where the
-app lives and which agents it found. Reopen it any time from the menu bar
-(**✦ › Setup Guide…**).
+The build uses vendored DynamicNotchKit sources and needs no dependency downloads. The script can use an installed macOS 26.5 SDK for the known Command Line Tools 27 SwiftUI macro incompatibility; it does not install or change your toolchain. Use `VIBENOTCH_SDK=/path/to/MacOSX.sdk` to select an SDK explicitly.
 
-### Try it without a real agent
+The app lives in the menu bar and notch, with no Dock icon. Open Setup Guide from the menu bar to revisit onboarding.
 
 ```bash
-./scripts/simulate.sh bash     # a Bash approval card (blocks until you decide)
-./scripts/simulate.sh notify   # a "waiting" session row
+# Preview an approval without running an agent command:
+./scripts/simulate.sh bash
+
+# Export sample UI for all four styles without starting integrations:
+.build/VibeNotch.app/Contents/MacOS/VibeNotch --export-style-gallery .build/interface-styles.png
+
+# Run the actual production test gate:
+./scripts/check.sh
 ```
 
-## How it works
-
-```
- your agent (Claude Code, …)          VibeNotch.app
- ───────────────────────────          ─────────────
-  fires a hook ──► vibenotch-hook ──► unix socket ──► notch card
-                   (tiny CLI)         ~/.vibenotch/     │ Approve / Deny
-  ◄── decision JSON ◄── blocks on ◄── reply ◄──────────┘
-```
-
-- The hook is **fail-open**: if the app isn't running, agents behave exactly
-  as they would without Vibe Notch. Nothing is ever blocked by us.
-- Local Unix socket only — no TCP, no cloud, no telemetry.
-- Answer in the terminal instead? The card notices and dismisses itself.
-
-Full architecture notes live in [`docs/specs/`](docs/specs/).
-
-## Keyboard
+## Keyboard and CLI
 
 | Keys | Action |
 |---|---|
-| `^A` | Approve the front card |
-| `^G` | Jump to the session's terminal tab |
-| `⌘1`–`⌘9` | Pick an option on a question card |
-| `⌘K` | Command palette (panel focused) |
+| `⌃A` | Approve the front card |
+| `⌃G` | Jump to the session’s terminal |
+| `⌘1`–`⌘9` | Select a question option |
+| `⌘K` | Command palette while the panel is focused |
 | `Esc` | Collapse the panel |
 
-## CLI
+After launch, the CLI is available under `~/.vibenotch/bin`:
 
 ```bash
-~/.vibenotch/bin/vibenotch list                 # sessions + pending, as JSON
-~/.vibenotch/bin/vibenotch approve              # approve the front card
-~/.vibenotch/bin/vibenotch send <session> "hi"  # type into that session
-~/.vibenotch/bin/vibenotch interrupt <session>  # Esc: stop the turn, keep the session
+~/.vibenotch/bin/vibenotch list
+~/.vibenotch/bin/vibenotch approve
+~/.vibenotch/bin/vibenotch deny
 ```
 
-Scriptable from Raycast, cron, or another Mac over SSH.
+Commands that approve, send text, or interrupt act on real sessions. Inspect the pending request before using them.
 
-## Privacy & security
+## Privacy and controls
 
-- **Local-first, always.** No accounts, no analytics, no outbound requests
-  (the single exception: ntfy phone pings, off by default, to a topic you set).
-- Approval decisions are yours: rules written by *Always Allow* live in your
-  agent's own config; the safe-list and per-project policies are plain JSON
-  under `~/.vibenotch/data` you can audit and edit.
-- Screen-share guard keeps commands and prompts off your screen while
-  presenting.
-- Calendar and now-playing are read on your Mac and never leave it. macOS asks
-  once for Calendar access; local builds keep a stable signing identity so it
-  doesn't ask again after every rebuild.
+The app works locally without an account or built-in analytics. Agent events, commands, prompt excerpts, paths, and history may contain sensitive information. They are read or stored on your Mac; see the [data inventory and optional network features](docs/privacy.md).
+
+Approval IPC uses a user-only Unix socket. If the hook cannot reach the app, it returns control to the agent’s own permission flow. Automatic safe-list approvals are off by default for new installs. Safe-list rules, session bypass, and Always Allow change approval behavior; review their scope before enabling them.
+
+The experimental web dashboard is **off by default**, read-only, loopback-only, and protected by a new key each launch. Phone notifications and SSH connections are optional network features. Calendar and terminal control can require macOS permissions. Screen-share suppression is a convenience, not a confidentiality guarantee.
 
 ## Uninstall
 
-Menu bar → toggle each agent off (restores their original configs), quit the
-app, then:
+Use Settings › Integrations to disconnect agents, then quit and remove the app. To remove managed connections and local data from a source checkout:
 
 ```bash
-./scripts/uninstall.sh    # or: rm -rf ~/.vibenotch
+./scripts/uninstall.sh --dry-run
+./scripts/uninstall.sh
 ```
 
-## Contributing
+The script preserves unrelated hooks and backs up edited configurations. It stops on invalid configurations instead of replacing them. Add `--keep-data` to retain local Vibe Notch data. Deleting `~/.vibenotch` alone does not remove hooks from agent configurations.
 
-PRs welcome — this is a community rebuild of a great idea, and the codebase is
-deliberately small (Swift package, three targets, no Xcode project).
+## Contributing and releases
 
-- `swift build && swift test` must stay green (`./scripts/bundle.sh` for the .app)
-- One focused change per PR; match the surrounding style
-- Agents are added via a single `AgentSpec` — see [`docs/`](docs/) and
-  `Sources/VibeNotchCore/Agents/AgentSpec.swift`
-- UI changes: attach a before/after screenshot
+Run `./scripts/check.sh` with full Xcode, then `./scripts/bundle.sh release`. Include screenshots for UI changes and use fixture data for integration tests. See [adding an agent](docs/adding-an-agent.md), the [release procedure](docs/releasing.md), and the [current release readiness record](docs/release-readiness.md).
 
-## License
+Public builds require a clean tagged source tree and passing XCTest. The default release path requires Developer ID signing and notarization; `--unsigned-beta` explicitly prepares an ad-hoc signed beta with visible warnings, matching source, and checksums. The signed GitHub workflow prepares a **draft** for review.
 
-[GPL-3.0](LICENSE) — free forever, improvements stay open.
+## License and credits
 
-## Acknowledgments
+[GPL-3.0](LICENSE). Bundled dependency and font licenses are included in the app and listed in [third-party notices](Resources/THIRD_PARTY_NOTICES.txt).
 
-- [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) (MIT) — notch
-  window, hover, and morph physics
-- [Vibe Island](https://vibeisland.app) — the closed-source original that
-  inspired this rebuild; [`open-vibe-island`](https://github.com/search?q=open-vibe-island)
-  and [boring.notch](https://github.com/TheBoredTeam/boring.notch) for
-  mechanism reference
-- Departure Mono for the terminal blocks
-- [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter) for the
-  `/usr/bin/perl` technique that still reads system now-playing on macOS 15.4+
-
-The landing page lives in its own repo:
-[vibe-notch-site](https://github.com/kaushal07wick/vibe-notch-site).
+Thanks to [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit), Departure Mono, [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter), and the notch app community. Vibe Island inspired the original concept. Agent names and logos identify integrations; their owners do not endorse this project.

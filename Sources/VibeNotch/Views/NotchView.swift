@@ -9,6 +9,9 @@ struct ExpandedContent: View {
     @ObservedObject var store: EventStore
     @ObservedObject var usage: UsageModel
 
+    @AppStorage("interfaceStyle") private var styleID = VNInterfaceStyle.classic.rawValue
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var interfaceStyle: VNInterfaceStyle { VNInterfaceStyle(rawValue: styleID) ?? .classic }
     @AppStorage("soundEnabled") private var soundOn = true
     @AppStorage("showUsageLimits") private var showUsage = true
     @AppStorage("contentScale") private var contentScale = 1.0
@@ -18,16 +21,30 @@ struct ExpandedContent: View {
     @State private var history: [ResumeEntry] = []
     @State private var historyLoading = false
 
+    private var contentWidth: CGFloat {
+        let idle = store.activeSessions.isEmpty && store.pending.isEmpty && store.codexQuestion == nil
+            && !store.showWidgets && !store.showTray && !showHistory && !showPalette && store.timelineSessionID == nil
+        return idle ? min(max(420, cameraWidth + 220), VNSettings.effectivePanelWidth) : VNSettings.effectivePanelWidth
+    }
+
+    private var cameraHeight: CGFloat { VNSettings.notchScreen?.safeAreaInsets.top ?? 0 }
+    private var cameraWidth: CGFloat {
+        guard let screen = VNSettings.notchScreen,
+              let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea else { return 0 }
+        return screen.frame.width - left.width - right.width
+    }
+
+    private var toolbarWingWidth: CGFloat {
+        max(0, (contentWidth - 16 - cameraWidth - (cameraWidth > 0 ? 24 : 0)) / 2)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // stats header — usage left, history + mute + settings right (VI layout)
-            HStack(spacing: 12) {
-                if showUsage && !usage.providers.isEmpty {
-                    UsageChips(providers: usage.providers)
-                }
-                Spacer(minLength: 8)
+            HStack(spacing: 0) {
+                HStack(spacing: 8) {
                 // ⌘K palette — keyboard-only, no icon (header stays quiet)
-                Button("") { showPalette.toggle(); if showPalette { showHistory = false } }
+                Button("") { showPalette.toggle(); if showPalette { showHistory = false; store.timelineSessionID = nil } }
                     .keyboardShortcut("k", modifiers: .command)
                     .frame(width: 0, height: 0).opacity(0)
                     .accessibilityHidden(true) // invisible shortcut host, not a control
@@ -35,14 +52,19 @@ struct ExpandedContent: View {
                                  tint: store.showWidgets ? VNColor.running : .white.opacity(0.62),
                                  label: "Music and calendar") {
                     store.showWidgets.toggle()
-                    if store.showWidgets { store.showTray = false; showHistory = false; showPalette = false }
+                    if store.showWidgets { store.showTray = false; showHistory = false; showPalette = false; store.timelineSessionID = nil }
                 }
                 HeaderIconButton(symbol: store.showTray ? "tray.full.fill" : "tray",
                                  tint: store.showTray ? VNColor.running : .white.opacity(0.62),
                                  label: "File tray") {
                     store.showTray.toggle()
-                    if store.showTray { store.showWidgets = false; showHistory = false; showPalette = false }
+                    if store.showTray { store.showWidgets = false; showHistory = false; showPalette = false; store.timelineSessionID = nil }
                 }
+                }
+                .frame(width: toolbarWingWidth, alignment: .leading)
+                // This space belongs to the physical camera, never to a button.
+                Color.clear.frame(width: cameraWidth + (cameraWidth > 0 ? 24 : 0), height: 1)
+                HStack(spacing: 8) {
                 HeaderIconButton(symbol: "clock.arrow.circlepath",
                                  tint: showHistory ? VNColor.go : .white.opacity(0.62),
                                  label: "Session history") {
@@ -55,7 +77,7 @@ struct ExpandedContent: View {
                         }
                     }
                     showHistory.toggle()
-                    if showHistory { showPalette = false }
+                    if showHistory { showPalette = false; store.timelineSessionID = nil }
                 }
                 HeaderIconButton(
                     symbol: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
@@ -68,8 +90,30 @@ struct ExpandedContent: View {
                                  label: "Settings") {
                     SettingsWindow.show()
                 }
+                .contextMenu {
+                    ForEach(VNInterfaceStyle.allCases) { style in
+                        Button { styleID = style.rawValue } label: {
+                            if style == interfaceStyle { Label(style.title, systemImage: "checkmark") }
+                            else { Text(style.title) }
+                        }
+                    }
+                }
+                }
+                .frame(width: toolbarWingWidth, alignment: .trailing)
             }
-            .padding(.horizontal, 16).padding(.top, -26).padding(.bottom, 3)
+            // Reuse the camera row reserved by DynamicNotchKit, with controls
+            // in its two wings. The card starts directly below the cutout.
+            .padding(.horizontal, 8)
+            .frame(height: max(28, cameraHeight))
+            .padding(.top, cameraHeight > 0 ? -cameraHeight : 0)
+            .padding(.bottom, 4)
+            if showUsage && !usage.providers.isEmpty {
+                HStack {
+                    UsageChips(providers: usage.providers)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16).padding(.bottom, 6)
+            }
             // while-you-were-away digest (backend clears it after a few seconds)
             if let digest = store.digest {
                 HStack(spacing: 7) {
@@ -104,13 +148,20 @@ struct ExpandedContent: View {
                     HistoryList(entries: history, loading: historyLoading) { showHistory = false }
                 } else {
                     currentCard
-                        .transition(.asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity),
-                                                removal: .opacity))
+                        .transition(interfaceStyle == .classic && !reduceMotion
+                            ? .asymmetric(insertion: .scale(scale: 0.96).combined(with: .opacity), removal: .opacity)
+                            : .opacity)
                 }
             }
         }
+        .frame(width: contentWidth)
         .foregroundStyle(VNColor.text)
-        .animation(.spring(response: 0.36, dampingFraction: 0.8), value: stateKey)
+        .environment(\.vnInterfaceStyle, interfaceStyle)
+        .animation(reduceMotion ? .easeOut(duration: 0.1) : interfaceStyle.contentAnimation, value: stateKey)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: styleID)
+        .onChange(of: store.timelineSessionID) { _, selected in
+            if selected != nil { showHistory = false; showPalette = false; store.showTray = false; store.showWidgets = false }
+        }
         .onChange(of: store.pending.isEmpty) { _, empty in
             if !empty { showHistory = false } // approvals always take the stage
         }
@@ -121,6 +172,7 @@ struct ExpandedContent: View {
     /// the confirmation, matching Vibe Island.)
     private var stateKey: String {
         if let a = store.pending.first { return "approval-\(a.id)" }
+        if let id = store.timelineSessionID { return "timeline-\(id)" }
         let active = store.activeSessions
         guard let s = active.first else { return "idle" }
         return "act-\(active.count)-\(s.id)-\(s.event)"
@@ -131,6 +183,8 @@ struct ExpandedContent: View {
             ApprovalCard(approval: approval, store: store, queued: store.pending.count - 1).id(approval.id)
         } else if let question = store.codexQuestion {
             CodexQuestionCard(store: store, question: question).id("\(question.id)-\(store.codexQuestionStep)")
+        } else if let id = store.timelineSessionID {
+            SessionTimelineView(store: store, sessionID: id)
         } else if !store.hovering, let id = store.justFinished, let done = store.sessions[id] {
             ActivityCard(store: store, sessions: [done], full: false, onDismiss: { store.dismiss(sessionId: $0) })
         } else {
@@ -145,6 +199,8 @@ struct ExpandedContent: View {
 /// One animated pixel invader per active agent, in its brand color.
 struct CompactLeading: View {
     @ObservedObject var store: EventStore
+    @AppStorage("interfaceStyle") private var styleID = VNInterfaceStyle.classic.rawValue
+    private var interfaceStyle: VNInterfaceStyle { VNInterfaceStyle(rawValue: styleID) ?? .classic }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private enum Mood { case idle, working, waiting }
@@ -156,24 +212,29 @@ struct CompactLeading: View {
     var body: some View {
         // Pixel-snapped motion only (1pt steps), so the sprite never blurs:
         // working hops on the beat, waiting shakes for attention, idle just breathes.
-        TimelineView(.animation(minimumInterval: 0.15, paused: mood == .idle && reduceMotion)) { ctx in
+        TimelineView(.animation(minimumInterval: interfaceStyle == .classic ? 0.15 : 1,
+                                paused: mood == .idle && (reduceMotion || interfaceStyle != .classic))) { ctx in
             let tick = Int(ctx.date.timeIntervalSinceReferenceDate / 0.15)
-            let still = reduceMotion
+            let still = reduceMotion || interfaceStyle != .classic
             let dy: CGFloat = mood == .working && !still && tick % 4 < 2 ? -1 : 0
             let dx: CGFloat = mood == .waiting && !still ? (tick % 2 == 0 ? -1 : 1) : 0
             let breathe = mood == .idle ? (0.45 + 0.2 * (tick / 6 % 2 == 0 ? 1 : 0)) : 1
             let color = mood == .waiting ? VNColor.amber : VNColor.running
             HStack(spacing: 4) {
-                PixelGhost(mood: mood == .waiting ? .waiting : mood == .working ? .working : .idle, px: 1.5,
-                           sweat: store.activeSessions.contains { ($0.contextTokens).map(ContextChip.percent) ?? 0 >= 85 })
-                    .offset(x: dx, y: dy)
-                    .opacity(breathe)
+                if interfaceStyle == .classic {
+                    PixelGhost(mood: mood == .waiting ? .waiting : mood == .working ? .working : .idle, px: 1.5,
+                               sweat: store.activeSessions.contains { ($0.contextTokens).map(ContextChip.percent) ?? 0 >= 85 })
+                        .offset(x: dx, y: dy).opacity(breathe)
+                } else {
+                    InterfaceStyleMark(style: interfaceStyle, size: 18, waiting: mood == .waiting, active: mood != .idle)
+                }
                 Circle().fill(color).frame(width: 4, height: 4)
                     .opacity(mood == .idle ? 0 : (mood == .working && !still && tick % 8 >= 4 ? 0.35 : 1))
             }
         }
         // mirror-width flanks keep the shape centred on the physical notch
-        .frame(width: 38)
+        .frame(width: 32)
+        .offset(y: -3)
         .onDrop(of: [.fileURL], isTargeted: nil) { TrayStore.handleDrop($0) { store.showTray = true } }
         .padding(.horizontal, 2)
         .accessibilityElement(children: .ignore)
@@ -182,11 +243,11 @@ struct CompactLeading: View {
     }
 
     private var needsYou: Bool {
-        !store.pending.isEmpty || store.activeSessions.contains { $0.event == "Notification" }
+        !store.pending.isEmpty || store.codexQuestion != nil || store.activeSessions.contains { store.phase(for: $0).needsAttention }
     }
 
     private var anyRunning: Bool {
-        store.activeSessions.contains { ["PreToolUse", "PostToolUse", "UserPromptSubmit"].contains($0.event) }
+        store.activeSessions.contains { store.phase(for: $0) == .working }
     }
 
     /// Distinct agents that have a live session, most-recent first.
@@ -202,8 +263,11 @@ struct CompactLeading: View {
 /// Active-session count (or a dim idle dot).
 struct CompactTrailing: View {
     @ObservedObject var store: EventStore
+    @AppStorage("interfaceStyle") private var styleID = VNInterfaceStyle.classic.rawValue
     var body: some View {
-        Group {
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            let count = max(store.pending.count, store.activeSessions.filter { store.phase(for: $0, now: context.date).isBusy }.count)
+            let needsYou = waitingCount(at: context.date)
             if store.undo != nil {
                 // decision in its undo window — tap the glyph to take it back
                 Button { store.undoLast() } label: {
@@ -236,11 +300,17 @@ struct CompactTrailing: View {
         }
         // mirror of CompactLeading — equal width keeps the notch split evenly
         .frame(width: 32)
+        .offset(y: -3)
         .onDrop(of: [.fileURL], isTargeted: nil) { TrayStore.handleDrop($0) { store.showTray = true } }
         .padding(.horizontal, 2)
     }
-    private var count: Int { max(store.pending.count, store.activeSessions.count) }
-    private var needsYou: Int { store.pending.count + store.activeSessions.filter { $0.event == "Notification" }.count }
+    private func waitingCount(at now: Date) -> Int {
+        let pendingSessions = Set(store.pending.compactMap { $0.inbound.sessionId })
+        let observedWaiting = store.activeSessions.filter {
+            !pendingSessions.contains($0.id) && store.phase(for: $0, now: now).needsAttention
+        }.count
+        return store.pending.count + observedWaiting
+    }
 }
 
 /// Tiny live mic-level meter for the dictation pill.

@@ -280,49 +280,36 @@ struct EvolvedInvader: View {
     }
 }
 
-/// Session-state glyph shown beside the mascot in rows (VI's language).
+/// A single visual vocabulary for the shared session phase projection.
 struct StatusGlyph: View {
-    let event: String
-
-    /// What the glyph means, spoken.
-    private var spoken: String? {
-        switch event {
-        case "PermissionRequest": "Waiting for permission"
-        case "Notification": "Waiting for you"
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit": "Working"
-        case "Stop": "Done"
-        case "PostToolUseFailure", "StopFailure": "Failed"
-        default: nil
-        }
-    }
+    let phase: SessionPhase
+    var size: CGFloat = 8
 
     var body: some View {
-        content.accessibilityLabel(spoken ?? "")
+        Group {
+            if phase == .working {
+                PixelRingSpinner(color: phase.tint)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: size))
+                    .foregroundStyle(phase.tint)
+            }
+        }
+        .accessibilityLabel(phase.label)
     }
 
-    @ViewBuilder private var content: some View {
-        switch event {
-        case "PermissionRequest":
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 8)).foregroundStyle(VNColor.amber)
-        case "Notification":
-            Image(systemName: "questionmark.circle.fill")
-                .font(.system(size: 8)).foregroundStyle(VNColor.amber)
-        case "PreToolUse", "PostToolUse", "UserPromptSubmit":
-            Image(systemName: "circle.dashed")
-                .font(.system(size: 8)).foregroundStyle(VNColor.running)
-        case "Stop":
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 8)).foregroundStyle(VNColor.go)
-        case "PostToolUseFailure", "StopFailure":
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 8)).foregroundStyle(VNColor.stop)
-        default:
-            EmptyView()
+    private var symbol: String {
+        switch phase {
+        case .working: return "circle.dashed"
+        case .waiting: return "hourglass"
+        case .completed: return "checkmark.circle.fill"
+        case .interrupted: return "pause.circle.fill"
+        case .failed: return "xmark.circle.fill"
+        case .inactive: return "moon.circle"
+        case .unknown: return "questionmark.circle"
         }
     }
 }
-
 
 /// Compact activity glyph — the pixel ring; spins while agents work, sits
 /// still and dim when idle. (Bars read as a music equalizer — replaced.)

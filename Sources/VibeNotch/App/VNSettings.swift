@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import ServiceManagement
 
 /// UserDefaults-backed app settings. UI panes read/write these; backend
@@ -31,7 +31,7 @@ enum VNSettings {
 
     /// Auto-approve safe-listed simple commands (git status, ls, …).
     static var safeListEnabled: Bool {
-        get { d.object(forKey: "safeListEnabled") as? Bool ?? true }
+        get { d.object(forKey: "safeListEnabled") as? Bool ?? false }
         set { d.set(newValue, forKey: "safeListEnabled") }
     }
 
@@ -96,8 +96,11 @@ enum VNSettings {
 
     /// Localhost web dashboard (0 = off).
     static var dashboardPort: Int {
-        get { let v = d.integer(forKey: "dashboardPort"); return v == 0 ? 4141 : v }
-        set { d.set(newValue, forKey: "dashboardPort") }
+        get {
+            let value = d.integer(forKey: "dashboardPort")
+            return (1...65535).contains(value) ? value : 0
+        }
+        set { d.set((1...65535).contains(newValue) ? newValue : 0, forKey: "dashboardPort") }
     }
 
     /// Labs: keep the notch above the lock screen / fullscreen (private API).
@@ -146,6 +149,16 @@ enum VNSettings {
     static var panelWidth: Int {
         get { let v = d.integer(forKey: "panelWidth"); return v <= 0 ? 620 : v }
         set { d.set(newValue, forKey: "panelWidth") }
+    }
+
+    /// Leave room for the notch shape's margins even on scaled/external displays.
+    static var notchScreen: NSScreen? {
+        NSScreen.screens.first { $0.vnDisplayID == notchDisplayID }
+            ?? NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main
+    }
+
+    static var effectivePanelWidth: CGFloat {
+        min(CGFloat(panelWidth), max(280, (notchScreen?.frame.width ?? 1710) - 100))
     }
 
     /// Collapse a hover-opened panel when the pointer leaves. Off keeps it up

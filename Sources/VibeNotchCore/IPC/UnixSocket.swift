@@ -1,5 +1,14 @@
 import Foundation
 
+func validUnixSocketPath(_ path: String) -> Bool {
+    !path.utf8.contains(0) && path.utf8.count < MemoryLayout.size(ofValue: sockaddr_un().sun_path)
+}
+
+func suppressBrokenPipeSignal(_ fd: Int32) {
+    var enabled: Int32 = 1
+    _ = setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, socklen_t(MemoryLayout.size(ofValue: enabled)))
+}
+
 /// Build a filled `sockaddr_un` for `path` plus its length, for bind()/connect().
 /// Capacity is hoisted to a local so we don't read `sun_path` while mutating it.
 func makeUnixAddr(_ path: String) -> (sockaddr_un, socklen_t) {

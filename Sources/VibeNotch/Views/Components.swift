@@ -4,6 +4,35 @@ import VibeNotchCore
 
 // Shared UI atoms: pills, buttons, mascots, small helpers.
 
+extension SessionPhase {
+    var tint: Color {
+        switch self {
+        case .working: return VNColor.running
+        case .waiting, .interrupted: return VNColor.amber
+        case .completed: return VNColor.go
+        case .failed: return VNColor.stop
+        case .inactive, .unknown: return VNColor.muted
+        }
+    }
+}
+
+struct SessionTimelineButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(VNFont.ui(11, .medium))
+                .foregroundStyle(VNColor.muted)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Activity timeline")
+        .accessibilityLabel("Activity timeline for this session")
+    }
+}
+
 // MARK: - Pills
 
 /// Tinted-mono agent capsule — brand-colored text on a faint brand fill.

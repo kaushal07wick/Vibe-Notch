@@ -48,6 +48,8 @@ struct SessionActivity: Identifiable, Codable {
 final class EventStore: ObservableObject {
     @Published var pending: [PendingApproval] = []
     @Published var sessions: [String: SessionActivity] = [:]
+    @Published var timelineSessionID: String?
+    @Published private(set) var timeline = ActivityTimeline()
     @Published var hovering = false
     /// The file tray is open — it holds the panel up (you're dragging things in and out).
     @Published var showTray = false
@@ -95,8 +97,14 @@ final class EventStore: ObservableObject {
     private var escalationTimer: Timer?
 
     private let persistURL = VNPaths.data.appendingPathComponent("sessions.json")
+    private let timelineStorage = ActivityTimelineStorage(url: VNPaths.data.appendingPathComponent("activity-timeline.json"))
+    private var timelineSaveTask: Task<Void, Never>?
+    private let codexActivity = CodexActivityReader()
+    private var codexActivityTask: Task<Void, Never>?
+    private var observedCodexIDs: Set<String> = []
 
     init() {
+        timeline = timelineStorage.load()
         loadSessions()
         escalationTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
             Task { @MainActor in self.checkEscalation() }
@@ -105,7 +113,40 @@ final class EventStore: ObservableObject {
             Task { @MainActor in self.reapDead() }
         }
         questionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-            Task { @MainActor in self.pollCodexQuestions(); self.pollTitles() }
+            Task { @MainActor in self.pollCodexActivity(); self.pollCodexQuestions(); self.pollTitles() }
+        }
+        pollCodexActivity()
+    }
+
+    private func pollCodexActivity() {
+        guard codexActivityTask == nil else { return }
+        codexActivityTask = Task { [weak self, codexActivity] in
+            let snapshots = await codexActivity.scan()
+            guard let self else { return }
+            defer { self.codexActivityTask = nil }
+            self.liveIDs.subtract(self.observedCodexIDs)
+            self.observedCodexIDs = Set(snapshots.compactMap { $0.inbound.sessionId })
+            self.liveIDs.formUnion(self.observedCodexIDs)
+            for snapshot in snapshots {
+                let i = snapshot.inbound
+                guard let id = i.sessionId,
+                      self.sessions[id].map({ $0.updatedAt < snapshot.updatedAt }) ?? true else { continue }
+                var s = self.sessions[id] ?? SessionActivity(sessionId: id, source: "codex", event: i.event,
+                                                            startedAt: snapshot.updatedAt, updatedAt: snapshot.updatedAt)
+                s.cwd = i.cwd
+                s.folder = i.cwd.map { ($0 as NSString).lastPathComponent }
+                s.event = i.event
+                s.tool = i.tool
+                s.detail = i.detail
+                s.userMessage = i.userMessage ?? s.userMessage
+                s.updatedAt = snapshot.updatedAt
+                self.sessions[id] = s
+                self.record(ActivityTimelineEntry.observed(i, at: snapshot.updatedAt, origin: .transcript,
+                    id: "transcript:\(id):\(snapshot.updatedAt.timeIntervalSince1970.bitPattern):\(i.event)"))
+                // Transcript observations never resolve approvals or synthesize
+                // permission cards; those still require the live hook channel.
+                self.saveSessions()
+            }
         }
     }
 
@@ -126,16 +167,19 @@ final class EventStore: ObservableObject {
         }
     }
 
+    private var questionScanTask: Task<Void, Never>?
+
     private func pollCodexQuestions() {
-        guard !sendingCodexAnswer else { return }
+        guard !sendingCodexAnswer, questionScanTask == nil else { return }
         guard sessions.values.contains(where: { $0.source == "codex" && liveIDs.contains($0.id) }) else {
             if codexQuestion != nil { codexQuestion = nil }
             return
         }
-        Task.detached {
+        questionScanTask = Task.detached {
             let found = CodexQuestionWatcher.scan()
             await MainActor.run { [weak self] in
                 guard let self else { return }
+                defer { self.questionScanTask = nil }
                 guard !self.sendingCodexAnswer else { return }
                 let live = self.sessions.values.filter { $0.source == "codex" && self.liveIDs.contains($0.id) }
                 let match = found.first { q in !self.hiddenCodexCalls.contains(q.id) && live.contains { $0.id == q.sessionID } }
@@ -143,12 +187,13 @@ final class EventStore: ObservableObject {
                     self.codexQuestionStep = 0
                     self.codexAnswerError = nil
                 }
+
                 if self.codexQuestion != match { self.codexQuestion = match }
             }
         }
     }
 
-    /// Folders are shared by multiple CLIs; only the transcript's session ID identifies the owner.
+    /// Questions belong to an exact session, even when several chats share a folder.
     func codexSession(for q: CodexQuestion) -> SessionActivity? {
         guard let session = sessions[q.sessionID], session.source == "codex", liveIDs.contains(session.id) else { return nil }
         return session
@@ -181,7 +226,7 @@ final class EventStore: ObservableObject {
                 sent = await TerminalControl.send("\(index + 1)", to: session, allowActiveTab: true, submit: false)
             }
             sendingCodexAnswer = false
-            guard codexQuestion?.id == q.id else { return }
+            guard codexQuestion?.id == q.id, codexQuestion?.sessionID == q.sessionID else { return }
             guard sent else {
                 codexAnswerError = "Couldn’t deliver the answer to Codex. Your answer is still here; try again."
                 return
@@ -202,7 +247,7 @@ final class EventStore: ObservableObject {
     /// ponytail: one `ps` per tty every 8s; sessions with no tty (SSH, simulated)
     /// keep the old time-based rule.
     private func reapDead() {
-        let all = Array(sessions.values)
+        let all = sessions.values.filter { !observedCodexIDs.contains($0.id) }
         // one tty hosts one agent: only its newest session is live, older ids are history
         let byTTY = Dictionary(grouping: all.filter { $0.tty != nil }, by: { $0.tty! })
             .mapValues { $0.sorted { $0.updatedAt > $1.updatedAt } }
@@ -246,8 +291,10 @@ final class EventStore: ObservableObject {
                 }
             }
             await MainActor.run { [live, dead] in
-                self.liveIDs = live
-                for id in dead { if let s = self.sessions.removeValue(forKey: id) { self.archive(s) } }
+                self.liveIDs = live.union(self.observedCodexIDs)
+                for id in dead where !self.observedCodexIDs.contains(id) {
+                    if let s = self.sessions.removeValue(forKey: id) { self.archive(s) }
+                }
                 if !dead.isEmpty { self.saveSessions() }
             }
         }
@@ -300,36 +347,53 @@ final class EventStore: ObservableObject {
     var activeSessions: [SessionActivity] {
         let cutoff = Date().addingTimeInterval(-1800)
         return sessions.values.filter { $0.updatedAt > cutoff || liveIDs.contains($0.id) }.sorted {
-            // sessions waiting on you float to the top
-            let a = ["Notification", "PermissionRequest"].contains($0.event), b = ["Notification", "PermissionRequest"].contains($1.event)
-            return a != b ? a : $0.updatedAt > $1.updatedAt
+            let a = phase(for: $0).sortPriority, b = phase(for: $1).sortPriority
+            return a != b ? a < b : $0.updatedAt > $1.updatedAt
         }
     }
 
     var activeSession: SessionActivity? { activeSessions.first }
 
-    /// Keep the notch visible only while something actually needs attention:
-    /// a pending card, a session working, or one waiting for you. A paused or
-    /// finished session goes quiet → the notch hides (clears fullscreen video).
-    /// ponytail: 90s quiet-window = "paused"; a long single tool call also
-    /// hides mid-run, which is the desired behavior for the movie case.
+    /// A real pending request takes precedence over an observed activity state.
+    func phase(for session: SessionActivity, now: Date = Date()) -> SessionPhase {
+        let hasApproval = pending.contains { $0.inbound.sessionId == session.id }
+        let hasQuestion = codexQuestion.flatMap { codexSession(for: $0)?.id } == session.id
+        return session.phase(at: now, hasPendingRequest: hasApproval || hasQuestion)
+    }
+
     var isBusy: Bool {
-        if !pending.isEmpty { return true }
-        let live = Date().addingTimeInterval(-90)
-        return sessions.values.contains {
-            $0.updatedAt > live &&
-            ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Notification"].contains($0.event)
+        !pending.isEmpty || codexQuestion != nil || activeSessions.contains { phase(for: $0).isBusy }
+    }
+
+    private func record(_ entry: ActivityTimelineEntry?) {
+        guard let entry, timeline.append(entry) else { return }
+        guard timelineSaveTask == nil else { return }
+        timelineSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled, let self else { return }
+            self.timelineSaveTask = nil
+            self.timelineStorage.save(self.timeline)
         }
     }
 
+    private func recordApproval(_ approval: PendingApproval, kind: ActivityTimelineEntry.Kind,
+                                title: String, outcome: String? = nil, detail: String? = nil) {
+        record(ActivityTimelineEntry(sessionID: approval.inbound.sessionId ?? "request-\(approval.id)",
+            source: approval.inbound.source, origin: .hook, kind: kind, title: title,
+            detail: detail ?? approval.inbound.detail, tool: approval.inbound.tool, outcome: outcome))
+    }
+
     func enqueue(_ approval: PendingApproval) {
+        recordApproval(approval, kind: .approvalRequested, title: "Approval requested")
         // Bypassed session → auto-approve silently, no card.
         if let sid = approval.inbound.sessionId, bypassedSessions.contains(sid) {
+            recordApproval(approval, kind: .approvalDecision, title: "Allowed by session bypass", outcome: "allow")
             approval.reply(VNReply(decision: .allow))
             return
         }
         // Timeboxed YOLO mode: everything auto-approves until it expires.
         if Date().timeIntervalSince1970 < VNSettings.yoloUntil {
+            recordApproval(approval, kind: .approvalDecision, title: "Allowed by timed bypass", outcome: "allow")
             approval.reply(VNReply(decision: .allow))
             StatsLog.bump("yolo")
             return
@@ -339,6 +403,7 @@ final class EventStore: ObservableObject {
         let risk = RiskGrader.grade(tool: approval.inbound.tool, detail: approval.inbound.detail)
         let ranks: [String: Int] = ["low": 0, "medium": 1, "high": 2]
         if ranks[risk.rawValue, default: 0] < ranks[VNSettings.notchMinRisk, default: 0] {
+            recordApproval(approval, kind: .approvalDecision, title: "Deferred to terminal", outcome: "ask")
             approval.reply(VNReply(decision: .ask))
             StatsLog.bump("deferredToTerminal")
             return
@@ -348,6 +413,7 @@ final class EventStore: ObservableObject {
         if VNSettings.safeListEnabled, policy.safeList, approval.inbound.tool == "Bash",
            let command = approval.inbound.detail,
            SafeList.matches(command, patterns: SafeList.patterns()) {
+            recordApproval(approval, kind: .approvalDecision, title: "Allowed by safe list", outcome: "allow")
             approval.reply(VNReply(decision: .allow))
             StatsLog.bump("autoApproved")
             return
@@ -357,6 +423,16 @@ final class EventStore: ObservableObject {
     }
 
     func cancel(_ id: UUID) {
+        if let held = undo, held.approval.id == id {
+            held.task.cancel()
+            undo = nil
+            recordApproval(held.approval, kind: .approvalCancelled, title: "Request closed", outcome: "cancelled",
+                           detail: "The request closed before the held decision was sent.")
+        }
+        if let approval = pending.first(where: { $0.id == id }) {
+            recordApproval(approval, kind: .approvalCancelled, title: "Request closed", outcome: "cancelled",
+                           detail: "The request connection closed. No decision was sent.")
+        }
         pending.removeAll { $0.id == id }
         if pending.isEmpty { escalated = false }
     }
@@ -374,6 +450,7 @@ final class EventStore: ObservableObject {
 
         let hold = VNSettings.undoSeconds
         guard hold > 0 else { commit(approval, decision, permissions: permissions); return }
+        recordApproval(approval, kind: .approvalDecision, title: "Decision held for undo", outcome: "held")
         // Hold the reply so the click can be undone; the agent just waits.
         let task = Task { [weak self] in
             try? await Task.sleep(for: .seconds(hold))
@@ -395,8 +472,14 @@ final class EventStore: ObservableObject {
             commit(held.approval, held.decision, permissions: held.permissions)
             undo = nil
         }
-        for approval in pending { approval.reply(VNReply(decision: .ask)) }
+        for approval in pending {
+            recordApproval(approval, kind: .approvalDecision, title: "Returned to terminal on quit", outcome: "ask")
+            approval.reply(VNReply(decision: .ask))
+        }
         pending.removeAll()
+        timelineSaveTask?.cancel()
+        timelineSaveTask = nil
+        timelineStorage.flush(timeline)
         if let data = try? JSONEncoder().encode(sessions) {
             try? data.write(to: persistURL, options: .atomic) // synchronous — we're quitting
         }
@@ -408,6 +491,8 @@ final class EventStore: ObservableObject {
         held.task.cancel()
         undo = nil
         pending.insert(held.approval, at: 0)
+        recordApproval(held.approval, kind: .approvalDecision, title: "Decision withdrawn", outcome: "undone",
+                       detail: "The agent was not answered; the request is waiting again.")
     }
 
     /// Approve every pending card (optionally one session's). No undo window —
@@ -436,8 +521,19 @@ final class EventStore: ObservableObject {
         default:
             break
         }
+        let title: String
+        switch decision {
+        case .deny: title = "Approval denied"
+        case .ask: title = "Deferred to terminal"
+        case .allow: title = "Allowed once"
+        case .alwaysAllow: title = "Allowed with persistent rule"
+        case .bypass: title = "Allowed with session bypass"
+        }
+        recordApproval(approval, kind: .approvalDecision, title: title, outcome: decision.rawValue)
         approval.reply(VNReply(decision: decision, answers: answers, permissions: permissions))
-        StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
+        if decision.agentBehavior != .ask {
+            StatsLog.bump(decision.agentBehavior == .deny ? "denied" : "approved")
+        }
         UserHooks.fire("approval", ["decision": decision.rawValue,
                                     "tool": approval.inbound.tool ?? "",
                                     "detail": approval.inbound.detail ?? "",
@@ -472,6 +568,11 @@ final class EventStore: ObservableObject {
     /// Fold a hook event into the session's current activity.
     func updateSession(_ i: VNInbound) {
         guard let sid = i.sessionId else { return }
+        if ["UserPromptSubmit", "SessionEnd", "Interrupted"].contains(i.event),
+           let question = codexQuestion, question.sessionID == sid {
+            hideCodexQuestion(question)
+        }
+        record(ActivityTimelineEntry.observed(i, origin: .hook))
 
         // The session made progress while an approval card was still up →
         // the user answered in the terminal. The card is stale: drop it so the
@@ -491,13 +592,22 @@ final class EventStore: ObservableObject {
         // Notification is NOT a trigger either: Claude fires it right as a question or
         // permission dialog opens ("needs your attention"), which dropped the live card
         // and sent the user back to the terminal to answer.
-        let turnMoved = ["Stop", "StopFailure", "UserPromptSubmit"].contains(i.event)
+        let turnMoved = ["Stop", "StopFailure", "Interrupted", "UserPromptSubmit"].contains(i.event)
         let ranThisTool = ["PostToolUse", "PostToolUseFailure"].contains(i.event)
         if turnMoved || ranThisTool {
             let isStale: (PendingApproval) -> Bool = { card in
                 card.inbound.sessionId == sid && (turnMoved || card.inbound.tool == i.tool)
             }
+            if let held = undo, isStale(held.approval) {
+                held.task.cancel()
+                undo = nil
+                recordApproval(held.approval, kind: .approvalCancelled, title: "Agent moved on", outcome: "cancelled",
+                               detail: "The request ended before the held decision was sent.")
+                held.approval.reply(VNReply(decision: .ask))
+            }
             for stale in pending where isStale(stale) {
+                recordApproval(stale, kind: .approvalCancelled, title: "Agent moved on", outcome: "cancelled",
+                               detail: "Activity invalidated this request. No approval was granted.")
                 stale.reply(VNReply(decision: .ask)) // no-output defer if the hook still lives
             }
             pending.removeAll(where: isStale)
@@ -571,7 +681,7 @@ final class EventStore: ObservableObject {
             if let d = i.detail { lines = ["$ " + d] }
         case "PostToolUse", "PostToolUseFailure":
             if let d = i.detail { lines = d.components(separatedBy: "\n").suffix(20).map { String($0) } }
-        case "Stop", "StopFailure":
+        case "Stop", "StopFailure", "Interrupted":
             if let d = i.detail { lines = ["· " + d] }
         default:
             break

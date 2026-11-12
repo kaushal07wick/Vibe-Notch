@@ -9,9 +9,9 @@ final class CodexQuestionTests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
         let url = dir.appendingPathComponent("rollout-2026-11-12T12-00-00-\(session).jsonl")
-        let lines = try ([["cwd": "/tmp/shared-folder"]] + payloads).map {
-            try JSONSerialization.data(withJSONObject: ["payload": $0]) + Data([10])
-        }
+        let metadata: [String: Any] = ["type": "session_meta", "payload": ["id": session, "cwd": "/tmp/shared-folder"]]
+        let records: [[String: Any]] = [metadata] + payloads.map { ["type": "response_item", "payload": $0] }
+        let lines = try records.map { try JSONSerialization.data(withJSONObject: $0) + Data([10]) }
         try lines.reduce(Data(), +).write(to: url)
         return url
     }
@@ -54,7 +54,7 @@ final class CodexQuestionTests: XCTestCase {
         defer { try? handle.close() }
         try handle.seekToEnd()
         func append(_ payload: [String: Any]) throws {
-            try handle.write(contentsOf: JSONSerialization.data(withJSONObject: ["payload": payload]) + Data([10]))
+            try handle.write(contentsOf: JSONSerialization.data(withJSONObject: ["type": "response_item", "payload": payload]) + Data([10]))
         }
         // A tool mentioning a reply must not dismiss the real user's question.
         try append(["type": "function_call_output", "call_id": "call_other", "output": reply])

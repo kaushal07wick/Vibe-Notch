@@ -1,45 +1,38 @@
 #!/usr/bin/env bash
-# Assemble VibeNotch.app from the SwiftPM build products. No Xcode required.
+# Build an Apple Silicon app from a clean checkout, with no dependency downloads.
 set -euo pipefail
-
-CONFIG="${1:-debug}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BIN="$ROOT/.build/$CONFIG"
+source "$ROOT/scripts/swift-env.sh"
+CONFIG="${1:-debug}"
+case "$CONFIG" in debug|release) ;; *) echo "Usage: $0 [debug|release]" >&2; exit 2 ;; esac
+[ "$(uname -m)" = arm64 ] || { echo "Vibe Notch currently supports Apple Silicon builds only." >&2; exit 1; }
+cd "$ROOT"
+for product in VibeNotch vibenotch-hook VibeNotchCLI; do vn_swift build -c "$CONFIG" --product "$product"; done
+BIN="$(vn_swift build -c "$CONFIG" --show-bin-path)"
 APP="$ROOT/.build/VibeNotch.app"
-
-swift build -c "$CONFIG" --product VibeNotch
-swift build -c "$CONFIG" --product vibenotch-hook
-swift build -c "$CONFIG" --product VibeNotchCLI
-
+STAGE_ROOT="$(mktemp -d "$ROOT/.build/VibeNotch.bundle.XXXXXX")"
+STAGE="$STAGE_ROOT/VibeNotch.app"
+trap 'rm -rf "$STAGE_ROOT"' EXIT
+mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Helpers" "$STAGE/Contents/Resources/Fonts" "$STAGE/Contents/Resources/AgentIcons" "$STAGE/Contents/Resources/Licenses"
+cp "$BIN/VibeNotch" "$STAGE/Contents/MacOS/VibeNotch"
+cp "$BIN/vibenotch-hook" "$STAGE/Contents/Helpers/vibenotch-hook"
+cp "$BIN/VibeNotchCLI" "$STAGE/Contents/Helpers/vibenotch"
+cp "$ROOT/Resources/Info.plist" "$STAGE/Contents/Info.plist"
+BUILD="${BUILD_NUMBER:-$(git -C "$ROOT" rev-list --count HEAD)}"
+[[ "$BUILD" =~ ^[1-9][0-9]{0,3}$ ]] || { echo "BUILD_NUMBER must be an integer from 1 to 9999." >&2; exit 1; }
+plutil -replace CFBundleVersion -string "$BUILD" "$STAGE/Contents/Info.plist"
+cp "$ROOT/Resources/AppIcon.icns" "$STAGE/Contents/Resources/"
+cp "$ROOT/Resources/Fonts/"*.otf "$STAGE/Contents/Resources/Fonts/"
+cp "$ROOT/Resources/Fonts/LICENSE.txt" "$STAGE/Contents/Resources/Licenses/DepartureMono-OFL.txt"
+cp "$ROOT/LICENSE" "$STAGE/Contents/Resources/Licenses/VibeNotch-GPL-3.0.txt"
+cp "$ROOT/Vendor/DynamicNotchKit/LICENSE" "$STAGE/Contents/Resources/Licenses/DynamicNotchKit-MIT.txt"
+cp "$ROOT/Resources/THIRD_PARTY_NOTICES.txt" "$STAGE/Contents/Resources/"
+cp "$ROOT/Resources/AgentIcons/"*.png "$STAGE/Contents/Resources/AgentIcons/"
+cp "$ROOT/Resources/"*.js "$ROOT/Resources/"*.py "$ROOT/Resources/nowplaying.pl" "$STAGE/Contents/Resources/"
+clang -dynamiclib -fobjc-arc -O2 -arch arm64 -mmacosx-version-min=14.0 -framework Foundation "$ROOT/Resources/NowPlayingBridge.m" -o "$STAGE/Contents/Helpers/libvnnowplaying.dylib"
+for binary in "$STAGE/Contents/Helpers/"* "$STAGE/Contents/MacOS/VibeNotch"; do codesign --force --sign - "$binary"; done
+codesign --force --sign - --requirements '=designated => identifier "com.kaushalchoudhary.vibenotch"' "$STAGE"
+codesign --verify --deep --strict "$STAGE"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Helpers"
-cp "$BIN/VibeNotch" "$APP/Contents/MacOS/VibeNotch"
-cp "$BIN/vibenotch-hook" "$APP/Contents/Helpers/vibenotch-hook"
-cp "$BIN/VibeNotchCLI" "$APP/Contents/Helpers/vibenotch"
-cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
-# CFBundleVersion must increase every build — it was hardcoded to 1, so macOS
-# and any updater saw every release as the same build.
-plutil -replace CFBundleVersion -string \
-  "$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
-mkdir -p "$APP/Contents/Resources"
-cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null || true
-plutil -replace CFBundleIconFile -string AppIcon "$APP/Contents/Info.plist"
-mkdir -p "$APP/Contents/Resources/Fonts"
-cp "$ROOT/Resources/Fonts/"*.otf "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
-mkdir -p "$APP/Contents/Resources/AgentIcons"
-cp "$ROOT/Resources/AgentIcons/"*.png "$APP/Contents/Resources/AgentIcons/" 2>/dev/null || true
-cp "$ROOT/Resources/"*.js "$APP/Contents/Resources/" 2>/dev/null || true
-cp "$ROOT/Resources/"*.py "$APP/Contents/Resources/" 2>/dev/null || true
-cp "$ROOT/Resources/nowplaying.pl" "$APP/Contents/Resources/"
-# now-playing bridge: loaded by /usr/bin/perl, which macOS still lets read system media
-clang -dynamiclib -fobjc-arc -O2 -framework Foundation "$ROOT/Resources/NowPlayingBridge.m" \
-  -o "$APP/Contents/Helpers/libvnnowplaying.dylib"
-
-# Ad-hoc sign with a designated requirement pinned to the bundle id. Plain ad-hoc signing
-# makes the requirement a cdhash, which changes every build, so macOS privacy (TCC) saw
-# each rebuild as a new app and re-asked for Calendar, Accessibility and Automation.
-codesign --force --deep --sign - \
-  --requirements '=designated => identifier "com.kaushalchoudhary.vibenotch"' \
-  "$APP" >/dev/null 2>&1 || echo "warning: codesign failed (unsigned build)"
-
+mv "$STAGE" "$APP"
 echo "Built $APP"

@@ -22,6 +22,7 @@ public enum VNPaths {
     public static func ensure() throws {
         for dir in [home, bin, run, cache, data] {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
         }
     }
 }

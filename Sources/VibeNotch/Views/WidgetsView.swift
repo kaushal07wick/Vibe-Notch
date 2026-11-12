@@ -13,7 +13,7 @@ struct WidgetsView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .padding(EdgeInsets(top: 4, leading: 20, bottom: 12, trailing: 20))
-        .frame(width: CGFloat(VNSettings.panelWidth), alignment: .leading)
+        .frame(width: VNSettings.effectivePanelWidth, alignment: .leading)
         .onAppear { music.start(); calendar.load() }
         .onDisappear { music.stop() }
     }

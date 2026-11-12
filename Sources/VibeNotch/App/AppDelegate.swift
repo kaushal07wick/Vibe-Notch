@@ -37,7 +37,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? VNPaths.ensure()
         AgentHookInstaller.pluginSourceDir = Bundle.main.resourceURL
         _ = connectDetectedAgents()
-        StatusLineInstaller.installIfNeeded()
         usage.start()
         setupStatusItem()
         notch = NotchPanelController(store: store, usage: usage)
@@ -52,9 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         privacy.start()
         dashboard.stateProvider = { [weak self] in
             await self?.handleControl(VNInbound(type: .control, source: "web", event: "list")) ?? "{}"
-        }
-        dashboard.actionHandler = { [weak self] action in
-            await self?.handleControl(VNInbound(type: .control, source: "web", event: action)) ?? "{}"
         }
         applyDashboardSetting()
         applyLockScreenSetting()
@@ -118,9 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let mayConnect = force || (VNSettings.autoConfigureAgents && VNSettings.welcomeSeen)
         for spec in Agents.detected {
             let installer = AgentHookInstaller(spec)
-            if installer.isConnected {
-                installer.reconcile()
-            } else if mayConnect {
+            if mayConnect && installer.health.state != .configured {
                 do { try installer.connect(hookBinarySource: hookBinary) }
                 catch {
                     NSLog("VibeNotch: could not connect \(spec.name): \(error)")

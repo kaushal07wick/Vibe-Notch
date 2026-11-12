@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import SwiftUI
+import Combine
 import VibeNotchCore
 
 /// First-run window. It exists because three things used to happen silently:
@@ -128,7 +129,7 @@ private struct WelcomeView: View {
             title: "Your agents",
             footnote: detected.isEmpty
                 ? "Install Claude Code, Codex, or another supported CLI and reopen this window from the menu bar."
-                : "Vibe Notch backs up each config once before its first edit, and removes only its own entries. You can undo any of this in Settings › CLI Hooks."
+                : "Review the exact changes before connecting. Changed files get a backup, and other integrations are kept. Manage connections in Settings › Integrations."
         ) {
             if detected.isEmpty {
                 SettingRow(label: "No agent CLIs found yet",
@@ -138,7 +139,7 @@ private struct WelcomeView: View {
                 ForEach(Array(detected.enumerated()), id: \.element.id) { index, spec in
                     SettingRow(label: spec.name,
                                caption: AgentHookInstaller(spec).isConnected || connected.contains(spec.id)
-                                   ? "Connected" : "Found, not connected yet",
+                                   ? "Configured" : AgentHookInstaller(spec).health.summary,
                                divider: index < detected.count - 1) {
                         AgentIcon(source: spec.id, size: 20)
                     }
@@ -215,9 +216,14 @@ private struct WelcomeView: View {
     }
 
     private func connectAll() {
-        let failures = AppDelegate.shared?.connectDetectedAgents(force: true) ?? []
-        connected = Set(detected.map(\.id))
-        connectError = failures.isEmpty ? nil
-            : "Could not connect: " + failures.joined(separator: ", ")
+        do {
+            let source = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/vibenotch-hook")
+            let plans = try detected.filter { !AgentHookInstaller($0).isConnected }.map {
+                try AgentHookInstaller($0).connectionPlan(connecting: true, hookBinarySource: source)
+            }
+            guard try HookConnectionReview.apply(plans) else { return }
+            connected = Set(detected.filter { AgentHookInstaller($0).isConnected }.map(\.id))
+            connectError = nil
+        } catch { connectError = error.localizedDescription }
     }
 }
